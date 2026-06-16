@@ -1,7 +1,6 @@
 import json
-import os
 from typing import Any
-from dotenv import load_dotenv
+from langchain_core.messages import AIMessage
 from jinja2 import Environment, FileSystemLoader
 
 from config import PROMPTS_DIR, JUDGE_ORDER, DEBATE_PERSONAS
@@ -20,7 +19,7 @@ def _own_verdict(state: dict, judge: str) -> dict | None:
     return None
 
 def _recent_transcript(state:dict, limit: int = 8) -> str:
-    recent_messages = state["messages"][-limit:]
+    recent_messages = state["debate_messages"][-limit:]
     if not recent_messages:
         return "No debate messages yet."
 
@@ -37,7 +36,7 @@ def make_speaker_node(judge:str, model: Any):
                 "content": template_env.get_template("speaker_node_prompt.jinja2").render(
                     judge=judge, 
                     state=state, 
-                    personas=DEBATE_PERSONAS[judge],
+                    persona=DEBATE_PERSONAS[judge],
                     startup_idea=state["startup_idea"],
                     own_verdict=json.dumps(_own_verdict(state, judge), indent=2),
                     other_verdicts=json.dumps(state["verdicts"], indent=2),
@@ -49,7 +48,7 @@ def make_speaker_node(judge:str, model: Any):
         content = _response_text(response)
 
         return {
-            "messages": [
+            "debate_messages": [
                 {
                     "speaker": judge,
                     "round": state["round"],
@@ -61,11 +60,21 @@ def make_speaker_node(judge:str, model: Any):
     return speaker_node
 
 
+def _format_verdicts_readable(verdicts: list[dict]) -> str:
+    parts = []
+    for v in verdicts:
+        parts.append(
+            f"- {v['judge'].upper()} ({v['verdict']}, {v['score']}/10): "
+            f"{v.get('key_concern', 'N/A')}"
+        )
+    return "\n".join(parts)
+
+
 def make_moderator_node(model: Any):
     def moderator_node(state:dict) -> dict:
         transcript = "\n".join(
             f'Round {msg["round"]}: {msg["speaker"]}: {msg["content"]}'
-            for msg in state["messages"]
+            for msg in state["debate_messages"]
         )
 
         response = model.invoke(
@@ -74,7 +83,7 @@ def make_moderator_node(model: Any):
                 "content": template_env.get_template("moderator_node_prompt.jinja2").render(
                     state=state, 
                     startup_idea=state["startup_idea"],
-                    original_verdicts=json.dumps(state["verdicts"], indent=2),
+                    original_verdicts=_format_verdicts_readable(state["verdicts"]),
                     transcript=transcript
                 )
             }]
@@ -84,13 +93,14 @@ def make_moderator_node(model: Any):
 
         return {
             "final_synthesis": synthesis,
-            "messages": [
+            "debate_messages": [
                 {
                     "speaker": "moderator",
                     "round": state["round"],
                     "content": synthesis
                 }
-            ]
+            ],
+            "messages": [AIMessage(content=synthesis)],
         }
 
     return moderator_node

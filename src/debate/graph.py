@@ -1,10 +1,9 @@
 from typing import Any
-
 from langgraph.graph import StateGraph, END
-
 from debate.nodes import make_speaker_node, make_moderator_node
 from debate.router import route_next_speaker, advance_round, JUDGE_ORDER
 from debate.state import DebateState
+
 
 def build_debate_graph(model: Any):
     graph = StateGraph(DebateState)

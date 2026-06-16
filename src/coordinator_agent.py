@@ -1,84 +1,85 @@
-from deepagents import create_deep_agent
+import concurrent.futures
 from langchain.chat_models import init_chat_model
-import os
-from dotenv import load_dotenv
+from langchain_core.messages import HumanMessage, SystemMessage
 from jinja2 import Environment, FileSystemLoader
-from utils.tool_call_tracer import print_trace
-from utils.roast_panel_parser import extract_roast_panel
-from judges.schemas import RoastPanel
 from pydantic import ValidationError
 
-from config import PROMPTS_DIR, get_settings
+from judges.schemas import Verdict, RoastPanel
+from debate.graph import build_debate_graph
+from config import PROMPTS_DIR, JUDGE_ORDER, get_settings
 
 template_env = Environment(loader=FileSystemLoader(PROMPTS_DIR))
 
-def build_coordinator_agent():
-    model = init_chat_model(get_settings().local_model)
+_JUDGE_TEMPLATES = {
+    "vc":         "vc_judge_prompt.jinja2",
+    "engineer":   "engineer_judge_prompt.jinja2",
+    "pm":         "pm_judge_prompt.jinja2",
+    "customer":   "customer_judge_prompt.jinja2",
+    "competitor": "competitor_judge_prompt.jinja2",
+}
 
-    subagents = [
-        {
-            "name": "vc_judge",
-            "description": "A subagent that is responsible for evaluating the startup idea from a venture capital perspective.",
-            "system_prompt": template_env.get_template("vc_judge_prompt.jinja2").render()
-        },
-        {
-            "name": "engineer_judge",
-            "description": "A subagent that is responsible for evaluating the startup idea from an engineering perspective.",
-            "system_prompt": template_env.get_template("engineer_judge_prompt.jinja2").render()
-        },
-        {
-            "name": "pm_judge",
-            "description": "A subagent that is responsible for evaluating the startup idea from a product management perspective.",
-            "system_prompt": template_env.get_template("pm_judge_prompt.jinja2").render()
-        },
-        {
-            "name": "customer_judge",
-            "description": "A subagent that is responsible for evaluating the startup idea from a customer perspective.",
-            "system_prompt": template_env.get_template("customer_judge_prompt.jinja2").render()
-        },
-        {
-            "name": "competitor_judge",
-            "description": "A subagent that is responsible for evaluating the startup idea from a competitor perspective.",
-            "system_prompt": template_env.get_template("competitor_judge_prompt.jinja2").render()
+
+def _invoke_judge(model, judge: str, startup_idea: str) -> Verdict:
+    """Single judge call with structured output enforced via tool-calling."""
+    structured_model = model.with_structured_output(Verdict)
+    system_prompt = template_env.get_template(_JUDGE_TEMPLATES[judge]).render()
+
+    return structured_model.invoke([
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=f"Evaluate this startup idea:\n\n{startup_idea}"),
+    ])
+
+
+def run_roast_panel(model, startup_idea: str) -> RoastPanel:
+    """Phase 1: Call all 5 judges in parallel, return a validated RoastPanel."""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
+        futures = {
+            judge: pool.submit(_invoke_judge, model, judge, startup_idea)
+            for judge in JUDGE_ORDER
         }
-    ]
+        verdicts = [futures[judge].result() for judge in JUDGE_ORDER]
 
-    return create_deep_agent(
-        model = model,
-        subagents=subagents,
-        response_format=RoastPanel,
-        system_prompt=template_env.get_template("startup_orchestrator_prompt.jinja2").render()
-    )
+    return RoastPanel(verdicts=verdicts)
+
 
 def main():
-    agent = build_coordinator_agent()
+    settings = get_settings()
+    model = init_chat_model(settings.local_model)
 
     startup_idea = (
-        "A B2B SaaS tool that predicts customer churn from support tickets."
+        "Decision Journal — Track decisions and measure whether your reasoning was correct months later."
     )
 
-    user_prompt = (
-        f"""Evaluate the following startup idea from all five judge's perspectives:
-
-        {startup_idea}
-
-        Return the RoastPanel in valid JSON format.
-        """
-    )
-
-    result = agent.invoke(
-        {"messages":[{"role":"user", "content": user_prompt}]}
-    )
-    print_trace(result["messages"])
-
+    # ── Phase 1: Parallel structured judge calls ──
+    print("Phase 1 — Calling judges...\n")
     try:
-        roast_panel = extract_roast_panel(result)
-    except (ValueError, ValidationError) as e:
-        print(f"\nError extracting RoastPanel: {e}")
-        return None
+        roast_panel = run_roast_panel(model, startup_idea)
+    except (ValidationError, Exception) as e:
+        print(f"Error in Phase 1: {e}")
+        return
 
-    print("\nValidated RoastPanel:\n")
+    print("Roast Panel:\n")
     print(roast_panel.model_dump_json(indent=2))
+
+    # ── Phase 2: Debate graph invoked directly ──
+    print("\n\nPhase 2 — Running debate...\n")
+    debate_graph = build_debate_graph(model)
+
+    debate_result = debate_graph.invoke({
+        "messages": [HumanMessage(content="Begin the debate.")],
+        "startup_idea": startup_idea,
+        "verdicts": [v.model_dump() for v in roast_panel.verdicts],
+        "debate_messages": [],
+        "round": 1,
+        "max_rounds": settings.max_debate_rounds,
+        "current_speaker_idx": 0,
+        "final_synthesis": None,
+    })
+
+    synthesis = debate_result.get("final_synthesis", "No synthesis produced.")
+    print("Debate Synthesis:\n")
+    print(synthesis)
+
 
 if __name__ == "__main__":
     main()

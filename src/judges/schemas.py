@@ -43,3 +43,18 @@ class RoastPanel(BaseModel):
             )
 
         return verdicts
+
+class RoastDebateResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    verdicts: list[Verdict]
+    final_synthesis: str = Field(
+        min_length=20,
+        max_length=5000,
+        description="The final moderator synthesis after the judge debate."
+    )
+    
+    @field_validator("verdicts")
+    @classmethod
+    def must_include_all_judges(cls, verdicts: list[Verdict]) -> list[Verdict]:
+        return RoastPanel(verdicts=verdicts).verdicts

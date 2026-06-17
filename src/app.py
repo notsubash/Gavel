@@ -7,7 +7,7 @@ import streamlit as st
 from langchain.chat_models import init_chat_model
 from pydantic import ValidationError
 
-from coordinator_agent import run_roast_panel, run_debate
+from ui.streamlit_runner import run_debate_in_container, run_roast_panel_in_status
 from config import get_settings
 from utils.scoring_chart import generate_radar_chart
 from utils.transcript_exporter import export_transcript
@@ -57,19 +57,62 @@ startup_idea = st.text_area(
 
 run_clicked = st.button("\U0001f525 Roast It!", type="primary", use_container_width=True)
 
+# ── Session state initialization ──
+
+if "roast_panel" not in st.session_state:
+    st.session_state.roast_panel = None
+if "debate_result" not in st.session_state:
+    st.session_state.debate_result = None
+if "startup_idea_used" not in st.session_state:
+    st.session_state.startup_idea_used = None
+
+# ── Run the pipeline ──
+
 if run_clicked and startup_idea.strip():
+    st.session_state.roast_panel = None
+    st.session_state.debate_result = None
+    st.session_state.startup_idea_used = startup_idea
+
     model = init_chat_model(model_name)
 
-    # ── Phase 1: Roast Panel ──
+    # ── Phase 1: Roast Panel with streaming verdicts ──
 
     with st.status("Phase 1: Judges are roasting your idea...", expanded=True) as status:
         try:
-            roast_panel = run_roast_panel(model, startup_idea)
+            roast_panel = run_roast_panel_in_status(model, startup_idea, status)
         except (ValidationError, Exception) as exc:
             st.error(f"Phase 1 failed: {exc}")
             st.stop()
         status.update(label="\u2705 Phase 1 complete — all judges have spoken!", state="complete")
 
+    st.session_state.roast_panel = roast_panel
+
+    # ── Phase 2: Debate with streaming ──
+
+    st.subheader("Debate")
+    debate_container = st.container()
+
+    with st.status("Phase 2: Judges are debating...", expanded=True) as status:
+        try:
+            debate_result = run_debate_in_container(
+                model, startup_idea, roast_panel, max_rounds, debate_container
+            )
+        except Exception as exc:
+            st.error(f"Phase 2 failed: {exc}")
+            st.stop()
+        status.update(label="\u2705 Phase 2 complete — debate concluded!", state="complete")
+
+    st.session_state.debate_result = debate_result
+
+elif run_clicked:
+    st.warning("Please enter a startup idea first.")
+
+# ── Render results from session state (persists across reruns) ──
+
+roast_panel = st.session_state.roast_panel
+debate_result = st.session_state.debate_result
+
+if roast_panel is not None:
     st.subheader("Individual Verdicts")
 
     verdict_icon = {"PASS": "\U0001f7e2", "FAIL": "\U0001f534", "CONDITIONAL": "\U0001f7e1"}
@@ -108,17 +151,8 @@ if run_clicked and startup_idea.strip():
 
     st.divider()
 
-    # ── Phase 2: Debate ──
-
-    with st.status("Phase 2: Judges are debating...", expanded=True) as status:
-        try:
-            debate_result = run_debate(model, startup_idea, roast_panel, max_rounds)
-        except Exception as exc:
-            st.error(f"Phase 2 failed: {exc}")
-            st.stop()
-        status.update(label="\u2705 Phase 2 complete — debate concluded!", state="complete")
-
-    st.subheader("Debate")
+if debate_result is not None:
+    st.subheader("Debate Transcript")
 
     judge_avatars = {
         "vc": "\U0001f4b0",
@@ -151,7 +185,8 @@ if run_clicked and startup_idea.strip():
 
     # ── Export ──
 
-    transcript_path = export_transcript(startup_idea, roast_panel, debate_result)
+    startup_idea_used = st.session_state.startup_idea_used or ""
+    transcript_path = export_transcript(startup_idea_used, roast_panel, debate_result)
     transcript_content = transcript_path.read_text(encoding="utf-8")
 
     st.download_button(
@@ -160,6 +195,3 @@ if run_clicked and startup_idea.strip():
         file_name=transcript_path.name,
         mime="text/markdown",
     )
-
-elif run_clicked:
-    st.warning("Please enter a startup idea first.")

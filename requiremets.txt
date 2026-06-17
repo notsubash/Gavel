@@ -1,6 +1,0 @@
-deepagents
-langchain-ollama
-langchain-core
-langgraph
-dotenv
-jinja2

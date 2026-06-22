@@ -28,6 +28,20 @@ class Verdict(BaseModel):
         description="The single biggest issue with this idea, stated as one clear sentence."
     )
 
+    @field_validator("roast", mode="before")
+    @classmethod
+    def coerce_roast_length(cls, value):
+        if isinstance(value, str) and len(value) > 600:
+            return value[:597].rstrip() + "..."
+        return value
+
+    @field_validator("key_concern", mode="before")
+    @classmethod
+    def coerce_key_concern_length(cls, value):
+        if isinstance(value, str) and len(value) > 400:
+            return value[:397].rstrip() + "..."
+        return value
+
 class RoastPanel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

@@ -17,6 +17,7 @@ from memory.models import IdeaRecord
 from memory.store import IdeaStore
 from utils.scoring_chart import generate_radar_chart
 from utils.transcript_exporter import export_transcript
+from version import get_version
 
 # ── Page config ──
 
@@ -72,6 +73,7 @@ with st.sidebar:
         st.caption("No previous ideas remembered yet.")
     st.divider()
     st.caption(f"Running on: `{model_name}`")
+    st.caption(f"v{get_version()}")
 
 # ── Main input ──
 

@@ -3,3 +3,6 @@
 venv/
 .cursor/
 data/
+.pytest_cache/
+transcripts/
+src/roast_radar.png

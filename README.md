@@ -6,19 +6,25 @@ The app is built for learning and experimentation with LangGraph, LangChain, loc
 
 ## Screenshots
 
-![Roast Panel main page](images/Roast%20Panel%20Main%20Page.png)
+Roast Panel main page
+
 
 | Individual verdicts | Judge scores radar |
-| --- | --- |
-| ![Judge verdicts](images/Judge%20Verdicts.png) | ![Judge scores radar](src/roast_radar.png) |
+| ------------------- | ------------------ |
+| Judge verdicts      | Judge scores radar |
+
+
 
 | Debate round 1 | Debate round 2 | Debate round 3 |
-| --- | --- | --- |
-| ![Debate round 1](images/Debate%20Round%201.png) | ![Debate round 2](images/Debate%20Round%202.png) | ![Debate round 3](images/Debate%20Round%203.png) |
+| -------------- | -------------- | -------------- |
+| Debate round 1 | Debate round 2 | Debate round 3 |
+
+
 
 | Final synthesis | Appeal mode | After appeal synthesis |
-| --- | --- | --- |
-| ![Final synthesis](images/Final%20Synthesis.png) | ![Appeal mode](images/Appeal%20Mode.png) | ![After appeal synthesis](images/After%20Appeal%20Synthesis.png) |
+| --------------- | ----------- | ---------------------- |
+| Final synthesis | Appeal mode | After appeal synthesis |
+
 
 ## What It Does
 
@@ -229,6 +235,21 @@ roast_radar.png
 ```
 
 These are runtime outputs, not source code. Keep them out of commits unless you intentionally want sample artifacts.
+
+## Versioning And CI
+
+**App version** lives in `pyproject.toml` under `[project].version`. Runtime code reads it via `src/version.py` — do not duplicate the string elsewhere.
+
+**Dependencies** are pinned in `requirements.txt` for reproducible installs and CI. When upgrading a library, bump the pin, run tests, and commit both files if needed.
+
+**Releases** use [Semantic Versioning](https://semver.org/):
+
+1. Bump `version` in `pyproject.toml` (e.g. `0.1.0` → `0.2.0`).
+2. Run tests locally.
+3. Commit, tag `v0.2.0`, and push the tag.
+4. Create a GitHub Release from that tag with release notes.
+
+CI (`.github/workflows/ci.yml`) runs on every push and pull request to `main`: installs pinned deps, verifies the version resolves, runs unit tests, and compile-checks `src/`.
 
 ## Notes For Maintainers
 

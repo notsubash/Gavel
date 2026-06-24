@@ -36,6 +36,8 @@ from utils.scoring_chart import generate_radar_chart
 from utils.transcript_exporter import export_transcript
 from version import get_version
 
+get_settings()
+
 # ── Page config ──
 
 st.set_page_config(page_title="Roast My Startup", page_icon="\U0001f525", layout="wide")

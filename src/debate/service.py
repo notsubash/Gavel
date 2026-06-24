@@ -15,6 +15,7 @@ from events import (
     DebateSynthesisPublished,
 )
 from judges.schemas import RoastPanel
+from observability import build_run_config, idea_fingerprint, optional_config_kwargs, traceable
 
 
 def _initial_state(startup_idea: str, roast_panel: RoastPanel, max_rounds: int) -> dict:
@@ -35,6 +36,7 @@ def stream_debate(
     startup_idea: str,
     roast_panel: RoastPanel,
     max_rounds: int = 3,
+    run_config: dict | None = None,
 ) -> Iterator[
     DebateRoundStarted
     | DebateSpeakerThinking
@@ -45,12 +47,25 @@ def stream_debate(
     """Stream debate graph node updates as frontend-agnostic events."""
     debate_graph = build_debate_graph(model)
     initial_state = _initial_state(startup_idea, roast_panel, max_rounds)
+    resolved_config = run_config or build_run_config(
+        "debate-graph",
+        tags=["phase:debate"],
+        metadata={
+            "idea_fingerprint": idea_fingerprint(startup_idea),
+            "max_rounds": max_rounds,
+            "judge_count": len(roast_panel.verdicts),
+        },
+    )
 
     current_round_displayed = 0
     all_debate_messages: list[dict] = []
     final_synthesis: str | None = None
 
-    for state_update in debate_graph.stream(initial_state, stream_mode="updates"):
+    for state_update in debate_graph.stream(
+        initial_state,
+        stream_mode="updates",
+        **optional_config_kwargs(resolved_config),
+    ):
         for node_name, node_output in state_update.items():
             if node_name in ("__start__", "advance_round"):
                 continue
@@ -90,15 +105,23 @@ def stream_debate(
     )
 
 
+@traceable(name="run_debate", run_type="chain", tags=["phase:debate"])
 def run_debate(
     model,
     startup_idea: str,
     roast_panel: RoastPanel,
     max_rounds: int = 3,
+    run_config: dict | None = None,
 ) -> dict[str, Any]:
     """Blocking convenience wrapper — returns the final debate state dict."""
     result: dict[str, Any] = {}
-    for event in stream_debate(model, startup_idea, roast_panel, max_rounds):
+    for event in stream_debate(
+        model,
+        startup_idea,
+        roast_panel,
+        max_rounds,
+        run_config=run_config,
+    ):
         if isinstance(event, DebateCompleted):
             result = {
                 "debate_messages": event.debate_messages,

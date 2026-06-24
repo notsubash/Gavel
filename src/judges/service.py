@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from config import PROMPTS_DIR
 from judges.schemas import Verdict
+from observability import build_run_config, idea_fingerprint, optional_config_kwargs
 
 template_env = Environment(loader=FileSystemLoader(PROMPTS_DIR))
 JUDGE_MAX_ATTEMPTS = 3
@@ -41,6 +42,7 @@ def invoke_judge(
     startup_idea: str,
     memory_context: str | None = None,
     research_context: str | None = None,
+    run_config: dict | None = None,
 ) -> Verdict:
     """Evaluate one startup idea with structured output."""
     user_content = build_judge_user_prompt(
@@ -54,10 +56,15 @@ def invoke_judge(
         SystemMessage(content=judge_system_prompt(judge)),
         HumanMessage(content=user_content),
     ]
+    resolved_config = run_config or build_run_config(
+        f"judge-{judge}",
+        tags=["phase:roast", f"judge:{judge}"],
+        metadata={"idea_fingerprint": idea_fingerprint(startup_idea)},
+    )
 
     last_validation_error: ValidationError | None = None
     for _ in range(JUDGE_MAX_ATTEMPTS):
-        result = structured_model.invoke(messages)
+        result = structured_model.invoke(messages, **optional_config_kwargs(resolved_config))
 
         if result is None:
             continue

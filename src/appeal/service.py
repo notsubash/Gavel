@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from config import JUDGE_ORDER, PROMPTS_DIR
 from judges.schemas import RoastPanel, Verdict
 from judges.service import JUDGE_MAX_ATTEMPTS, judge_system_prompt
+from observability import build_run_config, idea_fingerprint, optional_config_kwargs, traceable
 
 template_env = Environment(loader=FileSystemLoader(PROMPTS_DIR))
 
@@ -48,6 +49,7 @@ def invoke_judge_on_appeal(
     debate_result: dict,
     appeal_text: str,
     memory_context: str | None = None,
+    run_config: dict | None = None,
 ) -> Verdict:
     """Ask one judge to revise or defend their verdict after founder appeal."""
     original = _original_verdict(roast_panel, judge)
@@ -64,10 +66,18 @@ def invoke_judge_on_appeal(
         SystemMessage(content=judge_system_prompt(judge)),
         HumanMessage(content=prompt),
     ]
+    resolved_config = run_config or build_run_config(
+        f"appeal-judge-{judge}",
+        tags=["phase:appeal", f"judge:{judge}"],
+        metadata={
+            "idea_fingerprint": idea_fingerprint(startup_idea),
+            "appeal_fingerprint": idea_fingerprint(appeal_text),
+        },
+    )
 
     last_validation_error: ValidationError | None = None
     for _ in range(JUDGE_MAX_ATTEMPTS):
-        result = structured_model.invoke(messages)
+        result = structured_model.invoke(messages, **optional_config_kwargs(resolved_config))
 
         if result is None:
             continue
@@ -112,6 +122,7 @@ def synthesize_appeal(
     revised_panel: RoastPanel,
     original_synthesis: str | None,
     appeal_text: str,
+    run_config: dict | None = None,
 ) -> str:
     prompt = template_env.get_template("appeal_synthesis_prompt.jinja2").render(
         startup_idea=startup_idea,
@@ -126,11 +137,13 @@ def synthesize_appeal(
                 "role": "user",
                 "content": prompt,
             }
-        ]
+        ],
+        **optional_config_kwargs(run_config),
     )
     return _response_text(response)
 
 
+@traceable(name="run_appeal", run_type="chain", tags=["phase:appeal"])
 def run_appeal(
     model,
     startup_idea: str,
@@ -143,6 +156,15 @@ def run_appeal(
     if not appeal_text:
         raise ValueError("Appeal text is required")
 
+    run_config = build_run_config(
+        "appeal-panel",
+        tags=["phase:appeal"],
+        metadata={
+            "idea_fingerprint": idea_fingerprint(startup_idea),
+            "appeal_fingerprint": idea_fingerprint(appeal_text),
+        },
+    )
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(JUDGE_ORDER)) as pool:
         future_to_judge = {
             pool.submit(
@@ -154,6 +176,7 @@ def run_appeal(
                 debate_result,
                 appeal_text,
                 memory_context,
+                run_config,
             ): judge
             for judge in JUDGE_ORDER
         }
@@ -171,5 +194,13 @@ def run_appeal(
         revised_panel=revised_panel,
         original_synthesis=debate_result.get("final_synthesis"),
         appeal_text=appeal_text,
+        run_config=build_run_config(
+            "appeal-synthesis",
+            tags=["phase:appeal", "step:synthesis"],
+            metadata={
+                "idea_fingerprint": idea_fingerprint(startup_idea),
+                "appeal_fingerprint": idea_fingerprint(appeal_text),
+            },
+        ),
     )
     return AppealResult(revised_panel=revised_panel, revised_synthesis=revised_synthesis)

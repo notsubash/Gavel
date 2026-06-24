@@ -5,6 +5,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from observability.langsmith import configure_observability
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PROMPTS_DIR = PROJECT_ROOT / "src" / "prompts"
 
@@ -39,6 +41,7 @@ def _read_bool(name: str, default: bool) -> bool:
 @lru_cache
 def get_settings() -> Settings:
     load_dotenv(PROJECT_ROOT / ".env")
+    configure_observability()
     return Settings(
         local_model=os.getenv("LOCAL_MODEL", "ollama:qwen3.5:9b"),
         deepseek_model=os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash"),

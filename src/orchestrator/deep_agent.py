@@ -29,6 +29,7 @@ except ImportError:
 from config import JUDGE_ORDER, PROMPTS_DIR, get_settings
 from judges.schemas import RoastPanel, Verdict
 from judges.service import judge_system_prompt
+from observability import build_run_config, idea_fingerprint, optional_config_kwargs, traceable
 from research.service import TavilyHttpClient, make_deepagent_search_tool
 from utils.roast_panel_parser import extract_roast_panel
 
@@ -83,11 +84,13 @@ def build_orchestrator(
     )
 
 
+@traceable(name="run_roast_via_orchestrator", run_type="chain", tags=["flow:deepagents"])
 def run_roast_via_orchestrator(
     model,
     startup_idea: str,
     research_context: str | None = None,
     web_search_enabled: bool = False,
+    run_config: dict | None = None,
 ) -> RoastPanel:
     """Experimental: delegate Phase 1 to DeepAgents task() tool.
 
@@ -103,12 +106,18 @@ def run_roast_via_orchestrator(
         web_search_enabled=web_search_enabled,
         subagent_response_format=True,
     )
+    resolved_config = run_config or build_run_config(
+        "deepagent-roast",
+        tags=["phase:roast", "flow:deepagents"],
+        metadata={"idea_fingerprint": idea_fingerprint(startup_idea)},
+    )
 
     try:
         result = agent.invoke(
             {
                 "messages": [{"role": "user", "content": user_content}],
-            }
+            },
+            **optional_config_kwargs(resolved_config),
         )
     except Exception as exc:
         if not _is_response_format_unavailable_error(exc):
@@ -121,7 +130,8 @@ def run_roast_via_orchestrator(
         result = fallback_agent.invoke(
             {
                 "messages": [{"role": "user", "content": user_content}],
-            }
+            },
+            **optional_config_kwargs(resolved_config),
         )
 
     return extract_roast_panel(result)

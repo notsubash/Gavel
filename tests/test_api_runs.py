@@ -116,8 +116,16 @@ class ApiRunsTest(unittest.TestCase):
             response.headers.get("access-control-allow-origin"), "http://localhost:3000"
         )
 
+    @patch("api.routes.runs.build_research_context_for_run", return_value=None)
+    @patch("api.routes.runs.build_model_for_run")
     @patch("api.routes.runs.stream_pipeline")
-    def test_stream_emits_ordered_events_and_run_completed(self, stream_pipeline_mock):
+    def test_stream_emits_ordered_events_and_run_completed(
+        self,
+        stream_pipeline_mock,
+        build_model_mock,
+        _research_mock,
+    ):
+        build_model_mock.return_value = object()
         stream_pipeline_mock.return_value = iter(
             [
                 PhaseStarted(phase="roast"),
@@ -160,8 +168,16 @@ class ApiRunsTest(unittest.TestCase):
         assert record is not None
         self.assertEqual(record.status, "completed")
 
+    @patch("api.routes.runs.build_research_context_for_run", return_value=None)
+    @patch("api.routes.runs.build_model_for_run")
     @patch("api.routes.runs.stream_pipeline")
-    def test_stream_emits_run_failed_on_pipeline_error(self, stream_pipeline_mock):
+    def test_stream_emits_run_failed_on_pipeline_error(
+        self,
+        stream_pipeline_mock,
+        build_model_mock,
+        _research_mock,
+    ):
+        build_model_mock.return_value = object()
         stream_pipeline_mock.side_effect = RuntimeError("boom")
 
         create_response = self.client.post("/api/runs", json={"idea": IDEA})
@@ -182,8 +198,16 @@ class ApiRunsTest(unittest.TestCase):
         assert record is not None
         self.assertEqual(record.status, "failed")
 
+    @patch("api.routes.runs.build_research_context_for_run", return_value=None)
+    @patch("api.routes.runs.build_model_for_run")
     @patch("api.routes.runs.stream_pipeline")
-    def test_stream_rejects_already_started_run(self, stream_pipeline_mock):
+    def test_stream_rejects_already_started_run(
+        self,
+        stream_pipeline_mock,
+        build_model_mock,
+        _research_mock,
+    ):
+        build_model_mock.return_value = object()
         stream_pipeline_mock.return_value = iter(
             [
                 PhaseStarted(phase="roast"),

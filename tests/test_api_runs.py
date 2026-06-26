@@ -1,7 +1,9 @@
 import asyncio
+from datetime import UTC, datetime, timedelta
 import json
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -72,8 +74,14 @@ def _parse_sse_events(body: str) -> list[dict]:
 
 class ApiRunsTest(unittest.TestCase):
     def setUp(self):
-        self.manager = RunManager()
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.db_path = Path(self._tmpdir.name) / "runs.db"
+        self.manager = RunManager(db_path=self.db_path, recover_on_init=False)
         self.client = TestClient(create_app(manager=self.manager))
+
+    def tearDown(self):
+        self.manager.close()
+        self._tmpdir.cleanup()
 
     def test_health_endpoint(self):
         response = self.client.get("/health")
@@ -369,7 +377,7 @@ class ApiRunsTest(unittest.TestCase):
         )
 
         async def scenario():
-            manager = RunManager()
+            manager = RunManager(db_path=self.db_path, recover_on_init=False)
             record = manager.create(
                 CreateRunRequest.model_validate({"idea": IDEA, "model_runtime": "local"})
             )
@@ -379,12 +387,15 @@ class ApiRunsTest(unittest.TestCase):
 
         manager, run_id = asyncio.run(scenario())
 
-        record = manager.get(run_id)
-        assert record is not None
-        self.assertEqual(record.status, "completed")
-        types = [envelope.type for envelope in manager._runs[run_id].events]
-        self.assertEqual(types[0], "stream_connected")
-        self.assertIn("run_completed", types)
+        try:
+            record = manager.get(run_id)
+            assert record is not None
+            self.assertEqual(record.status, "completed")
+            types = [envelope.type for envelope in manager.list_events(run_id)]
+            self.assertEqual(types[0], "stream_connected")
+            self.assertIn("run_completed", types)
+        finally:
+            manager.close()
 
     @patch("api.run_manager.build_model_for_run")
     @patch("api.run_manager.stream_pipeline")
@@ -406,6 +417,198 @@ class ApiRunsTest(unittest.TestCase):
         events = _parse_sse_events(stream_response.text)
         self.assertEqual(events[-1]["type"], "run_failed")
         stream_pipeline_mock.assert_not_called()
+
+    @patch("api.run_manager.build_research_context_for_run", return_value=None)
+    @patch("api.run_manager.build_model_for_run")
+    @patch("api.run_manager.stream_pipeline")
+    def test_get_run_status_survives_manager_restart(
+        self,
+        stream_pipeline_mock,
+        build_model_mock,
+        _research_mock,
+    ):
+        build_model_mock.return_value = object()
+        stream_pipeline_mock.return_value = iter(
+            [
+                PhaseStarted(phase="roast"),
+                PipelineCompleted(
+                    roast_panel=_panel(),
+                    debate_result={"debate_messages": [], "final_synthesis": "summary"},
+                ),
+            ]
+        )
+
+        create_response = self.client.post("/api/runs", json={"idea": IDEA})
+        run_id = create_response.json()["run_id"]
+        stream_response = self.client.get(f"/api/runs/{run_id}/events")
+        self.assertEqual(stream_response.status_code, 200)
+        self.assertEqual(_parse_sse_events(stream_response.text)[-1]["type"], "run_completed")
+
+        restarted = RunManager(db_path=self.db_path, recover_on_init=False)
+        try:
+            restarted_client = TestClient(create_app(manager=restarted))
+            status_response = restarted_client.get(f"/api/runs/{run_id}")
+            self.assertEqual(status_response.status_code, 200)
+            self.assertEqual(status_response.json()["status"], "completed")
+        finally:
+            restarted.close()
+
+    @patch("api.run_manager.build_research_context_for_run", return_value=None)
+    @patch("api.run_manager.build_model_for_run")
+    @patch("api.run_manager.stream_pipeline")
+    def test_reconnect_after_restart_replays_persisted_events(
+        self,
+        stream_pipeline_mock,
+        build_model_mock,
+        _research_mock,
+    ):
+        build_model_mock.return_value = object()
+        stream_pipeline_mock.return_value = iter(
+            [
+                PhaseStarted(phase="roast"),
+                JudgesDispatched(total=5),
+                RoastPanelCompleted(panel=_panel()),
+                PipelineCompleted(
+                    roast_panel=_panel(),
+                    debate_result={"debate_messages": [], "final_synthesis": "summary"},
+                ),
+            ]
+        )
+
+        create_response = self.client.post("/api/runs", json={"idea": IDEA})
+        run_id = create_response.json()["run_id"]
+        full_response = self.client.get(f"/api/runs/{run_id}/events")
+        all_events = _parse_sse_events(full_response.text)
+
+        restarted = RunManager(db_path=self.db_path, recover_on_init=False)
+        try:
+            restarted_client = TestClient(create_app(manager=restarted))
+            resume_response = restarted_client.get(
+                f"/api/runs/{run_id}/events",
+                headers={"Last-Event-ID": "2"},
+            )
+            resumed = _parse_sse_events(resume_response.text)
+            self.assertEqual(resumed[0]["sequence"], 3)
+            self.assertEqual(
+                [event["sequence"] for event in resumed],
+                [event["sequence"] for event in all_events if event["sequence"] > 2],
+            )
+        finally:
+            restarted.close()
+
+    @patch("api.run_manager.stream_pipeline")
+    def test_restart_mid_run_replays_prefix_and_fails_cleanly(
+        self,
+        stream_pipeline_mock,
+    ):
+        request = CreateRunRequest.model_validate({"idea": IDEA})
+        run_id = "interrupted-run-id"
+        recent = datetime.now(UTC) - timedelta(minutes=5)
+        self.manager._store._conn.execute(
+            """
+            INSERT INTO runs (run_id, request_json, status, created_at, updated_at)
+            VALUES (?, ?, 'running', ?, ?)
+            """,
+            (
+                run_id,
+                request.model_dump_json(),
+                recent.isoformat(),
+                recent.isoformat(),
+            ),
+        )
+        for sequence, event_type, payload in (
+            (0, "stream_connected", {"status": "connected"}),
+            (1, "phase_started", {"phase": "roast"}),
+            (2, "judges_dispatched", {"total": 5}),
+        ):
+            self.manager._store._conn.execute(
+                """
+                INSERT INTO run_events (run_id, sequence, type, payload_json, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    run_id,
+                    sequence,
+                    event_type,
+                    json.dumps(payload),
+                    recent.isoformat(),
+                ),
+            )
+        self.manager._store._conn.commit()
+
+        restarted = RunManager(
+            db_path=self.db_path,
+            recover_on_init=False,
+            stale_minutes=30,
+        )
+        try:
+            client = TestClient(create_app(manager=restarted))
+            stream_response = client.get(f"/api/runs/{run_id}/events")
+            self.assertEqual(stream_response.status_code, 200)
+
+            events = _parse_sse_events(stream_response.text)
+            types = [event["type"] for event in events]
+            self.assertEqual(types[:3], ["stream_connected", "phase_started", "judges_dispatched"])
+            self.assertEqual(types[-1], "run_failed")
+            self.assertEqual(types.count("stream_connected"), 1)
+            self.assertTrue(events[-1]["payload"]["recoverable"])
+
+            status_response = client.get(f"/api/runs/{run_id}")
+            self.assertEqual(status_response.json()["status"], "failed")
+            stream_pipeline_mock.assert_not_called()
+        finally:
+            restarted.close()
+
+    def test_stale_running_run_marked_failed_on_startup(self):
+        request = CreateRunRequest.model_validate({"idea": IDEA})
+        run_id = "stale-run-id"
+        stale_time = datetime.now(UTC) - timedelta(minutes=60)
+        self.manager._store._conn.execute(
+            """
+            INSERT INTO runs (run_id, request_json, status, created_at, updated_at)
+            VALUES (?, ?, 'running', ?, ?)
+            """,
+            (
+                run_id,
+                request.model_dump_json(),
+                stale_time.isoformat(),
+                stale_time.isoformat(),
+            ),
+        )
+        self.manager._store._conn.execute(
+            """
+            INSERT INTO run_events (run_id, sequence, type, payload_json, created_at)
+            VALUES (?, 0, 'stream_connected', ?, ?)
+            """,
+            (
+                run_id,
+                json.dumps({"status": "connected"}),
+                stale_time.isoformat(),
+            ),
+        )
+        self.manager._store._conn.commit()
+
+        recovered_manager = RunManager(
+            db_path=self.db_path,
+            recover_on_init=True,
+            stale_minutes=30,
+        )
+        try:
+            record = recovered_manager.get(run_id)
+            assert record is not None
+            self.assertEqual(record.status, "failed")
+
+            events = recovered_manager.list_events(run_id)
+            self.assertEqual(events[0].type, "stream_connected")
+            self.assertEqual(events[-1].type, "run_failed")
+            self.assertTrue(events[-1].payload["recoverable"])
+
+            client = TestClient(create_app(manager=recovered_manager))
+            stream_response = client.get(f"/api/runs/{run_id}/events")
+            parsed = _parse_sse_events(stream_response.text)
+            self.assertEqual(parsed[-1]["type"], "run_failed")
+        finally:
+            recovered_manager.close()
 
 
 if __name__ == "__main__":

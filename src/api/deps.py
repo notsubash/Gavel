@@ -1,4 +1,4 @@
-"""Shared FastAPI dependencies and in-memory run registry."""
+"""Shared FastAPI dependencies and run helpers."""
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime

@@ -30,6 +30,8 @@ class Settings:
     enable_web_search: bool
     web_search_max_results: int
     sse_heartbeat_seconds: float
+    stale_run_minutes: int
+    runs_db_path: Path
 
 
 def _read_bool(name: str, default: bool) -> bool:
@@ -51,4 +53,6 @@ def get_settings() -> Settings:
         enable_web_search=_read_bool("ENABLE_WEB_SEARCH", False),
         web_search_max_results=int(os.getenv("WEB_SEARCH_MAX_RESULTS", "3")),
         sse_heartbeat_seconds=float(os.getenv("SSE_HEARTBEAT_SECONDS", "15")),
+        stale_run_minutes=int(os.getenv("STALE_RUN_MINUTES", "30")),
+        runs_db_path=Path(os.getenv("RUNS_DB_PATH", str(PROJECT_ROOT / "data" / "runs.db"))),
     )

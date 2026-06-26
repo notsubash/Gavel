@@ -1,3 +1,4 @@
+import asyncio
 import json
 from pathlib import Path
 import sys
@@ -8,9 +9,10 @@ from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from api.app import create_app
-from api.deps import RunRegistry
 from api.routes.runs import SSE_HEADERS
+from api.run_manager import RunManager
 from api.schemas import CreateRunRequest
+from config import get_settings
 from events import (
     DebateCompleted,
     JudgesDispatched,
@@ -58,8 +60,8 @@ def _parse_sse_events(body: str) -> list[dict]:
 
 class ApiRunsTest(unittest.TestCase):
     def setUp(self):
-        self.registry = RunRegistry()
-        self.client = TestClient(create_app(registry=self.registry))
+        self.manager = RunManager()
+        self.client = TestClient(create_app(manager=self.manager))
 
     def test_health_endpoint(self):
         response = self.client.get("/health")
@@ -116,9 +118,9 @@ class ApiRunsTest(unittest.TestCase):
             response.headers.get("access-control-allow-origin"), "http://localhost:3000"
         )
 
-    @patch("api.routes.runs.build_research_context_for_run", return_value=None)
-    @patch("api.routes.runs.build_model_for_run")
-    @patch("api.routes.runs.stream_pipeline")
+    @patch("api.run_manager.build_research_context_for_run", return_value=None)
+    @patch("api.run_manager.build_model_for_run")
+    @patch("api.run_manager.stream_pipeline")
     def test_stream_emits_ordered_events_and_run_completed(
         self,
         stream_pipeline_mock,
@@ -163,14 +165,14 @@ class ApiRunsTest(unittest.TestCase):
         self.assertEqual(events[-1]["type"], "run_completed")
         self.assertTrue(all(event["run_id"] == run_id for event in events))
 
-        record = self.registry.get(run_id)
+        record = self.manager.get(run_id)
         self.assertIsNotNone(record)
         assert record is not None
         self.assertEqual(record.status, "completed")
 
-    @patch("api.routes.runs.build_research_context_for_run", return_value=None)
-    @patch("api.routes.runs.build_model_for_run")
-    @patch("api.routes.runs.stream_pipeline")
+    @patch("api.run_manager.build_research_context_for_run", return_value=None)
+    @patch("api.run_manager.build_model_for_run")
+    @patch("api.run_manager.stream_pipeline")
     def test_stream_emits_run_failed_on_pipeline_error(
         self,
         stream_pipeline_mock,
@@ -193,15 +195,15 @@ class ApiRunsTest(unittest.TestCase):
         self.assertEqual(events[1]["payload"]["message"], "The roast run failed. Please try again.")
         self.assertTrue(events[1]["payload"]["recoverable"])
 
-        record = self.registry.get(run_id)
+        record = self.manager.get(run_id)
         self.assertIsNotNone(record)
         assert record is not None
         self.assertEqual(record.status, "failed")
 
-    @patch("api.routes.runs.build_research_context_for_run", return_value=None)
-    @patch("api.routes.runs.build_model_for_run")
-    @patch("api.routes.runs.stream_pipeline")
-    def test_stream_rejects_already_started_run(
+    @patch("api.run_manager.build_research_context_for_run", return_value=None)
+    @patch("api.run_manager.build_model_for_run")
+    @patch("api.run_manager.stream_pipeline")
+    def test_two_subscribers_see_identical_sequences(
         self,
         stream_pipeline_mock,
         build_model_mock,
@@ -211,6 +213,9 @@ class ApiRunsTest(unittest.TestCase):
         stream_pipeline_mock.return_value = iter(
             [
                 PhaseStarted(phase="roast"),
+                RoastPanelCompleted(panel=_panel()),
+                PhaseStarted(phase="debate"),
+                DebateCompleted(debate_messages=[], final_synthesis="summary"),
                 PipelineCompleted(
                     roast_panel=_panel(),
                     debate_result={"debate_messages": [], "final_synthesis": "summary"},
@@ -221,23 +226,64 @@ class ApiRunsTest(unittest.TestCase):
         create_response = self.client.post("/api/runs", json={"idea": IDEA})
         run_id = create_response.json()["run_id"]
 
+        # The engine runs once into the buffer; a second viewer (e.g. a reopened
+        # tab) replays the same buffer with no 409 and no data loss.
         first = self.client.get(f"/api/runs/{run_id}/events")
-        self.assertEqual(first.status_code, 200)
-
         second = self.client.get(f"/api/runs/{run_id}/events")
-        self.assertEqual(second.status_code, 409)
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
 
-    def test_stream_rejects_run_already_marked_running(self):
-        record = self.registry.create(
-            CreateRunRequest.model_validate({"idea": IDEA, "model_runtime": "local"})
+        first_events = _parse_sse_events(first.text)
+        second_events = _parse_sse_events(second.text)
+        self.assertEqual(
+            [e["sequence"] for e in first_events],
+            [e["sequence"] for e in second_events],
         )
-        self.registry.try_claim(record.run_id)
+        self.assertEqual(
+            [e["type"] for e in first_events],
+            [e["type"] for e in second_events],
+        )
+        self.assertEqual(first_events[-1]["type"], "run_completed")
 
-        response = self.client.get(f"/api/runs/{record.run_id}/events")
-        self.assertEqual(response.status_code, 409)
+    @patch("api.run_manager.build_research_context_for_run", return_value=None)
+    @patch("api.run_manager.build_model_for_run", return_value=object())
+    @patch("api.run_manager.stream_pipeline")
+    def test_run_completes_without_any_subscriber(
+        self,
+        stream_pipeline_mock,
+        _build_model_mock,
+        _research_mock,
+    ):
+        stream_pipeline_mock.return_value = iter(
+            [
+                PhaseStarted(phase="roast"),
+                PipelineCompleted(
+                    roast_panel=_panel(),
+                    debate_result={"debate_messages": [], "final_synthesis": "summary"},
+                ),
+            ]
+        )
 
-    @patch("api.routes.runs.build_model_for_run")
-    @patch("api.routes.runs.stream_pipeline")
+        async def scenario():
+            manager = RunManager()
+            record = manager.create(
+                CreateRunRequest.model_validate({"idea": IDEA, "model_runtime": "local"})
+            )
+            manager.ensure_started(record.run_id, get_settings())
+            await manager._runs[record.run_id].task
+            return manager, record.run_id
+
+        manager, run_id = asyncio.run(scenario())
+
+        record = manager.get(run_id)
+        assert record is not None
+        self.assertEqual(record.status, "completed")
+        types = [envelope.type for envelope in manager._runs[run_id].events]
+        self.assertEqual(types[0], "stream_connected")
+        self.assertIn("run_completed", types)
+
+    @patch("api.run_manager.build_model_for_run")
+    @patch("api.run_manager.stream_pipeline")
     def test_stream_emits_run_failed_when_model_setup_fails(
         self,
         stream_pipeline_mock,

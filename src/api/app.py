@@ -3,16 +3,17 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.deps import RunRegistry, get_cors_origins, get_run_registry
+from api.deps import get_cors_origins
 from api.routes.runs import router as runs_router
+from api.run_manager import RunManager, get_run_manager
 
 
-def create_app(*, registry: RunRegistry | None = None) -> FastAPI:
+def create_app(*, manager: RunManager | None = None) -> FastAPI:
     app = FastAPI(title="Roast Arena API", version="0.1.0")
 
-    if registry is not None:
-        app.state.run_registry = registry
-        app.dependency_overrides[get_run_registry] = lambda: registry
+    if manager is not None:
+        app.state.run_manager = manager
+        app.dependency_overrides[get_run_manager] = lambda: manager
 
     app.add_middleware(
         CORSMiddleware,

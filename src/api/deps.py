@@ -1,11 +1,9 @@
-"""Shared FastAPI dependencies and in-memory run registry."""
+"""Shared FastAPI dependencies and run helpers."""
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 import logging
 import os
-from threading import Lock
-from uuid import uuid4
 
 from api.schemas import CreateRunRequest
 from config import Settings, get_settings
@@ -25,59 +23,8 @@ logger = logging.getLogger(__name__)
 class RunRecord:
     run_id: str
     request: CreateRunRequest
-    status: str
+    status: str = "created"
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-
-
-class RunRegistry:
-    # ponytail: in-memory, per-process, no eviction — fine for dev/single-worker uvicorn;
-    # upgrade path: SQLite/Redis + TTL for stale "running" runs after crashes.
-    def __init__(self) -> None:
-        self._runs: dict[str, RunRecord] = {}
-        self._lock = Lock()
-
-    def create(self, request: CreateRunRequest) -> RunRecord:
-        run_id = str(uuid4())
-        record = RunRecord(run_id=run_id, request=request, status="created")
-        with self._lock:
-            self._runs[run_id] = record
-        return record
-
-    def get(self, run_id: str) -> RunRecord | None:
-        with self._lock:
-            return self._runs.get(run_id)
-
-    def try_claim(self, run_id: str) -> bool:
-        with self._lock:
-            record = self._runs.get(run_id)
-            if record is None or record.status != "created":
-                return False
-            record.status = "running"
-            return True
-
-    def mark_completed(self, run_id: str) -> None:
-        with self._lock:
-            record = self._require_unlocked(run_id)
-            record.status = "completed"
-
-    def mark_failed(self, run_id: str) -> None:
-        with self._lock:
-            record = self._require_unlocked(run_id)
-            record.status = "failed"
-
-    def _require_unlocked(self, run_id: str) -> RunRecord:
-        record = self._runs.get(run_id)
-        if record is None:
-            raise KeyError(run_id)
-        return record
-
-
-# ponytail: module singleton — multi-worker uvicorn needs shared storage or sticky sessions.
-_registry = RunRegistry()
-
-
-def get_run_registry() -> RunRegistry:
-    return _registry
 
 
 def get_app_settings() -> Settings:

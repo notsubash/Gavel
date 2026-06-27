@@ -18,6 +18,9 @@ class ModelingTest(unittest.TestCase):
             max_debate_rounds=3,
             enable_web_search=False,
             web_search_max_results=3,
+            sse_heartbeat_seconds=15.0,
+            stale_run_minutes=30,
+            runs_db_path=Path("data/runs.db"),
         )
 
     @patch("modeling.init_chat_model")

@@ -6,7 +6,7 @@ import unittest
 from pydantic import ValidationError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from api.deps import RunRegistry, build_idea_preview, build_startup_idea_context
+from api.deps import build_idea_preview, build_startup_idea_context
 from api.events import (
     pipeline_event_payload,
     pipeline_event_type,
@@ -209,16 +209,6 @@ class ApiEventSerializationTest(unittest.TestCase):
 
 
 class ApiDepsTest(unittest.TestCase):
-    def test_try_claim_only_allows_one_stream(self):
-        registry = RunRegistry()
-        record = registry.create(
-            CreateRunRequest.model_validate(
-                {"idea": "An AI journal for startup founders with daily reflection prompts."}
-            )
-        )
-        self.assertTrue(registry.try_claim(record.run_id))
-        self.assertFalse(registry.try_claim(record.run_id))
-
     def test_build_startup_idea_context_includes_metadata(self):
         request = CreateRunRequest.model_validate(
             {

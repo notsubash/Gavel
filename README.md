@@ -13,6 +13,8 @@ Submit a startup idea and get torn apart, constructively, by a VC, engineer, pro
 | **Synthesis** | Moderator ties it together into a final verdict |
 | **Appeal** | Founder rebuttal → revised scores and updated synthesis |
 | **Memory** | Past ideas inform future roasts (compact summaries; optional semantic retrieval) |
+| **Web app** | Next.js editorial UI: live SSE run view, history, appeal, related roasts |
+| **Web research** | Optional Tavily lookup with cited sources in the run view (API + Streamlit) |
 | **Run metrics** | Per-phase latency, token usage, and estimated cost (Streamlit footer + SSE `run_metrics`) |
 
 ## Quick start
@@ -26,14 +28,38 @@ pip install -r requirements.txt
 ollama pull qwen3.5:9b          # default chat model; override in .env
 ollama pull nomic-embed-text    # only if ENABLE_SEMANTIC_MEMORY=true
 cp .env.example .env            # optional: DeepSeek, Tavily, LangSmith, semantic memory
+```
+
+### Web app (Next.js)
+
+The `web/` frontend is the editorial verdict experience: submit a pitch, watch judges roast and debate in real time, browse run history, appeal with evidence, and see related past roasts.
+
+**Requirements:** Node.js 20+ · API on port 8000
+
+```bash
+# Terminal 1 — API
+uvicorn api.app:app --app-dir src --reload --port 8000
+
+# Terminal 2 — frontend
+cd web
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000). See [web/README.md](web/README.md) for OpenAPI type generation and frontend scripts.
+
+### Streamlit (reference UI)
+
+```bash
 streamlit run src/app.py
 ```
 
-Open the app, paste your pitch (optional details help judges), choose the model (local or foundation model), and hit **Roast It!**
+Open the app, paste your pitch (optional details help judges), choose the model (local or foundation model), and hit **Roast It!** Streamlit also supports the experimental DeepAgents flow; the web app uses the deterministic pipeline only.
 
-### Streaming API (custom frontend)
+### Streaming API
 
-Run the FastAPI backend separately from Streamlit:
+The FastAPI backend powers the Next.js app and any custom frontend:
 
 ```bash
 uvicorn api.app:app --app-dir src --reload --port 8000
@@ -45,11 +71,14 @@ Endpoints:
 | --- | --- | --- |
 | `GET` | `/health` | Liveness check |
 | `POST` | `/api/runs` | Create a run, returns `run_id` immediately |
+| `GET` | `/api/runs` | Paginated run history (`limit`, `offset`) |
 | `GET` | `/api/runs/{run_id}` | Poll run status |
+| `GET` | `/api/runs/{run_id}/similar` | Similar past roasts (semantic or recency) |
 | `GET` | `/api/runs/{run_id}/events` | SSE stream of roast/debate events |
 | `POST` | `/api/runs/{run_id}/cancel` | Cooperatively stop a run (emits `run_cancelled`) |
+| `POST` | `/api/runs/{run_id}/appeal` | Founder appeal (one per run); returns revised panel |
 
-Create a run, then open an `EventSource` (or equivalent) on `/api/runs/{run_id}/events`. The stream emits ordered envelopes ending in `run_metrics` (latency, token counts, estimated cost), then `run_completed`, `run_cancelled`, or `run_failed`.
+Create a run, then open an `EventSource` (or equivalent) on `/api/runs/{run_id}/events`. When web research is enabled, the stream may emit `research_findings` before roast events. The stream then emits ordered pipeline envelopes ending in `run_metrics` (latency, token counts, estimated cost), then `run_completed`, `run_cancelled`, or `run_failed`. After a successful appeal, an `appeal_completed` event is appended to the log (appeal itself is a REST call, not streamed).
 
 The run engine is decoupled from the HTTP connection: `RunManager` drives the pipeline once into a durable SQLite event log (`data/runs.db`). Multiple tabs can watch the same run; disconnect and reconnect with the SSE `Last-Event-ID` header to resume without gaps. Heartbeat comment frames keep idle connections alive (`SSE_HEARTBEAT_SECONDS`, default 15s).
 
@@ -57,7 +86,7 @@ Set `ROAST_CORS_ORIGINS` in `.env` for your frontend origin (comma-separated). D
 
 Run uvicorn with a single worker per machine; background tasks and in-process subscribers are not coordinated across workers yet.
 
-**Rate limits:** `POST /api/runs` is token-bucket limited per client IP (`RATE_LIMIT_*` in `.env`). Returns `429` when exceeded. Disable with `RATE_LIMIT_ENABLED=false`. Set `TRUST_PROXY=true` only when the API sits behind a reverse proxy that sets `X-Forwarded-For` (Fly, Render, nginx). Otherwise clients could spoof that header to bypass limits.
+**Rate limits:** `POST /api/runs` and `POST /api/runs/{run_id}/appeal` are token-bucket limited per client IP (`RATE_LIMIT_*` and `RATE_LIMIT_APPEAL_*` in `.env`). Returns `429` when exceeded. Disable with `RATE_LIMIT_ENABLED=false`. Set `TRUST_PROXY=true` only when the API sits behind a reverse proxy that sets `X-Forwarded-For` (Fly, Render, nginx). Otherwise clients could spoof that header to bypass limits.
 
 **Run budget:** `MAX_RUN_SECONDS` (default 600) fails long runs cleanly between roast/debate boundaries and debate turns. In-flight judge LLM calls during roast may still finish after cancel/budget. Set `0` to disable.
 
@@ -82,7 +111,8 @@ For local Ollama from inside the container, use `host.docker.internal` in `LOCAL
 | **Debate** | LangGraph runs configurable multi-round debate with fixed turn order and live token streaming |
 | **Synthesis** | Moderator produces a final summary |
 | **Appeal** *(optional)* | Founder rebuttal → judges revise scores → updated synthesis |
-| **Memory** | Prior ideas summarized into future judge prompts (SQLite, session-scoped; optional semantic retrieval) |
+| **Memory** | Prior ideas summarized into future judge prompts (SQLite; optional semantic retrieval) |
+| **Web research** | Optional Tavily search with cited sources when judges need factual context |
 | **Metrics** | Wall-clock per phase, token counts, and estimated API cost (`run_metrics` event) |
 
 Each judge returns structured output: score, pass/fail/conditional label, roast, and key concern. The UI renders a radar chart, debate transcript, and Markdown export.
@@ -116,9 +146,11 @@ User idea
 
 **Deterministic pipeline** (`src/pipeline.py`): Direct model calls plus LangGraph guarantee all five judges speak, debate rounds advance predictably, and Pydantic validates every boundary. Debate streams token deltas (`DebateTokenDelta`) for live UI updates. At completion the pipeline emits `RunMetrics` (roast/debate seconds, tokens, estimated cost) before `PipelineCompleted`.
 
-**Run engine** (`src/api/run_manager.py`): Background task per run, durable event log in SQLite, subscriber-based SSE with reconnect support. Structured `run_metrics` JSON is logged once per API run (with `run_id`).
+**Run engine** (`src/api/run_manager.py`): Background task per run, durable event log in SQLite, subscriber-based SSE with reconnect support. Structured `run_metrics` JSON is logged once per API run (with `run_id`). API runs persist to idea memory under a stable local user id and support appeal, run history, and similar-roast lookup.
 
-**DeepAgents orchestrator** (`src/orchestrator/deep_agent.py`): Agent harness that dispatches subagents via `task()` with stronger tool-calling models. Not the default user path.
+**Web frontend** (`web/`): Next.js App Router client that consumes the streaming API via SSE, with run history, appeal, related roasts, and a sources panel for Tavily research.
+
+**DeepAgents orchestrator** (`src/orchestrator/deep_agent.py`): Agent harness that dispatches subagents via `task()` with stronger tool-calling models. Streamlit-only; not exposed via the streaming API.
 
 ### Design principles
 
@@ -145,6 +177,15 @@ ROAST_CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 SSE_HEARTBEAT_SECONDS=15
 STALE_RUN_MINUTES=30
 RUNS_DB_PATH=data/runs.db
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_REQUESTS=30
+RATE_LIMIT_BURST=10
+RATE_LIMIT_WINDOW_SECONDS=60
+RATE_LIMIT_APPEAL_REQUESTS=5
+RATE_LIMIT_APPEAL_BURST=2
+RATE_LIMIT_APPEAL_WINDOW_SECONDS=60
+LIST_RUNS_DEFAULT_LIMIT=20
+LIST_RUNS_MAX_LIMIT=100
 ENABLE_SEMANTIC_MEMORY=false
 EMBEDDING_MODEL=ollama:nomic-embed-text
 EMBEDDING_DIMENSION=768
@@ -183,6 +224,16 @@ Filter by tags such as `phase:roast`, `phase:debate`, `phase:appeal`, or `flow:d
 
 ## Using the app
 
+### Web app
+
+1. Submit a startup idea on the home page (optional fields: target customer, pricing, traction, competitors).
+2. Choose model runtime (**local** or **deepseek**), debate rounds, and optionally **Web research (Tavily)**.
+3. Watch the live run: roast panel, debate transcript, synthesis, and run metrics as SSE events arrive.
+4. When research ran, open the **Web research** sources panel for cited links.
+5. After completion, use **Appeal** with concrete evidence, browse **Related roasts**, or revisit runs from **History** (`/history`).
+
+### Streamlit
+
 1. Enter a startup idea (optionally expand **Optional details** for target customer, pricing, traction, and competitors).
 2. Choose execution flow: **Deterministic (production)** or **DeepAgents (experimental)**.
 3. Choose model runtime: **local** or **deepseek**.
@@ -193,7 +244,7 @@ Filter by tags such as `phase:roast`, `phase:debate`, `phase:appeal`, or `flow:d
 
 ### Memory
 
-Stored at `data/ideas.db`, scoped to the Streamlit session user id. Retrieval (`src/memory/retrieval.py`) prefers semantically similar past ideas when `ENABLE_SEMANTIC_MEMORY=true`; otherwise it uses the most recent entries. Context builder (`src/memory/context.py`) injects compact summaries (idea text, average score, top concerns, previous synthesis, appeal outcome). Full transcripts are never injected.
+Stored at `data/ideas.db`. Streamlit uses a stable local user id (`data/local_user_id` via `src/memory/identity.py`); API runs use the same id so memory and similar-roast lookup work across both UIs. Retrieval (`src/memory/retrieval.py`) prefers semantically similar past ideas when `ENABLE_SEMANTIC_MEMORY=true`; otherwise it uses the most recent entries. Context builder (`src/memory/context.py`) injects compact summaries (idea text, average score, top concerns, previous synthesis, appeal outcome). Full transcripts are never injected. The web app surfaces similar past roasts on the run page via `GET /api/runs/{run_id}/similar`.
 
 ### Appeal mode
 
@@ -213,10 +264,12 @@ src/
   debate/                        LangGraph graph, nodes, router, state
   memory/                        SQLite store, semantic retrieval, compact prompt context
   appeal/                        Re-evaluation and synthesis
-  orchestrator/deep_agent.py     Experimental DeepAgents path
+  research/                      Tavily web search (model-gated policy)
+  orchestrator/deep_agent.py     Experimental DeepAgents path (Streamlit only)
   observability/                 LangSmith bootstrap; run cost/latency metrics (`metrics.py`)
   ui/streamlit_runner.py         Streamlit pipeline adapter + metrics footer
   utils/                         Parser fallback, radar chart, transcript export
+web/                             Next.js frontend (see web/README.md)
 tests/                           Unit tests (unittest, fake models, no Ollama required)
 evals/                           Regression evals and monthly audit (see evals/README.md)
 ```
@@ -232,6 +285,8 @@ python -m compileall src
 ruff check src tests evals
 ruff format src tests evals
 ```
+
+**Web frontend** (`web/`): `npm run lint`, `npm run test:reducer`, and `npm run build` (see [web/README.md](web/README.md)). Regenerate API types with `npm run gen:types` when backend schemas change.
 
 **CI** (`.github/workflows/ci.yml`) runs on push/PR to `main`: Ruff lint and format, pinned deps, version resolution check, unit tests on Python 3.11-3.13, compile check.
 
@@ -251,10 +306,11 @@ Version lives in `pyproject.toml` (`[project].version`); runtime reads it via `s
 
 Honest boundaries, not bugs. Current design:
 
-- Memory identity is session-local, not account-based. Semantic retrieval is optional and local-only.
-- Appeal re-evaluates judges; it does not run a second multi-round debate.
+- Memory identity is local-only, not account-based. A stable id in `data/local_user_id` is shared by Streamlit and the API.
+- Semantic retrieval and similar-roast lookup are optional and local-only (`ENABLE_SEMANTIC_MEMORY=true`).
+- Appeal re-evaluates judges; it does not run a second multi-round debate. API runs allow one appeal per run.
 - SQLite storage is local-only (`data/ideas.db` for memory, `data/runs.db` for API runs).
-- Streamlit is the reference UI; the streaming API covers roast/debate only (no memory or appeal yet).
+- Streamlit supports the experimental DeepAgents flow; the web app and streaming API use the deterministic pipeline only.
 - API runs need a single uvicorn worker per machine; multi-worker coordination is not implemented.
 - DeepAgents is experimental, not the production orchestrator.
 
@@ -263,6 +319,7 @@ Honest boundaries, not bugs. Current design:
 ```text
 data/ideas.db
 data/runs.db
+data/local_user_id
 transcripts/*.md
 roast_radar.png
 ```

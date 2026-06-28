@@ -7,7 +7,12 @@ import os
 
 from api.schemas import CreateRunRequest
 from config import Settings, get_settings
-from idea_context import build_startup_idea_context as _build_startup_idea_context
+from idea_context import (
+    build_startup_idea_context as _build_startup_idea_context,
+)
+from idea_context import (
+    idea_display_summary,
+)
 from modeling import build_chat_model
 from research.service import (
     ResearchContext,
@@ -40,10 +45,7 @@ def get_cors_origins() -> list[str]:
 
 
 def build_idea_preview(idea: str, *, max_length: int = 120) -> str:
-    text = idea.strip().replace("\n", " ")
-    if len(text) <= max_length:
-        return text
-    return text[: max_length - 3].rstrip() + "..."
+    return idea_display_summary(idea, max_chars=max_length)
 
 
 def build_startup_idea_context(request: CreateRunRequest) -> str:

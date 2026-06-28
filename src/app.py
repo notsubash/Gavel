@@ -10,7 +10,7 @@ import streamlit as st
 
 from appeal.service import run_appeal
 from config import get_settings
-from idea_context import build_startup_idea_context
+from idea_context import build_startup_idea_context, idea_display_summary
 from memory.context import build_memory_context
 from memory.factory import build_idea_store
 from memory.identity import get_local_user_id
@@ -123,7 +123,10 @@ with st.sidebar:
             avg = sum(v.score for v in record.roast_panel.verdicts) / len(
                 record.roast_panel.verdicts
             )
-            st.caption(f"{record.created_at.date()} · {avg:.1f}/10 · {record.idea_text[:60]}")
+            st.markdown(
+                f"**{record.created_at.date()}** · {avg:.1f}/10  \n"
+                f"{idea_display_summary(record.idea_text, max_chars=100)}"
+            )
     else:
         st.caption("No previous ideas remembered yet.")
     st.divider()

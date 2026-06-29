@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pydantic import ValidationError
 import streamlit as st
 
+from appeal.coaching import appeal_coaching_hint, appeal_coaching_verdicts
 from appeal.service import run_appeal
 from config import get_settings
 from debate.revote import (
@@ -43,6 +44,7 @@ from ui.streamlit_runner import (
     run_deterministic_pipeline_in_ui,
 )
 from ui.text_display import (
+    write_appeal_coaching_item,
     write_labelled_plain,
     write_plain_text,
     write_roast_quote,
@@ -55,6 +57,8 @@ from verification import assess_revote_quality
 from version import get_version
 
 get_settings()
+
+VERDICT_ICON = {"PASS": "\U0001f7e2", "FAIL": "\U0001f534", "CONDITIONAL": "\U0001f7e1"}
 
 # ── Page config ──
 
@@ -498,11 +502,10 @@ if roast_panel is not None:
 
     st.subheader("Individual Verdicts")
 
-    verdict_icon = {"PASS": "\U0001f7e2", "FAIL": "\U0001f534", "CONDITIONAL": "\U0001f7e1"}
     cols = st.columns(5)
     for i, v in enumerate(roast_panel.verdicts):
         with cols[i]:
-            icon = verdict_icon.get(v.verdict.value, "\u26aa")
+            icon = VERDICT_ICON.get(v.verdict.value, "\u26aa")
             st.metric(
                 label=f"{icon} {v.judge.value.upper()}",
                 value=f"{v.score}/10",
@@ -600,7 +603,7 @@ if post_debate_panel is not None and roast_panel is not None:
             write_roast_quote(revised.roast)
     st.divider()
 
-if debate_result is not None:
+if debate_result is not None and roast_panel is not None:
     st.subheader("Debate Transcript")
 
     judge_avatars = {
@@ -634,6 +637,19 @@ if debate_result is not None:
     st.caption(
         "Argue back with concrete evidence. Judges will re-evaluate without rerunning the full debate."
     )
+
+    appeal_baseline = appeal_baseline_panel(roast_panel, debate_result)
+    st.markdown("#### What would change each judge's mind")
+    st.caption("Target FAIL and CONDITIONAL judges first with the evidence below.")
+    for verdict in appeal_coaching_verdicts(appeal_baseline):
+        write_appeal_coaching_item(
+            icon=VERDICT_ICON.get(verdict.verdict.value, "\u26aa"),
+            judge=verdict.judge.value.upper(),
+            verdict_label=verdict.verdict.value,
+            score=verdict.score,
+            hint=appeal_coaching_hint(verdict),
+        )
+
     appeal_text = st.text_area(
         "Your appeal:",
         height=100,
@@ -669,7 +685,6 @@ if debate_result is not None:
             try:
                 with st.status("Appeal mode: judges are re-evaluating...", expanded=True) as status:
                     status.write("Sending your appeal to all five judges...")
-                    appeal_baseline = appeal_baseline_panel(roast_panel, debate_result)
                     appeal_result = run_appeal(
                         model=model,
                         startup_idea=st.session_state.startup_idea_used or "",
@@ -704,7 +719,6 @@ if debate_result is not None:
 
     if revised_panel is not None:
         st.markdown("#### Revised Verdicts")
-        appeal_baseline = appeal_baseline_panel(roast_panel, debate_result)
         revised_cols = st.columns(5)
         for i, v in enumerate(revised_panel.verdicts):
             original = next(

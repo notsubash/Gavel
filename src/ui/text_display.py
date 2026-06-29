@@ -35,6 +35,23 @@ def write_roast_quote(text: str) -> None:
     )
 
 
+def write_appeal_coaching_item(
+    *,
+    icon: str,
+    judge: str,
+    verdict_label: str,
+    score: int,
+    hint: str,
+) -> None:
+    """Single appeal coaching checklist row with escaped model text."""
+    st.markdown(
+        f'<p class="llm-plain-text" style="margin:0;">'
+        f"- <strong>{icon} {html.escape(judge)}</strong> "
+        f"({html.escape(verdict_label)}, {score}/10): {html.escape(hint or '')}</p>",
+        unsafe_allow_html=True,
+    )
+
+
 def write_labelled_plain(label: str, text: str) -> None:
     """Display a bold label followed by plain model text."""
     safe_label = html.escape(label)

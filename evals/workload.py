@@ -14,7 +14,9 @@ def estimate_llm_calls(
     """Return per-idea and total LLM call counts for a local eval run."""
     roast_calls = JUDGE_COUNT
     revote_calls = JUDGE_COUNT
-    debate_calls = max_debate_rounds * JUDGE_COUNT + 1 + revote_calls  # speakers + moderator + re-vote
+    debate_calls = (
+        max_debate_rounds * JUDGE_COUNT + 1 + revote_calls
+    )  # speakers + moderator + re-vote
 
     appeal_cases = 2 if include_appeals else 0
     appeal_judge_calls = appeal_cases * JUDGE_COUNT

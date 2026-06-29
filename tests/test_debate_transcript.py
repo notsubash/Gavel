@@ -9,10 +9,7 @@ import tests  # noqa: F401
 
 class DebateTranscriptContextTest(unittest.TestCase):
     def test_round_one_uses_recent_window(self):
-        messages = [
-            {"round": 1, "speaker": "vc", "content": f"msg-{index}"}
-            for index in range(10)
-        ]
+        messages = [{"round": 1, "speaker": "vc", "content": f"msg-{index}"} for index in range(10)]
         transcript = _debate_transcript_for_speaker({"round": 1, "debate_messages": messages})
         self.assertNotIn("msg-0", transcript)
         self.assertIn("msg-9", transcript)

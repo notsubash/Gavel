@@ -117,7 +117,9 @@ class VerificationPanelTest(unittest.TestCase):
             _verdict("engineer", score=3, evidence_to_change_verdict="Round 2 engineer argument."),
             _verdict("pm", score=3, evidence_to_change_verdict="Round 2 pm argument."),
             _verdict("customer", score=3, evidence_to_change_verdict="Round 2 customer argument."),
-            _verdict("competitor", score=3, evidence_to_change_verdict="Round 2 competitor argument."),
+            _verdict(
+                "competitor", score=3, evidence_to_change_verdict="Round 2 competitor argument."
+            ),
         ]
         quality = assess_revote_quality(
             [v.model_dump() for v in initial],

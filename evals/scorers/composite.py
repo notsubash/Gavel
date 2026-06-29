@@ -29,8 +29,10 @@ def score_idea_result(
     fix_ok = reliability.get("fix_fields_complete", False)
     synthesis_ok = reliability.get("synthesis_parses", False)
     fixes_ok = fix_ok and not reliability.get("panel_fixes_degenerate", False)
-    revote_ok = reliability.get("revote_passed", True) if revote_legacy else reliability.get(
-        "revote_passed", False
+    revote_ok = (
+        reliability.get("revote_passed", True)
+        if revote_legacy
+        else reliability.get("revote_passed", False)
     )
 
     passed = (

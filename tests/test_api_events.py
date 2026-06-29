@@ -205,7 +205,9 @@ class ApiEventSerializationTest(unittest.TestCase):
 
     def test_revote_judge_completed_payload_includes_change_reason(self):
         original = _verdict("engineer")
-        revised = original.model_copy(update={"score": 5, "evidence_to_change_verdict": "Debate shifted my view."})
+        revised = original.model_copy(
+            update={"score": 5, "evidence_to_change_verdict": "Debate shifted my view."}
+        )
         payload = pipeline_event_payload(
             RevoteJudgeCompleted(
                 judge="engineer",

@@ -122,7 +122,9 @@ class RunMetricsCollectorTest(unittest.TestCase):
     def test_snapshot_splits_revote_calls(self):
         collector = RunMetricsCollector(model_runtime="local")
         collector.record_debate("engineer", seconds=2.0, prompt_text="debate", output_text="msg")
-        collector.record_debate("revote-vc", seconds=1.5, prompt_text="revote", output_text="verdict")
+        collector.record_debate(
+            "revote-vc", seconds=1.5, prompt_text="revote", output_text="verdict"
+        )
 
         snapshot = collector.snapshot(roast_seconds=0.0, debate_seconds=3.5, total_seconds=3.5)
 

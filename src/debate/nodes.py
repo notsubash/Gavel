@@ -163,9 +163,7 @@ def _debate_transcript_for_speaker(state: dict) -> str:
     if not messages:
         return "No debate messages yet."
     pool = messages if state["round"] >= 2 else messages[-8:]
-    return "\n".join(
-        f"Round {msg['round']}: {msg['speaker']}: {msg['content']}" for msg in pool
-    )
+    return "\n".join(f"Round {msg['round']}: {msg['speaker']}: {msg['content']}" for msg in pool)
 
 
 def make_speaker_node(judge: str, model: Any, metrics: RunMetricsCollector | None = None):

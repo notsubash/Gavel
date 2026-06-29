@@ -450,9 +450,7 @@ if post_debate_panel is not None and roast_panel is not None:
         st.info("No judge changed their score after the debate.")
     revote_cols = st.columns(5)
     for i, revised in enumerate(post_debate_panel.verdicts):
-        original = next(
-            v for v in roast_panel.verdicts if v.judge.value == revised.judge.value
-        )
+        original = next(v for v in roast_panel.verdicts if v.judge.value == revised.judge.value)
         delta = revised.score - original.score
         delta_label = f"{delta:+d}" if delta else "0"
         with revote_cols[i]:

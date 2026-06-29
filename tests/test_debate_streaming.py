@@ -285,9 +285,7 @@ class TestDebateStreaming(unittest.TestCase):
             )
         )
         engineer_message = next(
-            e
-            for e in events
-            if isinstance(e, DebateMessagePublished) and e.speaker == "engineer"
+            e for e in events if isinstance(e, DebateMessagePublished) and e.speaker == "engineer"
         )
         self.assertEqual(engineer_message.content, "Reply 3.")
         self.assertGreaterEqual(model.stream_calls, 3)

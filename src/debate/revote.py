@@ -75,7 +75,9 @@ def invoke_judge_on_revote(
         SystemMessage(
             content=judge_system_prompt(
                 judge,
-                suffix=REVOTE_ANTI_HERD_SUFFIX if not system_suffix else f"{REVOTE_ANTI_HERD_SUFFIX}\n\n{system_suffix}",
+                suffix=REVOTE_ANTI_HERD_SUFFIX
+                if not system_suffix
+                else f"{REVOTE_ANTI_HERD_SUFFIX}\n\n{system_suffix}",
             )
         ),
         HumanMessage(content=prompt),

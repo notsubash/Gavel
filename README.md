@@ -123,7 +123,7 @@ Each judge returns structured output: score, pass/fail/conditional label, roast,
 
 ## Screenshots
 
-| Individual verdicts | Judge scores radar |
+| Individual verdicts | Judge scores panel |
 | --- | --- |
 | ![Judge verdicts](images/Judge%20Verdicts.png) | ![Judge scores panel](images/roast_radar.png) |
 
@@ -135,7 +135,7 @@ Each judge returns structured output: score, pass/fail/conditional label, roast,
 | --- | --- |
 | ![Verdict sheet](images/Decision.png) | ![Appeal mode](images/Appeal%20Mode.png) |
 
-| Run archive |
+| Run archive | |
 | --- | --- |
 | ![Past roasts](images/Past%20Ideas.png) | |
 

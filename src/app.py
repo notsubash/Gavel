@@ -11,7 +11,7 @@ import streamlit as st
 from appeal.service import run_appeal
 from config import get_settings
 from idea_context import build_startup_idea_context, idea_display_summary
-from judges.synthesis import parse_structured_synthesis
+from judges.synthesis import assess_verdict_output_quality, parse_structured_synthesis
 from memory.context import build_memory_context
 from memory.factory import build_idea_store
 from memory.identity import get_local_user_id
@@ -344,12 +344,19 @@ structured_synthesis = (
 if roast_panel is not None:
     if structured_synthesis is not None:
         st.subheader("\U0001f3af Verdict")
-        write_verdict_card(structured_synthesis, roast_panel)
+        quality = assess_verdict_output_quality(roast_panel, debate_result)
+        write_verdict_card(structured_synthesis, roast_panel, quality=quality)
         st.divider()
     elif debate_result is not None:
         synthesis = debate_result.get("final_synthesis", "No synthesis produced.")
         if synthesis and synthesis != "No synthesis produced.":
+            quality = assess_verdict_output_quality(roast_panel, debate_result)
             st.subheader("\U0001f3af Final Synthesis")
+            if quality.get("low_confidence"):
+                st.warning(
+                    "Low-confidence verdict — the moderator returned free-text only. "
+                    + " ".join(quality.get("reasons") or [])
+                )
             write_synthesis(synthesis)
             st.divider()
 

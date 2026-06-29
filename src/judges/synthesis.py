@@ -6,6 +6,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from judges.schemas import RoastPanel, Verdict
+from verification import is_degenerate_fixes
 
 SYNTHESIS_ITEM_MAX_LENGTH = 300
 BIGGEST_DISAGREEMENT_MAX_LENGTH = 400
@@ -126,3 +127,29 @@ def synthesis_compact_summary(debate_result: dict[str, Any] | None) -> str:
         return " | ".join(parts)
 
     return str((debate_result or {}).get("final_synthesis") or "")
+
+
+def assess_verdict_output_quality(
+    roast_panel: RoastPanel | None,
+    debate_result: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Surface degraded output for UI when local models return weak structured content."""
+    verdicts = roast_panel.verdicts if roast_panel else []
+    structured = parse_structured_synthesis(debate_result)
+    reasons: list[str] = []
+
+    if verdicts and is_degenerate_fixes(verdicts):
+        reasons.append("Judges returned near-identical recommended fixes.")
+
+    if structured is None and (debate_result or {}).get("final_synthesis"):
+        reasons.append("Moderator fell back to free-text synthesis.")
+
+    if structured is not None and structured.confidence == ConfidenceLevel.LOW:
+        reasons.append("Moderator reported low confidence in the recommendation.")
+
+    return {
+        "low_confidence": bool(reasons),
+        "reasons": reasons,
+        "structured_synthesis": structured is not None,
+        "degenerate_fixes": is_degenerate_fixes(verdicts) if verdicts else False,
+    }

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from judges.synthesis import Synthesis
 from verification import (
     fix_fields_missing_judges,
     is_degenerate_fixes,
@@ -46,6 +47,36 @@ def score_fix_fields(verdicts: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def score_synthesis_structure(debate_result: dict[str, Any] | None) -> dict[str, Any]:
+    if not debate_result:
+        return {
+            "synthesis_structured": False,
+            "synthesis_parses": False,
+            "synthesis_legacy": True,
+        }
+    raw = debate_result.get("structured_synthesis")
+    if raw is None:
+        has_prose = bool(str(debate_result.get("final_synthesis") or "").strip())
+        return {
+            "synthesis_structured": False,
+            "synthesis_parses": has_prose,
+            "synthesis_legacy": True,
+        }
+    try:
+        Synthesis.model_validate(raw)
+        return {
+            "synthesis_structured": True,
+            "synthesis_parses": True,
+            "synthesis_legacy": False,
+        }
+    except Exception:
+        return {
+            "synthesis_structured": True,
+            "synthesis_parses": False,
+            "synthesis_legacy": False,
+        }
+
+
 def score_reliability(
     *,
     judge_attempts: list[dict[str, Any]],
@@ -71,6 +102,7 @@ def score_reliability(
 
     consistency = score_verdict_score_consistency(verdicts)
     fix_fields = score_fix_fields(verdicts)
+    synthesis_structure = score_synthesis_structure(debate_result)
 
     return {
         "judge_parse_success_rate": parse_rate,
@@ -85,4 +117,5 @@ def score_reliability(
         "panel_fixes_degenerate": is_degenerate_fixes(verdicts),
         **consistency,
         **fix_fields,
+        **synthesis_structure,
     }

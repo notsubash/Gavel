@@ -9,6 +9,7 @@ from judges.synthesis import (
     ConfidenceLevel,
     OverallRecommendation,
     Synthesis,
+    assess_verdict_output_quality,
     parse_structured_synthesis,
     synthesis_compact_summary,
     synthesis_to_prose,
@@ -160,6 +161,30 @@ class StructuredTranscriptExportTest(unittest.TestCase):
             content = path.read_text(encoding="utf-8")
             self.assertIn("### Top Priorities", content)
             self.assertNotIn("### Top Risks", content)
+
+
+class VerdictOutputQualityTest(unittest.TestCase):
+    def test_assess_flags_degenerate_fixes(self):
+        identical_fix = "Interview ten target buyers and document their top workflow pain."
+        panel = _panel(recommended_fix=identical_fix)
+        for verdict in panel.verdicts[1:]:
+            verdict.recommended_fix = identical_fix
+        quality = assess_verdict_output_quality(panel, _structured_debate_result())
+        self.assertTrue(quality["low_confidence"])
+        self.assertTrue(quality["degenerate_fixes"])
+
+    def test_assess_flags_prose_fallback(self):
+        quality = assess_verdict_output_quality(
+            _panel(),
+            {"final_synthesis": "Too vague to fund without buyer proof."},
+        )
+        self.assertTrue(quality["low_confidence"])
+        self.assertFalse(quality["structured_synthesis"])
+
+    def test_assess_accepts_distinct_actionable_fixes(self):
+        quality = assess_verdict_output_quality(_panel(), _structured_debate_result())
+        self.assertFalse(quality["low_confidence"])
+        self.assertTrue(quality["structured_synthesis"])
 
 
 if __name__ == "__main__":

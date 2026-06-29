@@ -55,12 +55,22 @@ def write_synthesis(text: str) -> None:
 def write_verdict_card(
     synthesis: Synthesis,
     roast_panel: RoastPanel | None = None,
+    *,
+    quality: dict | None = None,
 ) -> None:
     """Decision-first verdict card for structured moderator synthesis."""
     icon = _RECOMMENDATION_ICON.get(synthesis.overall_recommendation, "\u26aa")
     priorities = top_priorities(synthesis, roast_panel)
+    low_confidence = bool((quality or {}).get("low_confidence"))
+    reasons = (quality or {}).get("reasons") or []
 
     with st.container(border=True):
+        if low_confidence:
+            st.warning(
+                "Low-confidence verdict — treat priorities as directional, not precise. "
+                + " ".join(reasons)
+            )
+
         st.markdown(
             f"### {icon} {synthesis.overall_recommendation.value} "
             f"({synthesis.confidence.value} confidence)"
@@ -71,14 +81,15 @@ def write_verdict_card(
             for idx, item in enumerate(priorities, start=1):
                 write_labelled_plain(f"{idx}.", item)
 
+        detail_lines: list[str] = []
         if synthesis.top_strengths:
-            st.markdown("**Strengths**")
-            for item in synthesis.top_strengths:
-                st.markdown(f"- {html.escape(item)}")
-
+            detail_lines.append("**Strengths**")
+            detail_lines.extend(f"- {item}" for item in synthesis.top_strengths)
         if synthesis.top_risks and synthesis.top_risks != priorities:
-            st.markdown("**Top risks**")
-            for item in synthesis.top_risks:
-                st.markdown(f"- {html.escape(item)}")
+            detail_lines.append("**Top risks**")
+            detail_lines.extend(f"- {item}" for item in synthesis.top_risks)
+        detail_lines.append(f"**Biggest disagreement:** {synthesis.biggest_disagreement}")
 
-        write_labelled_plain("Biggest disagreement:", synthesis.biggest_disagreement)
+        if detail_lines:
+            with st.expander("Full rationale", expanded=False):
+                st.markdown("\n\n".join(detail_lines))

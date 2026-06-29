@@ -72,6 +72,16 @@ def write_status_badge(status: str, *, tone: str = "neutral") -> None:
     )
 
 
+def write_appeal_outcome_badge(outcome: str) -> None:
+    """Compact outcome label for post-appeal evidence asks."""
+    tone = "neutral"
+    if outcome == "Evidence met":
+        tone = "positive"
+    elif outcome == "Not met":
+        tone = "negative"
+    write_status_badge(outcome, tone=tone)
+
+
 def write_synthesis(text: str) -> None:
     """Display synthesis in a bordered container with markdown formatting."""
     with st.container(border=True):

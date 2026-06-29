@@ -8,7 +8,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pydantic import ValidationError
 import streamlit as st
 
-from appeal.coaching import appeal_coaching_hint, appeal_coaching_verdicts
+from appeal.coaching import (
+    appeal_coaching_hint,
+    appeal_coaching_verdicts,
+    appeal_judge_outcomes,
+)
 from appeal.service import run_appeal
 from config import get_settings
 from debate.revote import (
@@ -45,6 +49,7 @@ from ui.streamlit_runner import (
 )
 from ui.text_display import (
     write_appeal_coaching_item,
+    write_appeal_outcome_badge,
     write_labelled_plain,
     write_plain_text,
     write_roast_quote,
@@ -248,6 +253,8 @@ if "revised_synthesis" not in st.session_state:
     st.session_state.revised_synthesis = None
 if "appeal_text_used" not in st.session_state:
     st.session_state.appeal_text_used = None
+if "appeal_target_judges_used" not in st.session_state:
+    st.session_state.appeal_target_judges_used = None
 if "run_metrics" not in st.session_state:
     st.session_state.run_metrics = None
 
@@ -268,6 +275,7 @@ if run_clicked and idea_text.strip():
     st.session_state.revised_panel = None
     st.session_state.revised_synthesis = None
     st.session_state.appeal_text_used = None
+    st.session_state.appeal_target_judges_used = None
     st.session_state.run_metrics = None
     st.session_state.startup_idea_used = startup_idea
 
@@ -640,15 +648,25 @@ if debate_result is not None and roast_panel is not None:
 
     appeal_baseline = appeal_baseline_panel(roast_panel, debate_result)
     st.markdown("#### What would change each judge's mind")
-    st.caption("Target FAIL and CONDITIONAL judges first with the evidence below.")
+    st.caption("Check the judges you are addressing, then target FAIL and CONDITIONAL first.")
+    target_judges: list[str] = []
     for verdict in appeal_coaching_verdicts(appeal_baseline):
-        write_appeal_coaching_item(
-            icon=VERDICT_ICON.get(verdict.verdict.value, "\u26aa"),
-            judge=verdict.judge.value.upper(),
-            verdict_label=verdict.verdict.value,
-            score=verdict.score,
-            hint=appeal_coaching_hint(verdict),
-        )
+        col_hint, col_tag = st.columns([5, 1])
+        with col_hint:
+            write_appeal_coaching_item(
+                icon=VERDICT_ICON.get(verdict.verdict.value, "\u26aa"),
+                judge=verdict.judge.value.upper(),
+                verdict_label=verdict.verdict.value,
+                score=verdict.score,
+                hint=appeal_coaching_hint(verdict),
+            )
+        with col_tag:
+            if st.checkbox(
+                "Target",
+                key=f"appeal_target_{verdict.judge.value}",
+                label_visibility="collapsed",
+            ):
+                target_judges.append(verdict.judge.value)
 
     appeal_text = st.text_area(
         "Your appeal:",
@@ -692,6 +710,7 @@ if debate_result is not None and roast_panel is not None:
                         debate_result=debate_result,
                         appeal_text=appeal_text,
                         memory_context=build_memory_context(prior_records),
+                        target_judges=target_judges or None,
                     )
                     status.update(
                         label="\u2705 Appeal complete — revised panel ready!", state="complete"
@@ -703,11 +722,13 @@ if debate_result is not None and roast_panel is not None:
             st.session_state.revised_panel = appeal_result.revised_panel
             st.session_state.revised_synthesis = appeal_result.revised_synthesis
             st.session_state.appeal_text_used = appeal_text.strip()
+            st.session_state.appeal_target_judges_used = list(appeal_result.target_judges)
 
             if current_record is not None:
                 updated_record = current_record.model_copy(
                     update={
                         "appeal_text": appeal_text,
+                        "appeal_target_judges": list(appeal_result.target_judges),
                         "revised_panel": appeal_result.revised_panel,
                         "revised_synthesis": appeal_result.revised_synthesis,
                     }
@@ -719,6 +740,14 @@ if debate_result is not None and roast_panel is not None:
 
     if revised_panel is not None:
         st.markdown("#### Revised Verdicts")
+        appeal_outcomes = {
+            item.judge: item
+            for item in appeal_judge_outcomes(
+                appeal_baseline,
+                revised_panel,
+                tuple(st.session_state.appeal_target_judges_used or ()),
+            )
+        }
         revised_cols = st.columns(5)
         for i, v in enumerate(revised_panel.verdicts):
             original = next(
@@ -728,6 +757,7 @@ if debate_result is not None and roast_panel is not None:
             )
             delta = v.score - original.score
             delta_label = f"{delta:+d}" if delta else "0"
+            outcome = appeal_outcomes.get(v.judge.value)
             with revised_cols[i]:
                 st.metric(
                     label=v.judge.value.upper(),
@@ -735,6 +765,10 @@ if debate_result is not None and roast_panel is not None:
                     delta=delta_label,
                 )
                 st.caption(v.verdict.value)
+                if outcome is not None:
+                    write_appeal_outcome_badge(outcome.outcome)
+                    if outcome.targeted:
+                        st.caption("You targeted this judge")
                 write_roast_quote(v.roast)
                 write_labelled_plain("Key concern:", v.key_concern)
 
@@ -751,6 +785,7 @@ if debate_result is not None and roast_panel is not None:
         appeal_text=st.session_state.appeal_text_used,
         revised_panel=revised_panel,
         revised_synthesis=revised_synthesis,
+        target_judges=st.session_state.appeal_target_judges_used,
         run_metrics=st.session_state.get("run_metrics"),
         version=st.session_state.current_record.version
         if st.session_state.current_record

@@ -4,7 +4,13 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from appeal.coaching import appeal_coaching_hint, appeal_coaching_verdicts
+from appeal.coaching import (
+    appeal_coaching_hint,
+    appeal_coaching_verdicts,
+    appeal_evidence_outcome,
+    appeal_judge_outcomes,
+    normalize_target_judges,
+)
 from judges.schemas import RoastPanel, Verdict, VerdictLabel, judgeLabel
 
 SAMPLE_EVIDENCE = "Three signed LOIs from target buyers would change this verdict."
@@ -122,6 +128,91 @@ class AppealCoachingTests(unittest.TestCase):
                 VerdictLabel.PASS,
             ],
         )
+
+
+class AppealCoachingPhase2Tests(unittest.TestCase):
+    def test_normalize_target_judges_keeps_panel_order(self):
+        self.assertEqual(
+            normalize_target_judges(["customer", "vc", "unknown"]),
+            ("vc", "customer"),
+        )
+
+    def test_evidence_outcome_uses_score_delta(self):
+        original = _verdict(
+            judgeLabel.VC,
+            verdict=VerdictLabel.CONDITIONAL,
+            score=4,
+            key_concern="No LOIs yet.",
+            evidence=SAMPLE_EVIDENCE,
+        )
+        raised = original.model_copy(update={"score": 6})
+        unchanged = original.model_copy(update={"score": 4})
+        self.assertEqual(appeal_evidence_outcome(original, raised), "Evidence met")
+        self.assertEqual(appeal_evidence_outcome(original, unchanged), "Not met")
+
+    def test_evidence_outcome_for_pass_and_negative_delta(self):
+        passing = _verdict(
+            judgeLabel.VC,
+            verdict=VerdictLabel.PASS,
+            score=8,
+            key_concern="Minor scale risk.",
+        )
+        self.assertEqual(
+            appeal_evidence_outcome(passing, passing.model_copy(update={"score": 8})),
+            "Already passing",
+        )
+        lowered = passing.model_copy(update={"score": 7})
+        self.assertEqual(appeal_evidence_outcome(passing, lowered), "Not met")
+
+    def test_appeal_judge_outcomes_include_targeting(self):
+        baseline = RoastPanel(
+            verdicts=[
+                _verdict(
+                    judgeLabel.VC,
+                    verdict=VerdictLabel.CONDITIONAL,
+                    score=4,
+                    key_concern="No LOIs yet.",
+                    evidence=SAMPLE_EVIDENCE,
+                ),
+                _verdict(
+                    judgeLabel.ENGINEER,
+                    verdict=VerdictLabel.FAIL,
+                    score=2,
+                    key_concern="No technical moat.",
+                ),
+                _verdict(
+                    judgeLabel.PM,
+                    verdict=VerdictLabel.CONDITIONAL,
+                    score=5,
+                    key_concern="Unclear wedge.",
+                ),
+                _verdict(
+                    judgeLabel.CUSTOMER,
+                    verdict=VerdictLabel.FAIL,
+                    score=3,
+                    key_concern="No buyer proof.",
+                ),
+                _verdict(
+                    judgeLabel.COMPETITOR,
+                    verdict=VerdictLabel.CONDITIONAL,
+                    score=4,
+                    key_concern="Easy to copy.",
+                ),
+            ]
+        )
+        revised = baseline.model_copy(
+            update={
+                "verdicts": [
+                    baseline.verdicts[0].model_copy(update={"score": 6}),
+                    *baseline.verdicts[1:],
+                ]
+            }
+        )
+        outcomes = appeal_judge_outcomes(baseline, revised, ("vc",))
+        vc_outcome = next(item for item in outcomes if item.judge == "vc")
+        self.assertTrue(vc_outcome.targeted)
+        self.assertEqual(vc_outcome.outcome, "Evidence met")
+        self.assertEqual(vc_outcome.evidence_ask, SAMPLE_EVIDENCE)
 
 
 if __name__ == "__main__":

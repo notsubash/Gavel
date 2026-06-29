@@ -27,6 +27,7 @@ import { SourcesPanel } from "./sources-panel";
 import { ScoreRadar } from "./score-radar";
 import { VerdictCard } from "./verdict-card";
 import { VerdictTallyBar } from "./verdict-tally";
+import { assessRevoteOutputQuality } from "./verdict-quality";
 
 function isTerminalStatus(status: RunStatus): boolean {
   return status === "completed" || status === "failed" || status === "cancelled";
@@ -133,6 +134,12 @@ function RunSheetContent({
     (verdict): verdict is Verdict => verdict !== undefined,
   );
   const hasRevote = Object.keys(stream.revoteBaseline).length > 0;
+  const revoteQuality = hasRevote
+    ? assessRevoteOutputQuality(
+        stream.revoteBaseline,
+        revealedVerdicts,
+      )
+    : null;
   const showDecisionCard = Boolean(stream.synthesis || stream.structuredSynthesis);
 
   return (
@@ -235,6 +242,21 @@ function RunSheetContent({
             <p className="mt-4 max-w-prose font-sans text-sm text-ink-muted">
               Delta badges compare each judge&apos;s current score to their initial roast verdict
               after the post-debate re-vote.
+            </p>
+          )}
+          {revoteQuality?.convergenceNote && !revoteQuality.lowConfidence && (
+            <p className="mt-3 max-w-prose rounded-md border border-rule-soft bg-paper-2 px-4 py-3 font-sans text-sm text-ink-muted">
+              {revoteQuality.convergenceNote}
+            </p>
+          )}
+          {revoteQuality?.lowConfidence && (
+            <p className="mt-3 max-w-prose rounded-md border border-amber-200 bg-amber-50 px-4 py-3 font-sans text-sm text-amber-950">
+              {revoteQuality.reasons.join(" ")}
+            </p>
+          )}
+          {!revoteQuality?.scoresMoved && hasRevote && (
+            <p className="mt-3 max-w-prose font-sans text-sm text-ink-muted">
+              No judge changed their score after the debate.
             </p>
           )}
         </section>

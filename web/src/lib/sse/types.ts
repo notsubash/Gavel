@@ -57,6 +57,8 @@ export interface RunMetrics {
   model_runtime: "local" | "deepseek";
   judge_calls: CallMetric[];
   debate_calls: CallMetric[];
+  revote_seconds?: number;
+  revote_calls?: CallMetric[];
 }
 
 export interface CallMetric {

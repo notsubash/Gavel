@@ -9,6 +9,7 @@ from pydantic import ValidationError
 import streamlit as st
 
 from appeal.service import run_appeal
+from verification import assess_revote_quality
 from config import get_settings
 from debate.revote import appeal_baseline_panel, roast_panel_from_state_verdicts, score_change_reason
 from idea_context import build_startup_idea_context, idea_display_summary
@@ -420,6 +421,29 @@ if roast_panel is not None:
 if post_debate_panel is not None and roast_panel is not None:
     st.subheader("Post-Debate Re-Vote")
     st.caption("Scores after the panel heard the full debate. Deltas compare to the initial roast.")
+    revote_quality = assess_revote_quality(
+        debate_result.get("initial_verdicts") if debate_result else None,
+        debate_result.get("revised_verdicts") if debate_result else None,
+        max_delta=get_settings().max_revote_score_delta,
+    )
+    if revote_quality.get("revote_directional_pile_on"):
+        direction = revote_quality.get("revote_pile_on_direction", "down")
+        st.warning(
+            f"Possible debate pile-on — three or more judges moved scores {direction} after the debate. "
+            "Treat deltas as discussion-driven, not independent re-scoring."
+        )
+    if revote_quality.get("revote_herded_deltas"):
+        st.warning(
+            "Possible score herding — four or more judges moved by the same amount. "
+            "Treat deltas as discussion-driven, not independent re-scoring."
+        )
+    if revote_quality.get("revote_degenerate_panel"):
+        st.warning(
+            "Revised panel scores are suspiciously uniform. Re-vote output may not reflect "
+            "independent judge perspectives."
+        )
+    if not revote_quality.get("revote_scores_moved"):
+        st.info("No judge changed their score after the debate.")
     revote_cols = st.columns(5)
     for i, revised in enumerate(post_debate_panel.verdicts):
         original = next(
@@ -435,7 +459,7 @@ if post_debate_panel is not None and roast_panel is not None:
             )
             st.caption(f"was {original.score}/10 · {revised.verdict.value}")
             reason = score_change_reason(original, revised)
-            if reason:
+            if reason and delta:
                 write_labelled_plain("Why it moved:", reason)
             write_roast_quote(revised.roast)
     st.divider()

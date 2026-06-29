@@ -6,6 +6,7 @@ from typing import Any
 from langchain_core.messages import HumanMessage
 
 from config import JUDGE_ORDER
+from config import get_settings
 from debate.graph import build_debate_graph
 from events import (
     DebateCompleted,
@@ -58,7 +59,13 @@ def stream_debate(
     | DebateCompleted
 ]:
     """Stream debate graph node updates as frontend-agnostic events."""
-    debate_graph = build_debate_graph(model, metrics=metrics, abort_check=abort_check)
+    enable_revote = get_settings().enable_revote
+    debate_graph = build_debate_graph(
+        model,
+        metrics=metrics,
+        abort_check=abort_check,
+        enable_revote=enable_revote,
+    )
     initial_state = _initial_state(startup_idea, roast_panel, max_rounds)
     resolved_config = run_config or build_run_config(
         "debate-graph",

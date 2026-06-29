@@ -119,6 +119,20 @@ class RunMetricsCollectorTest(unittest.TestCase):
         self.assertEqual(snapshot["debate_calls"][0]["label"], "engineer")
         self.assertGreater(snapshot["estimated_cost_usd"], 0.0)
 
+    def test_snapshot_splits_revote_calls(self):
+        collector = RunMetricsCollector(model_runtime="local")
+        collector.record_debate("engineer", seconds=2.0, prompt_text="debate", output_text="msg")
+        collector.record_debate("revote-vc", seconds=1.5, prompt_text="revote", output_text="verdict")
+
+        snapshot = collector.snapshot(roast_seconds=0.0, debate_seconds=3.5, total_seconds=3.5)
+
+        self.assertEqual(len(snapshot["debate_calls"]), 1)
+        self.assertEqual(snapshot["debate_calls"][0]["label"], "engineer")
+        self.assertEqual(len(snapshot["revote_calls"]), 1)
+        self.assertEqual(snapshot["revote_calls"][0]["label"], "revote-vc")
+        self.assertEqual(snapshot["revote_seconds"], 1.5)
+        self.assertIn("Re-vote 1.5s", format_run_metrics_footer(snapshot))
+
 
 class PhaseTimerTest(unittest.TestCase):
     def test_tracks_roast_and_debate_seconds(self):

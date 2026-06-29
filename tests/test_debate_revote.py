@@ -148,6 +148,20 @@ class DebateRevoteTest(unittest.TestCase):
         self.assertEqual(emitted[0]["type"], "revote_started")
         self.assertTrue(all(item["type"] == "revote_judge" for item in emitted[1:]))
 
+    def test_invoke_judge_on_revote_rejects_out_of_bounds_score_swing(self):
+        debate_messages = [{"speaker": "engineer", "round": 1, "content": "Reliability risk."}]
+        bad = _verdict("vc", score=9, evidence=DEBATE_EVIDENCE)
+        model = FakeRevoteModel([bad, bad, bad])
+        with self.assertRaises(ValueError):
+            invoke_judge_on_revote(
+                model,
+                "vc",
+                "AI privacy summarizer.",
+                _panel(),
+                debate_messages,
+            )
+        self.assertEqual(model.structured_model.calls, 3)
+
     def test_invoke_judge_on_revote_rejects_score_change_without_new_evidence(self):
         debate_messages = [{"speaker": "engineer", "round": 1, "content": "Reliability risk."}]
         bad = _verdict("vc", score=5, evidence=ORIGINAL_EVIDENCE)
@@ -195,10 +209,10 @@ class DebateRevoteTest(unittest.TestCase):
         collector = RunMetricsCollector(model_runtime="local")
         run_revote(model, "AI privacy summarizer.", _panel(), debate_messages, metrics=collector)
         snapshot = collector.snapshot(roast_seconds=0.0, debate_seconds=1.0, total_seconds=1.0)
-        self.assertEqual(len(snapshot["debate_calls"]), 5)
+        self.assertEqual(len(snapshot["revote_calls"]), 5)
         self.assertEqual(snapshot["judge_calls"], [])
         self.assertTrue(
-            all(call["label"].startswith("revote-") for call in snapshot["debate_calls"])
+            all(call["label"].startswith("revote-") for call in snapshot["revote_calls"])
         )
 
 

@@ -187,6 +187,8 @@ function applyRevoteFromPanels(
     judges[revised.judge] = { status: "revealed", verdict: revised };
     if (original && revised.score !== original.score && revised.evidence_to_change_verdict) {
       revoteChangeReasons[revised.judge] = revised.evidence_to_change_verdict;
+    } else if (original && revised.score === original.score) {
+      delete revoteChangeReasons[revised.judge];
     }
   }
   return { ...state, judges, revoteBaseline, revoteChangeReasons };
@@ -375,12 +377,15 @@ export function runReducer(state: RunState, envelope: ApiEventEnvelope): RunStat
       const judge = payload.judge;
       const verdict = parseVerdict(payload.verdict);
       const changeReason = payload.change_reason;
+      const originalScore = payload.original_score;
       if (typeof judge !== "string" || !isJudgeId(judge) || !verdict) return next;
       const judges = { ...next.judges, [judge]: { status: "revealed", verdict } };
-      const revoteChangeReasons =
-        typeof changeReason === "string" && changeReason.trim()
-          ? { ...next.revoteChangeReasons, [judge]: changeReason }
-          : next.revoteChangeReasons;
+      const revoteChangeReasons = { ...next.revoteChangeReasons };
+      if (typeof originalScore === "number" && verdict.score === originalScore) {
+        delete revoteChangeReasons[judge];
+      } else if (typeof changeReason === "string" && changeReason.trim()) {
+        revoteChangeReasons[judge] = changeReason;
+      }
       return {
         ...next,
         judges,

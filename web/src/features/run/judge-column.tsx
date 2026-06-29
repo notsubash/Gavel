@@ -123,7 +123,7 @@ export function JudgeColumn({
         </p>
       )}
 
-      {scoreChangeReason && (
+      {scoreChangeReason && scoreDelta != null && scoreDelta !== 0 && (
         <p className="mt-3 font-sans text-sm text-ink-muted">
           <span className="font-semibold text-ink">Why it moved:</span> {scoreChangeReason}
         </p>

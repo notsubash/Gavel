@@ -212,6 +212,34 @@ test("revote events update judges and preserve baseline for deltas", () => {
   );
 });
 
+test("revote_judge_completed clears change reason when score is unchanged", () => {
+  const events = [
+    env(0, "stream_connected", { status: "connected" }),
+    env(1, "judge_verdict_completed", {
+      judge: "engineer",
+      verdict: { ...VERDICT, judge: "engineer", score: 5 },
+      completed: 1,
+      total: 5,
+    }),
+    env(2, "revote_started", { total: 5 }),
+    env(3, "revote_judge_completed", {
+      judge: "engineer",
+      verdict: {
+        ...VERDICT,
+        judge: "engineer",
+        score: 5,
+        evidence_to_change_verdict: "Would need a signed pilot contract.",
+      },
+      original_score: 5,
+      completed: 1,
+      total: 5,
+    }),
+  ];
+  const state = reduceEnvelopes(events);
+  assert.equal(state.judges.engineer.verdict?.score, 5);
+  assert.equal(state.revoteChangeReasons.engineer, undefined);
+});
+
 test("debate_completed replay restores revote state without live revote events", () => {
   const initial = { ...VERDICT };
   const revised = {

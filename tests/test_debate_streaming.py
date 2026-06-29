@@ -88,6 +88,32 @@ class InvokeOnlyModel:
         return FakeStructuredModel()
 
 
+class FlakyStreamModel:
+    """Fails once mid-stream on the engineer turn, then succeeds on retry."""
+
+    def __init__(self):
+        self.stream_calls = 0
+        self.invoke_calls = 0
+
+    def stream(self, messages, **_kwargs):
+        self.stream_calls += 1
+        if self.stream_calls == 2:
+            yield FakeChunk("partial ")
+            raise RemoteProtocolError("peer closed connection without complete body")
+        yield FakeChunk(f"Reply {self.stream_calls}.")
+
+    def invoke(self, messages, **_kwargs):
+        self.invoke_calls += 1
+        return FakeChunk("Invoke fallback.")
+
+    def with_structured_output(self, schema):
+        return FakeStructuredModel()
+
+
+class RemoteProtocolError(RuntimeError):
+    pass
+
+
 def _panel() -> RoastPanel:
     judges = ["vc", "engineer", "pm", "customer", "competitor"]
     return RoastPanel(
@@ -247,6 +273,24 @@ class TestDebateStreaming(unittest.TestCase):
             self.assertLess(events.index(event), completed_idx)
             if event.verdict.score != event.original_score:
                 self.assertTrue(event.verdict.evidence_to_change_verdict)
+
+    def test_stream_recovers_from_transient_provider_disconnect(self):
+        model = FlakyStreamModel()
+        events = list(
+            stream_debate(
+                model,
+                "AI tool that summarizes privacy policies.",
+                _panel(),
+                max_rounds=1,
+            )
+        )
+        engineer_message = next(
+            e
+            for e in events
+            if isinstance(e, DebateMessagePublished) and e.speaker == "engineer"
+        )
+        self.assertEqual(engineer_message.content, "Reply 3.")
+        self.assertGreaterEqual(model.stream_calls, 3)
 
 
 if __name__ == "__main__":

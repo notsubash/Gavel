@@ -74,6 +74,26 @@ def check_required_sentence(value: str | None, field_name: str) -> Check | None:
     return None
 
 
+def check_score_change_bounded(
+    original: Verdict,
+    revised: Verdict,
+    *,
+    max_delta: int,
+) -> Check | None:
+    if original.score == revised.score:
+        return None
+    delta = abs(revised.score - original.score)
+    if delta > max_delta:
+        return Check(
+            code="score_change_out_of_bounds",
+            message=(
+                f"Score moved {delta} points (max {max_delta} per re-vote); "
+                "revise by smaller steps unless debate evidence is overwhelming"
+            ),
+        )
+    return None
+
+
 def check_score_change_justification(original: Verdict, revised: Verdict) -> Check | None:
     if original.score == revised.score:
         return None

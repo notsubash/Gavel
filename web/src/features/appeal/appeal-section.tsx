@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { AppealResponse } from "@/lib/api/types-helpers";
-import { appealJudgeOutcomes } from "@/lib/appeal/coaching";
+import { appealBaselineVerdicts, appealJudgeOutcomes } from "@/lib/appeal/coaching";
 import type { AppealResult, JudgeId, Verdict } from "@/lib/sse/types";
 import { JUDGE_ORDER } from "@/lib/sse/types";
 
@@ -68,25 +68,35 @@ export function AppealSection({
   completed,
   baselineVerdicts,
   streamAppeal,
+  onAppealChange,
 }: {
   runId: string;
   completed: boolean;
   baselineVerdicts: Verdict[];
   streamAppeal: AppealResult | null;
+  onAppealChange?: (result: AppealResult) => void;
 }) {
   const [localAppeal, setLocalAppeal] = useState<AppealResult | null>(streamAppeal);
   const coachingBaseline = useMemo(
-    () => baselineVerdicts.filter((verdict) => verdict.score > 0 || verdict.roast),
+    () => appealBaselineVerdicts(baselineVerdicts),
     [baselineVerdicts],
   );
 
   useEffect(() => {
-    if (streamAppeal) setLocalAppeal(streamAppeal);
-  }, [streamAppeal]);
+    if (streamAppeal) {
+      setLocalAppeal(streamAppeal);
+      onAppealChange?.(streamAppeal);
+    }
+  }, [streamAppeal, onAppealChange]);
 
-  const onSuccess = useCallback((result: AppealResponse) => {
-    setLocalAppeal(responseToAppeal(result));
-  }, []);
+  const onSuccess = useCallback(
+    (result: AppealResponse) => {
+      const appeal = responseToAppeal(result);
+      setLocalAppeal(appeal);
+      onAppealChange?.(appeal);
+    },
+    [onAppealChange],
+  );
 
   if (!completed) return null;
 

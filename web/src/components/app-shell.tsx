@@ -34,6 +34,12 @@ export function AppHeader() {
           >
             History
           </Link>
+          <Link
+            href="/settings"
+            className="font-sans text-sm font-semibold text-ink-muted underline-offset-4 hover:text-ink hover:underline"
+          >
+            Settings
+          </Link>
           <Link href="/" className={heatCtaClass}>
             Roast an idea
           </Link>

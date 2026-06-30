@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  collectRecommendedFixes,
+  deriveNextActions,
   parseDecisionVerdictProse,
   parseStructuredSynthesis,
   topPriorities,
@@ -35,6 +37,69 @@ test("topPriorities prefers structured risks", () => {
   const parsed = parseStructuredSynthesis(STRUCTURED);
   assert.ok(parsed);
   assert.deepEqual(topPriorities(parsed, ["fallback fix"]), ["No buyer proof yet.", "Long sales cycles."]);
+});
+
+test("deriveNextActions falls back to judge fixes without structured synthesis", () => {
+  const verdicts = [
+    {
+      judge: "vc",
+      verdict: "FAIL",
+      score: 3,
+      recommended_fix: "Interview ten buyers.",
+    },
+    {
+      judge: "pm",
+      verdict: "CONDITIONAL",
+      score: 5,
+      recommended_fix: "Narrow the wedge.",
+    },
+  ];
+  assert.deepEqual(deriveNextActions(null, null, verdicts), [
+    "Interview ten buyers.",
+    "Narrow the wedge.",
+  ]);
+});
+
+test("deriveNextActions prefers synthesis risks over fixes", () => {
+  const parsed = parseStructuredSynthesis(STRUCTURED);
+  assert.ok(parsed);
+  assert.deepEqual(
+    deriveNextActions(null, STRUCTURED, [
+      { judge: "vc", verdict: "FAIL", score: 2, recommended_fix: "Ignored when risks exist." },
+    ]),
+    ["No buyer proof yet.", "Long sales cycles."],
+  );
+});
+
+test("collectRecommendedFixes ranks FAIL before PASS", () => {
+  const fixes = collectRecommendedFixes([
+    { verdict: "PASS", score: 8, recommended_fix: "Ship faster." },
+    { verdict: "FAIL", score: 2, recommended_fix: "Prove demand." },
+  ]);
+  assert.deepEqual(fixes, ["Prove demand.", "Ship faster."]);
+});
+
+test("deriveNextActions caps at three risks", () => {
+  const structured = {
+    ...STRUCTURED,
+    top_risks: ["Risk A.", "Risk B.", "Risk C.", "Risk D."],
+  };
+  assert.deepEqual(
+    deriveNextActions(null, structured, []),
+    ["Risk A.", "Risk B.", "Risk C."],
+  );
+});
+
+test("deriveNextActions dedupes identical fixes", () => {
+  const sameFix = "Interview ten buyers.";
+  assert.deepEqual(
+    deriveNextActions(null, null, [
+      { judge: "vc", verdict: "FAIL", score: 2, recommended_fix: sameFix },
+      { judge: "pm", verdict: "FAIL", score: 3, recommended_fix: sameFix },
+      { judge: "customer", verdict: "CONDITIONAL", score: 5, recommended_fix: "Other fix." },
+    ]),
+    [sameFix, "Other fix."],
+  );
 });
 
 test("assessVerdictOutputQuality flags degenerate fixes", () => {

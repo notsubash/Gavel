@@ -124,6 +124,11 @@ export function appealCoachingVerdicts(verdicts: Verdict[]): Verdict[] {
   });
 }
 
+/** Verdicts with enough data to coach or appeal against. */
+export function appealBaselineVerdicts(verdicts: Verdict[]): Verdict[] {
+  return verdicts.filter((verdict) => verdict.score > 0 || Boolean(verdict.roast));
+}
+
 export interface AppealCoachingItem {
   judge: JudgeId;
   hint: string;

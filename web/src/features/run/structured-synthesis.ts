@@ -103,6 +103,10 @@ export function topPriorities(
   if (synthesis.top_risks.length > 0) {
     return synthesis.top_risks.slice(0, limit);
   }
+  return fixesToPriorities(fixes, limit);
+}
+
+function fixesToPriorities(fixes: string[], limit: number): string[] {
   const seen = new Set<string>();
   const priorities: string[] = [];
   for (const fix of fixes) {
@@ -114,3 +118,39 @@ export function topPriorities(
   }
   return priorities;
 }
+
+/** Judge fixes ranked FAIL → CONDITIONAL → PASS, lowest score first within tier. */
+export function collectRecommendedFixes(
+  verdicts: Array<{ verdict: string; score: number; recommended_fix?: string | null }>,
+): string[] {
+  const rank: Record<string, number> = { FAIL: 0, CONDITIONAL: 1, PASS: 2 };
+  return [...verdicts]
+    .sort((a, b) => {
+      const rankA = rank[a.verdict] ?? 9;
+      const rankB = rank[b.verdict] ?? 9;
+      if (rankA !== rankB) return rankA - rankB;
+      return a.score - b.score;
+    })
+    .map((verdict) => verdict.recommended_fix?.trim())
+    .filter((fix): fix is string => Boolean(fix));
+}
+
+const NEXT_ACTION_SLOTS = 3;
+
+/** Top founder actions from synthesis risks or judge recommended fixes. */
+export function deriveNextActions(
+  synthesisProse: string | null,
+  structuredSynthesis: unknown,
+  verdicts: Array<{ verdict: string; score: number; recommended_fix?: string | null }>,
+  limit = NEXT_ACTION_SLOTS,
+): string[] {
+  const structured =
+    parseStructuredSynthesis(structuredSynthesis) ??
+    (synthesisProse ? parseDecisionVerdictProse(synthesisProse) : null);
+  if (structured) {
+    return topPriorities(structured, collectRecommendedFixes(verdicts), limit);
+  }
+  return fixesToPriorities(collectRecommendedFixes(verdicts), limit);
+}
+
+export { NEXT_ACTION_SLOTS };

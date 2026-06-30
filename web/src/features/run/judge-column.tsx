@@ -19,6 +19,7 @@ export function JudgeColumnSkeleton() {
       <Skeleton className="mt-2 h-3 w-full" />
       <Skeleton className="mt-6 h-16 w-full" />
       <Skeleton className="mt-4 h-20 w-full" />
+      <Skeleton className="mt-3 h-12 w-full" />
       <Skeleton className="mt-4 h-10 w-28" />
     </article>
   );
@@ -88,6 +89,14 @@ export function JudgeColumn({
   const { verdict } = view;
   if (!verdict) return <JudgeColumnSkeleton />;
 
+  const evidenceAsk = verdict.evidence_to_change_verdict?.trim();
+  const scoreChangeReasonTrimmed = scoreChangeReason?.trim();
+  const showScoreChangeReason =
+    scoreChangeReasonTrimmed &&
+    scoreDelta != null &&
+    scoreDelta !== 0 &&
+    scoreChangeReasonTrimmed !== evidenceAsk;
+
   return (
     <article
       className="flex flex-col border-2 border-ink bg-card p-4 shadow-soft"
@@ -123,9 +132,16 @@ export function JudgeColumn({
         </p>
       )}
 
-      {scoreChangeReason && scoreDelta != null && scoreDelta !== 0 && (
+      <p className="mt-3 font-sans text-sm text-ink-muted">
+        <span className="font-semibold text-ink">Evidence ask:</span>{" "}
+        {evidenceAsk || (
+          <span className="text-ink-subtle italic">No explicit ask provided</span>
+        )}
+      </p>
+
+      {showScoreChangeReason && (
         <p className="mt-3 font-sans text-sm text-ink-muted">
-          <span className="font-semibold text-ink">Why it moved:</span> {scoreChangeReason}
+          <span className="font-semibold text-ink">Why it moved:</span> {scoreChangeReasonTrimmed}
         </p>
       )}
 

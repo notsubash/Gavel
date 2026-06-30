@@ -144,12 +144,12 @@ export interface AppealCoachingAssessment {
   degenerateAsks: boolean;
 }
 
-export function assessAppealCoaching(verdicts: Verdict[]): AppealCoachingAssessment {
-  const ordered = appealCoachingVerdicts(verdicts);
+/** Judges whose normalized evidence ask collides with another panel member. */
+export function findDuplicateEvidenceJudges(verdicts: Verdict[]): Set<JudgeId> {
   const duplicateJudges = new Set<JudgeId>();
   const seen = new Map<string, JudgeId>();
 
-  for (const verdict of ordered) {
+  for (const verdict of verdicts) {
     const normalized = normalizeSentence(appealCoachingHint(verdict));
     if (!normalized) continue;
     const prior = seen.get(normalized);
@@ -160,6 +160,12 @@ export function assessAppealCoaching(verdicts: Verdict[]): AppealCoachingAssessm
       seen.set(normalized, verdict.judge);
     }
   }
+  return duplicateJudges;
+}
+
+export function assessAppealCoaching(verdicts: Verdict[]): AppealCoachingAssessment {
+  const ordered = appealCoachingVerdicts(verdicts);
+  const duplicateJudges = findDuplicateEvidenceJudges(ordered);
 
   const items: AppealCoachingItem[] = ordered.map((verdict) => ({
     judge: verdict.judge,

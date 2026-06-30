@@ -7,7 +7,7 @@ import { AlertTriangle, CheckCircle2, ChevronDown, XCircle } from "lucide-react"
 
 import { EditorialContainer } from "@/components/app-shell";
 import { resolveExportIdea } from "@/lib/format/run-idea";
-import { appealBaselineVerdicts } from "@/lib/appeal/coaching";
+import { appealBaselineVerdicts, findDuplicateEvidenceJudges } from "@/lib/appeal/coaching";
 import { ApiError } from "@/lib/api/client";
 import { getRunStatus } from "@/lib/api/runs";
 import { heatCtaClass } from "@/lib/cta-classes";
@@ -163,6 +163,10 @@ function RunSheetContent({
     () => appealBaselineVerdicts(revealedVerdicts),
     [revealedVerdicts],
   );
+  const duplicateEvidenceJudges = useMemo(
+    () => findDuplicateEvidenceJudges(revealedVerdicts),
+    [revealedVerdicts],
+  );
   const appealLink = useMemo(() => {
     if (status !== "completed") return null;
     if (appealResult) {
@@ -207,7 +211,7 @@ function RunSheetContent({
         </h2>
         <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {showJudgeSkeletons
-            ? JUDGE_ORDER.map((id) => <JudgeColumnSkeleton key={id} />)
+            ? JUDGE_ORDER.map((id) => <JudgeColumnSkeleton key={id} judgeId={id} />)
             : JUDGE_ORDER.map((id) => {
                 const baseline = stream.revoteBaseline[id];
                 const current = stream.judges[id].verdict;
@@ -221,6 +225,7 @@ function RunSheetContent({
                     animateStamp={stream.judges[id].status === "revealed"}
                     scoreDelta={scoreDelta}
                     scoreChangeReason={stream.revoteChangeReasons[id]}
+                    evidenceAskCollides={duplicateEvidenceJudges.has(id)}
                   />
                 );
               })}

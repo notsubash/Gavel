@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Iterator
 import concurrent.futures
+import logging
 
 from config import JUDGE_ORDER
 from events import JudgesDispatched, JudgeVerdictCompleted, RoastPanelCompleted
@@ -15,7 +16,38 @@ from judges.service import (
 from observability import build_run_config, idea_fingerprint, traceable
 from observability.metrics import RunMetricsCollector
 from run_control import check_abort
-from verification import assess_lens_uniqueness
+from verification import JUDGE_ROLE_NAMES, assess_lens_uniqueness
+
+logger = logging.getLogger(__name__)
+
+# ponytail: weak local models often herd; two retries before surfacing a warning.
+MAX_PANEL_RETRIES = 2
+
+
+def _panel_retry_suffixes(verdicts: list[Verdict]) -> list[str]:
+    suffixes: list[str] = []
+    if is_degenerate_panel(verdicts):
+        suffixes.append(DEGENERATE_PANEL_RETRY_SUFFIX)
+    if not assess_lens_uniqueness(verdicts).get("lens_uniqueness_passed", True):
+        suffixes.append(LENS_OVERLAP_RETRY_SUFFIX)
+    return suffixes
+
+
+def _judge_retry_suffix(
+    judge: str,
+    *,
+    base_suffixes: list[str],
+    uniform_score: int | None,
+    uniform_verdict: str | None,
+) -> str:
+    parts = list(base_suffixes)
+    if uniform_score is not None and uniform_verdict is not None:
+        parts.append(
+            f"As {JUDGE_ROLE_NAMES[judge]}, score from your rubric only. The prior panel was "
+            f"uniformly {uniform_verdict}/{uniform_score}; your score should reflect "
+            f"{judge}-specific criteria and usually differ from other judges."
+        )
+    return "\n\n".join(parts)
 
 
 def _run_judge_panel(
@@ -26,6 +58,7 @@ def _run_judge_panel(
     run_config: dict,
     *,
     system_suffix: str | None = None,
+    judge_suffix: Callable[[str], str | None] | None = None,
     metrics: RunMetricsCollector | None = None,
     abort_check: Callable[[], str | None] | None = None,
 ) -> dict[str, Verdict]:
@@ -40,7 +73,7 @@ def _run_judge_panel(
                 memory_context,
                 research_context,
                 run_config,
-                system_suffix=system_suffix,
+                system_suffix=judge_suffix(judge) if judge_suffix else system_suffix,
                 metrics=metrics,
             ): judge
             for judge in JUDGE_ORDER
@@ -85,39 +118,57 @@ def stream_roast_panel(
     )
     check_abort(abort_check)
     verdicts = [results[judge] for judge in JUDGE_ORDER]
-    retry_suffixes: list[str] = []
-    if is_degenerate_panel(verdicts):
-        retry_suffixes.append(DEGENERATE_PANEL_RETRY_SUFFIX)
-    if not assess_lens_uniqueness(verdicts).get("lens_uniqueness_passed", True):
-        retry_suffixes.append(LENS_OVERLAP_RETRY_SUFFIX)
 
-    if retry_suffixes:
-        # ponytail: one retry with anti-collusion / anti-overlap suffix; fail closed if still uniform.
+    for _ in range(MAX_PANEL_RETRIES):
+        retry_suffixes = _panel_retry_suffixes(verdicts)
+        if not retry_suffixes:
+            break
         if metrics is not None:
             metrics.discard_phase("roast")
+        degenerate = is_degenerate_panel(verdicts)
+        uniform_score = verdicts[0].score if degenerate else None
+        uniform_verdict = verdicts[0].verdict.value if degenerate else None
+        suffix_factory = (
+            (lambda judge, suffixes=retry_suffixes, score=uniform_score, verdict=uniform_verdict: _judge_retry_suffix(
+                judge,
+                base_suffixes=suffixes,
+                uniform_score=score,
+                uniform_verdict=verdict,
+            ))
+            if degenerate
+            else None
+        )
         results = _run_judge_panel(
             model,
             startup_idea,
             memory_context,
             research_context,
             resolved_config,
-            system_suffix="\n\n".join(retry_suffixes),
+            system_suffix="\n\n".join(retry_suffixes) if not degenerate else None,
+            judge_suffix=suffix_factory,
             metrics=metrics,
             abort_check=abort_check,
         )
         check_abort(abort_check)
         verdicts = [results[judge] for judge in JUDGE_ORDER]
-        if is_degenerate_panel(verdicts):
-            raise ValueError(
-                "Roast panel remained degenerate after retry; refusing suspicious uniform scores"
-            )
-        lens_quality = assess_lens_uniqueness(verdicts)
-        if not lens_quality.get("lens_legacy", True) and not lens_quality.get(
-            "lens_uniqueness_passed", True
-        ):
-            raise ValueError(
-                "Roast panel remained overlapping after retry; refusing indistinct lens outputs"
-            )
+
+    roast_degenerate_panel = is_degenerate_panel(verdicts)
+    if roast_degenerate_panel:
+        logger.warning(
+            "Roast panel remained degenerate after %d retries; continuing with low-confidence flag",
+            MAX_PANEL_RETRIES,
+        )
+
+    lens_quality = assess_lens_uniqueness(verdicts)
+    # ponytail: uniform scores already flag low confidence; don't also kill the run on overlap.
+    if (
+        not roast_degenerate_panel
+        and not lens_quality.get("lens_legacy", True)
+        and not lens_quality.get("lens_uniqueness_passed", True)
+    ):
+        raise ValueError(
+            "Roast panel remained overlapping after retry; refusing indistinct lens outputs"
+        )
 
     for completed, judge in enumerate(JUDGE_ORDER, start=1):
         yield JudgeVerdictCompleted(
@@ -128,7 +179,7 @@ def stream_roast_panel(
         )
 
     panel = RoastPanel(verdicts=verdicts)
-    yield RoastPanelCompleted(panel=panel)
+    yield RoastPanelCompleted(panel=panel, degenerate_panel=roast_degenerate_panel)
 
 
 @traceable(name="run_roast_panel", run_type="chain", tags=["phase:roast"])

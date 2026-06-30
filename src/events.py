@@ -31,6 +31,7 @@ class JudgeVerdictCompleted:
 @dataclass(frozen=True)
 class RoastPanelCompleted:
     panel: RoastPanel
+    degenerate_panel: bool = False
 
 
 @dataclass(frozen=True)

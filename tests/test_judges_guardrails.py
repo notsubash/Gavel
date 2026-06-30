@@ -351,7 +351,8 @@ class DegeneratePanelRetryTest(unittest.TestCase):
 
         retry_kwargs = run_panel_mock.call_args_list[1].kwargs
 
-        self.assertEqual(retry_kwargs["system_suffix"], DEGENERATE_PANEL_RETRY_SUFFIX)
+        self.assertIsNone(retry_kwargs["system_suffix"])
+        self.assertIn(DEGENERATE_PANEL_RETRY_SUFFIX, retry_kwargs["judge_suffix"]("vc"))
 
     @patch("judges.panel._run_judge_panel")
     def test_stream_roast_panel_reruns_once_on_lens_overlap(self, run_panel_mock):
@@ -424,8 +425,9 @@ class DegeneratePanelRetryTest(unittest.TestCase):
         list(stream_roast_panel(model=object(), startup_idea="uniform overlap"))
 
         retry_kwargs = run_panel_mock.call_args_list[1].kwargs
-        self.assertIn(DEGENERATE_PANEL_RETRY_SUFFIX, retry_kwargs["system_suffix"])
-        self.assertIn(LENS_OVERLAP_RETRY_SUFFIX, retry_kwargs["system_suffix"])
+        retry_suffix = retry_kwargs["judge_suffix"]("vc")
+        self.assertIn(DEGENERATE_PANEL_RETRY_SUFFIX, retry_suffix)
+        self.assertIn(LENS_OVERLAP_RETRY_SUFFIX, retry_suffix)
 
     @patch("judges.panel._run_judge_panel")
     def test_stream_roast_panel_fails_closed_on_persistent_lens_overlap(self, run_panel_mock):
@@ -440,19 +442,23 @@ class DegeneratePanelRetryTest(unittest.TestCase):
             for judge in JUDGE_ORDER
         ]
         panel_map = {verdict.judge.value: verdict for verdict in overlapping}
-        run_panel_mock.side_effect = [panel_map, panel_map]
+        run_panel_mock.side_effect = [panel_map, panel_map, panel_map]
 
         with self.assertRaisesRegex(ValueError, "remained overlapping"):
             list(stream_roast_panel(model=object(), startup_idea="persistent overlap"))
 
     @patch("judges.panel._run_judge_panel")
-    def test_stream_roast_panel_fails_closed_on_persistent_uniform_panel(self, run_panel_mock):
+    def test_stream_roast_panel_surfaces_persistent_uniform_panel(self, run_panel_mock):
         uniform = {judge: _verdict(judge, verdict="PASS", score=10) for judge in JUDGE_ORDER}
 
-        run_panel_mock.side_effect = [uniform, uniform]
+        run_panel_mock.side_effect = [uniform, uniform, uniform]
 
-        with self.assertRaisesRegex(ValueError, "remained degenerate"):
-            list(stream_roast_panel(model=object(), startup_idea="uniform attack"))
+        events = list(stream_roast_panel(model=object(), startup_idea="uniform attack"))
+        panel_event = events[-1]
+
+        self.assertEqual(run_panel_mock.call_count, 3)
+        self.assertTrue(panel_event.degenerate_panel)
+        self.assertTrue(is_degenerate_panel(panel_event.panel.verdicts))
 
     @patch("judges.panel._run_judge_panel")
     def test_degenerate_panel_retry_does_not_double_count_metrics(self, run_panel_mock):

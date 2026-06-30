@@ -55,7 +55,10 @@ def pipeline_event_payload(event: PipelineEvent) -> dict[str, Any]:
             "total": event.total,
         }
     if isinstance(event, RoastPanelCompleted):
-        return {"panel": event.panel.model_dump(mode="json")}
+        return {
+            "panel": event.panel.model_dump(mode="json"),
+            "degenerate_panel": event.degenerate_panel,
+        }
     if isinstance(event, DebateRoundStarted):
         return {"round": event.round}
     if isinstance(event, DebateSpeakerThinking):

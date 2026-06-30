@@ -98,6 +98,17 @@ export function assessVerdictOutputQuality(
 ): VerdictOutputQuality {
   const reasons: string[] = [];
 
+  if (verdicts.length >= 2) {
+    const scores = verdicts.map((verdict) => verdict.score);
+    const labels = verdicts.map((verdict) => verdict.verdict);
+    const degeneratePanel =
+      scores.every((score) => score === scores[0]) &&
+      labels.every((label) => label === labels[0]);
+    if (degeneratePanel) {
+      reasons.push("Initial panel scores are suspiciously uniform.");
+    }
+  }
+
   if (verdicts.length > 0 && isDegenerateFixes(verdicts)) {
     reasons.push("Judges returned near-identical recommended fixes.");
   }

@@ -1,8 +1,15 @@
 import type { CreateRunRequest } from "@/lib/api/types-helpers";
+import type { AdvancedSettings } from "@/lib/settings/advanced-settings";
 
 import type { IdeaFormValues } from "./idea-form-schema";
 
-export function toCreateRunRequest(values: IdeaFormValues): CreateRunRequest {
+export function toCreateRunRequest(
+  values: IdeaFormValues,
+  runtime: Pick<
+    AdvancedSettings,
+    "model_runtime" | "max_debate_rounds" | "enable_web_search"
+  >,
+): CreateRunRequest {
   const competitors = (values.competitorsText ?? "")
     .split("\n")
     .map((line) => line.trim())
@@ -10,10 +17,10 @@ export function toCreateRunRequest(values: IdeaFormValues): CreateRunRequest {
 
   const request: CreateRunRequest = {
     idea: values.idea.trim(),
-    model_runtime: values.model_runtime,
+    model_runtime: runtime.model_runtime,
     execution_flow: "deterministic",
-    max_debate_rounds: values.max_debate_rounds,
-    enable_web_search: values.enable_web_search,
+    max_debate_rounds: runtime.max_debate_rounds,
+    enable_web_search: runtime.enable_web_search,
   };
 
   const targetCustomer = values.target_customer?.trim();

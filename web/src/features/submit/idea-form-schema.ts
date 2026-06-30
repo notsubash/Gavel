@@ -10,9 +10,6 @@ export const ideaFormSchema = z.object({
   pricing: z.string().optional(),
   traction: z.string().optional(),
   competitorsText: z.string().optional(),
-  model_runtime: z.enum(["local", "deepseek"]),
-  max_debate_rounds: z.number().int().min(1).max(5),
-  enable_web_search: z.boolean(),
 });
 
 export type IdeaFormValues = z.infer<typeof ideaFormSchema>;
@@ -23,9 +20,6 @@ export const ideaFormDefaults: IdeaFormValues = {
   pricing: "",
   traction: "",
   competitorsText: "",
-  model_runtime: "deepseek",
-  max_debate_rounds: 3,
-  enable_web_search: false,
 };
 
 export const IDEA_MAX_LENGTH = 8000;

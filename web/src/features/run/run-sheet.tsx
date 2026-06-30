@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2, ChevronDown, XCircle } from "lucide-react";
 
@@ -26,6 +26,8 @@ import { RunControls } from "./run-controls";
 import { collapsibleSummaryClass, RunContextGroup } from "./run-context-group";
 import { NextActionsStrip } from "./next-actions-strip";
 import { VerdictCard } from "./verdict-card";
+import { RUN_FOLD_ORDERS, type RunFoldSection } from "./run-fold-layout";
+import { useRunFoldVariant } from "./use-run-fold-variant";
 import { assessRevoteOutputQuality } from "./verdict-quality";
 
 function isTerminalStatus(status: RunStatus): boolean {
@@ -107,6 +109,7 @@ function RunSheetContent({
   refetchStatus,
   version,
   parentRunId,
+  initialFold,
 }: {
   runId: string;
   ideaPreview: string;
@@ -115,7 +118,9 @@ function RunSheetContent({
   refetchStatus: () => void;
   version: number;
   parentRunId?: string | null;
+  initialFold?: string | null;
 }) {
+  const { variant } = useRunFoldVariant(initialFold);
   const stream = useRunStream(runId, {
     initialStatus:
       restStatus === "completed" ||
@@ -169,6 +174,128 @@ function RunSheetContent({
     return null;
   }, [status, appealResult, appealBaseline.length]);
 
+  const foldSections: Record<RunFoldSection, ReactNode> = {
+    decision: showDecisionCard ? (
+      <section className="mt-10" aria-labelledby="decision-heading">
+        <h2 id="decision-heading" className="font-serif text-2xl font-semibold text-ink">
+          Decision
+        </h2>
+        <div className="mt-6">
+          <VerdictCard
+            synthesisProse={stream.synthesis}
+            structuredSynthesis={stream.structuredSynthesis}
+            verdicts={revealedVerdicts}
+          />
+          <NextActionsStrip
+            runId={runId}
+            synthesisProse={stream.synthesis}
+            structuredSynthesis={stream.structuredSynthesis}
+            verdicts={revealedVerdicts}
+            completed={status === "completed"}
+            appealLink={appealLink}
+          />
+        </div>
+      </section>
+    ) : null,
+    judges: (
+      <section className="mt-10" aria-labelledby="roast-panel-heading">
+        <h2
+          id="roast-panel-heading"
+          className="font-serif text-2xl font-semibold text-ink"
+        >
+          The roast panel
+        </h2>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {showJudgeSkeletons
+            ? JUDGE_ORDER.map((id) => <JudgeColumnSkeleton key={id} />)
+            : JUDGE_ORDER.map((id) => {
+                const baseline = stream.revoteBaseline[id];
+                const current = stream.judges[id].verdict;
+                const scoreDelta =
+                  baseline && current ? current.score - baseline.score : undefined;
+                return (
+                  <JudgeColumn
+                    key={id}
+                    judgeId={id}
+                    view={stream.judges[id]}
+                    animateStamp={stream.judges[id].status === "revealed"}
+                    scoreDelta={scoreDelta}
+                    scoreChangeReason={stream.revoteChangeReasons[id]}
+                  />
+                );
+              })}
+        </div>
+        {hasRevote && (
+          <p className="mt-4 max-w-prose font-sans text-sm text-ink-muted">
+            Delta badges compare each judge&apos;s current score to their initial roast verdict
+            after the post-debate re-vote.
+          </p>
+        )}
+        {revoteQuality?.convergenceNote && !revoteQuality.lowConfidence && (
+          <p className="mt-3 max-w-prose rounded-md border border-rule-soft bg-paper-2 px-4 py-3 font-sans text-sm text-ink-muted">
+            {revoteQuality.convergenceNote}
+          </p>
+        )}
+        {revoteQuality?.lowConfidence && (
+          <p className="mt-3 max-w-prose rounded-md border border-amber-200 bg-amber-50 px-4 py-3 font-sans text-sm text-amber-950">
+            {revoteQuality.reasons.join(" ")}
+          </p>
+        )}
+        {!revoteQuality?.scoresMoved && hasRevote && (
+          <p className="mt-3 max-w-prose font-sans text-sm text-ink-muted">
+            No judge changed their score after the debate.
+          </p>
+        )}
+      </section>
+    ),
+    version: (
+      <VersionComparison
+        version={version}
+        parentRunId={parentRunId}
+        currentVerdicts={revealedVerdicts}
+        completed={status === "completed"}
+      />
+    ),
+    appeal: (
+      <AppealSection
+        runId={runId}
+        completed={status === "completed"}
+        baselineVerdicts={revealedVerdicts}
+        streamAppeal={stream.appeal}
+        onAppealChange={onAppealChange}
+      />
+    ),
+    transcript: (
+      <details
+        className="group mt-12 border-t-2 border-rule-soft pt-10"
+        aria-labelledby="debate-transcript-heading"
+        {...(liveDebate ? { open: true } : {})}
+      >
+        <summary className={collapsibleSummaryClass}>
+          <ChevronDown
+            className="size-5 shrink-0 transition-transform group-open:rotate-180"
+            aria-hidden
+          />
+          <span id="debate-transcript-heading">Debate transcript</span>
+          {liveDebate && (
+            <span className="font-sans text-sm font-normal text-heat-ink">(live)</span>
+          )}
+        </summary>
+        <div className="mt-6">
+          <DebateTranscript turns={stream.debateTurns} currentRound={stream.currentRound} />
+        </div>
+      </details>
+    ),
+    context: (
+      <RunContextGroup
+        runId={runId}
+        researchFindings={stream.researchFindings}
+        metrics={stream.metrics}
+        status={status}
+      />
+    ),
+  };
+
   return (
     <>
       <header className="col-span-12 lg:col-span-10 lg:col-start-2">
@@ -221,126 +348,23 @@ function RunSheetContent({
           <PhaseRail phase={stream.phase} />
         </div>
 
-        {showDecisionCard && (
-          <section className="mt-10" aria-labelledby="decision-heading">
-            <h2 id="decision-heading" className="font-serif text-2xl font-semibold text-ink">
-              Decision
-            </h2>
-            <div className="mt-6">
-              <VerdictCard
-                synthesisProse={stream.synthesis}
-                structuredSynthesis={stream.structuredSynthesis}
-                verdicts={revealedVerdicts}
-              />
-              <NextActionsStrip
-                runId={runId}
-                synthesisProse={stream.synthesis}
-                structuredSynthesis={stream.structuredSynthesis}
-                verdicts={revealedVerdicts}
-                completed={status === "completed"}
-                appealLink={appealLink}
-              />
-            </div>
-          </section>
-        )}
-
-        <section className="mt-10" aria-labelledby="roast-panel-heading">
-          <h2
-            id="roast-panel-heading"
-            className="font-serif text-2xl font-semibold text-ink"
-          >
-            The roast panel
-          </h2>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {showJudgeSkeletons
-              ? JUDGE_ORDER.map((id) => <JudgeColumnSkeleton key={id} />)
-              : JUDGE_ORDER.map((id) => {
-                  const baseline = stream.revoteBaseline[id];
-                  const current = stream.judges[id].verdict;
-                  const scoreDelta =
-                    baseline && current ? current.score - baseline.score : undefined;
-                  return (
-                    <JudgeColumn
-                      key={id}
-                      judgeId={id}
-                      view={stream.judges[id]}
-                      animateStamp={stream.judges[id].status === "revealed"}
-                      scoreDelta={scoreDelta}
-                      scoreChangeReason={stream.revoteChangeReasons[id]}
-                    />
-                  );
-                })}
-          </div>
-          {hasRevote && (
-            <p className="mt-4 max-w-prose font-sans text-sm text-ink-muted">
-              Delta badges compare each judge&apos;s current score to their initial roast verdict
-              after the post-debate re-vote.
-            </p>
-          )}
-          {revoteQuality?.convergenceNote && !revoteQuality.lowConfidence && (
-            <p className="mt-3 max-w-prose rounded-md border border-rule-soft bg-paper-2 px-4 py-3 font-sans text-sm text-ink-muted">
-              {revoteQuality.convergenceNote}
-            </p>
-          )}
-          {revoteQuality?.lowConfidence && (
-            <p className="mt-3 max-w-prose rounded-md border border-amber-200 bg-amber-50 px-4 py-3 font-sans text-sm text-amber-950">
-              {revoteQuality.reasons.join(" ")}
-            </p>
-          )}
-          {!revoteQuality?.scoresMoved && hasRevote && (
-            <p className="mt-3 max-w-prose font-sans text-sm text-ink-muted">
-              No judge changed their score after the debate.
-            </p>
-          )}
-        </section>
-
-        <VersionComparison
-          version={version}
-          parentRunId={parentRunId}
-          currentVerdicts={revealedVerdicts}
-          completed={status === "completed"}
-        />
-
-        <AppealSection
-          runId={runId}
-          completed={status === "completed"}
-          baselineVerdicts={revealedVerdicts}
-          streamAppeal={stream.appeal}
-          onAppealChange={onAppealChange}
-        />
-
-        <details
-          className="group mt-12 border-t-2 border-rule-soft pt-10"
-          aria-labelledby="debate-transcript-heading"
-          {...(liveDebate ? { open: true } : {})}
-        >
-          <summary className={collapsibleSummaryClass}>
-            <ChevronDown
-              className="size-5 shrink-0 transition-transform group-open:rotate-180"
-              aria-hidden
-            />
-            <span id="debate-transcript-heading">Debate transcript</span>
-            {liveDebate && (
-              <span className="font-sans text-sm font-normal text-heat-ink">(live)</span>
-            )}
-          </summary>
-          <div className="mt-6">
-            <DebateTranscript turns={stream.debateTurns} currentRound={stream.currentRound} />
-          </div>
-        </details>
-
-        <RunContextGroup
-          runId={runId}
-          researchFindings={stream.researchFindings}
-          metrics={stream.metrics}
-          status={status}
-        />
+        {RUN_FOLD_ORDERS[variant].map((section) => {
+          const node = foldSections[section];
+          if (!node) return null;
+          return <Fragment key={section}>{node}</Fragment>;
+        })}
       </div>
     </>
   );
 }
 
-export function RunSheet({ runId }: { runId: string }) {
+export function RunSheet({
+  runId,
+  initialFold,
+}: {
+  runId: string;
+  initialFold?: string | null;
+}) {
   const statusQuery = useQuery({
     queryKey: ["run", runId, "status"],
     queryFn: () => getRunStatus(runId),
@@ -402,6 +426,7 @@ export function RunSheet({ runId }: { runId: string }) {
         refetchStatus={() => void statusQuery.refetch()}
         version={version}
         parentRunId={parentRunId}
+        initialFold={initialFold}
       />
     </EditorialContainer>
   );

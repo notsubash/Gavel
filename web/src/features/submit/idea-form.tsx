@@ -1,30 +1,23 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
-import { Controller, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { stashRunIdea } from "@/lib/format/run-idea";
 import { ApiError } from "@/lib/api/client";
 import { createRun, getRunStatus } from "@/lib/api/runs";
 import { parseApiDetail, RATE_LIMIT_MESSAGE } from "@/lib/api/types-helpers";
+import { loadAdvancedSettings } from "@/lib/settings/advanced-settings";
 import { cn } from "@/lib/utils";
 import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
 import { Label } from "@/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/ui/select";
-import { Slider } from "@/ui/slider";
-import { Switch } from "@/ui/switch";
 import { Textarea } from "@/ui/textarea";
 
 import {
@@ -76,7 +69,6 @@ export function IdeaForm({ refineRunId }: { refineRunId?: string | null }) {
   });
 
   const ideaLength = watch("idea").trim().length;
-  const debateRounds = watch("max_debate_rounds");
 
   useEffect(() => {
     if (!refining || !refineQuery.data) return;
@@ -123,7 +115,7 @@ export function IdeaForm({ refineRunId }: { refineRunId?: string | null }) {
       });
       return;
     }
-    const request = toCreateRunRequest(values);
+    const request = toCreateRunRequest(values, loadAdvancedSettings());
     if (refining && refineRunId) {
       request.parent_run_id = refineRunId;
     }
@@ -253,81 +245,16 @@ export function IdeaForm({ refineRunId }: { refineRunId?: string | null }) {
         )}
       </div>
 
-      <div className="grid gap-8 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="model_runtime">Model runtime</Label>
-          <Controller
-            name="model_runtime"
-            control={control}
-            render={({ field }) => (
-              <Select
-                value={field.value}
-                onValueChange={field.onChange}
-                disabled={submitting}
-              >
-                <SelectTrigger id="model_runtime">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="deepseek">DeepSeek (paid, faster)</SelectItem>
-                  <SelectItem value="local">Local (free, slower)</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          />
-          <p className="font-sans text-xs text-ink-muted">
-            Local = free, slower; DeepSeek = paid, faster.
-          </p>
-        </div>
-
-        <div className="space-y-3">
-          <div className="flex items-baseline justify-between gap-4">
-            <Label htmlFor="max_debate_rounds">Debate rounds</Label>
-            <span className="font-mono text-sm font-medium tabular-nums text-ink">
-              {debateRounds}
-            </span>
-          </div>
-          <Controller
-            name="max_debate_rounds"
-            control={control}
-            render={({ field }) => (
-              <Slider
-                id="max_debate_rounds"
-                min={1}
-                max={5}
-                step={1}
-                value={[field.value]}
-                onValueChange={([value]) => field.onChange(value)}
-                disabled={submitting}
-                aria-label="Debate rounds"
-              />
-            )}
-          />
-          <FieldError message={errors.max_debate_rounds?.message} />
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between gap-4 border-t border-rule-soft pt-6">
-        <div className="space-y-1">
-          <Label htmlFor="enable_web_search">Web search</Label>
-          <p className="font-sans text-xs text-ink-muted">
-            Ground roasts in live research (when enabled on the backend).
-          </p>
-        </div>
-        <Controller
-          name="enable_web_search"
-          control={control}
-          render={({ field }) => (
-            <Switch
-              id="enable_web_search"
-              checked={field.value}
-              onCheckedChange={field.onChange}
-              disabled={submitting}
-              aria-label="Enable web search"
-            />
-          )}
-        />
-      </div>
+      <p className="font-sans text-sm text-ink-muted">
+        Model, debate rounds, and web search live on{" "}
+        <Link
+          href="/settings"
+          className="font-semibold text-ink underline-offset-4 hover:underline"
+        >
+          Advanced settings
+        </Link>
+        . Most founders can ignore them.
+      </p>
 
       <Button type="submit" disabled={submitBlocked} className="w-full sm:w-auto">
         {submitting ? (

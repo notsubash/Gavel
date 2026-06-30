@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils";
 import {
   parseDecisionVerdictProse,
   parseStructuredSynthesis,
-  topPriorities,
   type StructuredSynthesis,
 } from "./structured-synthesis";
 import { assessVerdictOutputQuality } from "./verdict-quality";
@@ -26,23 +25,6 @@ const RECOMMENDATION_CLASS: Record<StructuredSynthesis["overall_recommendation"]
   ITERATE: "text-conditional",
   "NO-GO": "text-fail",
 };
-
-function collectRecommendedFixes(verdicts: Verdict[]): string[] {
-  const rank: Record<Verdict["verdict"], number> = {
-    FAIL: 0,
-    CONDITIONAL: 1,
-    PASS: 2,
-  };
-  return [...verdicts]
-    .sort((a, b) => {
-      const rankA = rank[a.verdict] ?? 9;
-      const rankB = rank[b.verdict] ?? 9;
-      if (rankA !== rankB) return rankA - rankB;
-      return a.score - b.score;
-    })
-    .map((verdict) => verdict.recommended_fix?.trim())
-    .filter((fix): fix is string => Boolean(fix));
-}
 
 export function VerdictCard({
   synthesisProse,
@@ -87,10 +69,7 @@ export function VerdictCard({
     );
   }
 
-  const priorities = topPriorities(structured, collectRecommendedFixes(verdicts));
-  const detailRisks =
-    structured.top_risks.length > 0 &&
-    JSON.stringify(structured.top_risks) !== JSON.stringify(priorities);
+  const detailRisks = structured.top_risks.length > 0;
 
   return (
     <article
@@ -116,25 +95,6 @@ export function VerdictCard({
           {structured.confidence} confidence
         </p>
       </header>
-
-      {priorities.length > 0 && (
-        <section className="border-b-2 border-rule-soft px-6 py-5" aria-labelledby="top-priorities-heading">
-          <h4
-            id="top-priorities-heading"
-            className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-muted"
-          >
-            Top priorities
-          </h4>
-          <ol className="mt-3 space-y-2">
-            {priorities.map((item, index) => (
-              <li key={index} className="flex gap-3 font-sans text-base leading-relaxed text-ink">
-                <span className="font-mono text-sm font-bold text-heat-ink">{index + 1}.</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ol>
-        </section>
-      )}
 
       <details className="group px-6 py-5">
         <summary className="cursor-pointer list-none font-sans text-sm font-semibold text-ink underline decoration-rule-soft underline-offset-4 marker:content-none group-open:mb-4">
@@ -192,7 +152,7 @@ function LowConfidenceBanner({
         <p className="mt-1 font-sans text-sm text-ink-muted">
           {proseFallback
             ? "Treat this synthesis as directional. "
-            : "Treat priorities as directional, not precise. "}
+            : "Treat next actions as directional, not precise. "}
           {reasons.join(" ")}
         </p>
       </div>

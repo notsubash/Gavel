@@ -14,6 +14,7 @@
     "test:reducer": "node --experimental-strip-types --test scripts/test-run-reducer.mjs",
     "test:coaching": "node --experimental-strip-types --test scripts/test-appeal-coaching.mjs",
     "test:synthesis": "node --experimental-strip-types --test scripts/test-synthesis-format.mjs",
+    "test:structured": "node --experimental-strip-types --test scripts/test-structured-synthesis.mjs",
     "test:format": "node --experimental-strip-types --test scripts/test-format.mjs"
   },
   "dependencies": {

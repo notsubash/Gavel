@@ -1,17 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2, ChevronDown, XCircle } from "lucide-react";
 
 import { EditorialContainer } from "@/components/app-shell";
 import { resolveExportIdea } from "@/lib/format/run-idea";
+import { appealBaselineVerdicts } from "@/lib/appeal/coaching";
 import { ApiError } from "@/lib/api/client";
 import { getRunStatus } from "@/lib/api/runs";
 import { heatCtaClass } from "@/lib/cta-classes";
 import { JUDGE_ORDER } from "@/lib/sse/types";
 import { useRunStream } from "@/lib/sse/use-run-stream";
-import type { RunState, RunStatus, Verdict } from "@/lib/sse/types";
+import type { RunState, RunStatus, Verdict, AppealResult } from "@/lib/sse/types";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/ui/skeleton";
 
@@ -24,6 +26,7 @@ import { PhaseRail } from "./phase-rail";
 import { RunControls } from "./run-controls";
 import { RunMetricsBar } from "./run-metrics-bar";
 import { SourcesPanel } from "./sources-panel";
+import { NextActionsStrip } from "./next-actions-strip";
 import { VerdictCard } from "./verdict-card";
 import { assessRevoteOutputQuality } from "./verdict-quality";
 
@@ -147,6 +150,29 @@ function RunSheetContent({
     : null;
   const showDecisionCard = Boolean(stream.synthesis || stream.structuredSynthesis);
   const liveDebate = status === "running" && stream.phase === "debate";
+  const [appealResult, setAppealResult] = useState<AppealResult | null>(stream.appeal);
+  const onAppealChange = useCallback((result: AppealResult) => {
+    setAppealResult(result);
+  }, []);
+
+  useEffect(() => {
+    if (stream.appeal) setAppealResult(stream.appeal);
+  }, [stream.appeal]);
+
+  const appealBaseline = useMemo(
+    () => appealBaselineVerdicts(revealedVerdicts),
+    [revealedVerdicts],
+  );
+  const appealLink = useMemo(() => {
+    if (status !== "completed") return null;
+    if (appealResult) {
+      return { href: "#appeal-result-heading", label: "View appeal result" };
+    }
+    if (appealBaseline.length > 0) {
+      return { href: "#appeal-form-heading", label: "Appeal a verdict" };
+    }
+    return null;
+  }, [status, appealResult, appealBaseline.length]);
 
   return (
     <>
@@ -218,6 +244,14 @@ function RunSheetContent({
                 structuredSynthesis={stream.structuredSynthesis}
                 verdicts={revealedVerdicts}
               />
+              <NextActionsStrip
+                runId={runId}
+                synthesisProse={stream.synthesis}
+                structuredSynthesis={stream.structuredSynthesis}
+                verdicts={revealedVerdicts}
+                completed={status === "completed"}
+                appealLink={appealLink}
+              />
             </div>
           </section>
         )}
@@ -284,6 +318,7 @@ function RunSheetContent({
           completed={status === "completed"}
           baselineVerdicts={revealedVerdicts}
           streamAppeal={stream.appeal}
+          onAppealChange={onAppealChange}
         />
 
         <details

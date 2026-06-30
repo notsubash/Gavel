@@ -81,7 +81,7 @@ export function AppealForm({
       aria-labelledby="appeal-form-heading"
       aria-busy={mutation.isPending || isSubmitting}
     >
-      <h2 id="appeal-form-heading" className="font-serif text-2xl font-semibold text-ink">
+      <h2 id="appeal-form-heading" className="scroll-mt-28 font-serif text-2xl font-semibold text-ink">
         Appeal the verdict
       </h2>
       <p className="mt-2 max-w-prose font-sans text-sm text-ink-muted">

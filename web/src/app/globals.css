@@ -35,10 +35,6 @@
   --radius-ui-token: var(--radius);
 }
 
-@utility rounded-ui {
-  border-radius: var(--radius);
-}
-
 body {
   background: var(--paper);
   color: var(--ink);
@@ -82,6 +78,47 @@ body {
 
 .animate-round-enter {
   animation: round-enter var(--dur-in) var(--ease) forwards;
+}
+
+@keyframes fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-rise {
+  animation: fade-rise var(--dur-in) var(--ease) forwards;
+}
+
+@keyframes delta-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-delta-pop {
+  animation: delta-pop var(--dur-in) var(--ease) forwards;
+}
+
+@keyframes progress-fill {
+  to {
+    width: var(--fill-pct);
+  }
+}
+
+.animate-progress-fill {
+  width: 0;
+  animation: progress-fill 250ms var(--ease) forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -2,16 +2,12 @@
 
 import { ArrowRight, TrendingUp } from "lucide-react";
 
-import {
-  panelAverageScore,
-  summarizeEvidenceOutcomes,
-} from "@/lib/appeal/coaching";
+import { deriveEvidenceProgress as deriveEvidenceProgressBase } from "@/lib/lineage/latest-improvement";
 import type { AppealResult } from "@/lib/sse/types";
 import type { ConfidenceLevel } from "@/features/run/structured-synthesis";
-import {
-  parseDecisionVerdictProse,
-} from "@/features/run/structured-synthesis";
+import { parseDecisionVerdictProse } from "@/features/run/structured-synthesis";
 import { cn } from "@/lib/utils";
+import { AnimatedScore } from "@/ui/animated-score";
 
 import { ScoreDeltaBadge } from "./score-delta-badge";
 import { EVIDENCE_COPY } from "../run/run-page-copy";
@@ -30,22 +26,11 @@ export function deriveEvidenceProgress(
   appeal: AppealResult,
   confidenceBefore: ConfidenceLevel | null,
 ) {
-  const originalVerdicts = Object.values(appeal.originalByJudge);
-  const revisedVerdicts = Object.values(appeal.revisedByJudge);
-  const scoreBefore = panelAverageScore(originalVerdicts);
-  const scoreAfter = panelAverageScore(revisedVerdicts);
-  const scoreDelta =
-    scoreBefore != null && scoreAfter != null
-      ? Math.round((scoreAfter - scoreBefore) * 10) / 10
-      : null;
-
+  const base = deriveEvidenceProgressBase(appeal);
   return {
-    scoreBefore,
-    scoreAfter,
-    scoreDelta,
+    ...base,
     confidenceBefore,
     confidenceAfter: parseConfidenceAfter(appeal.revisedSynthesis),
-    reasonSummary: summarizeEvidenceOutcomes(appeal.evidenceOutcomes ?? []),
   };
 }
 
@@ -65,8 +50,8 @@ export function EvidenceProgressDelta({
       className={cn("border-2 border-ink bg-card shadow-hard", className)}
       aria-labelledby="evidence-progress-heading"
     >
-      <header className="flex items-start gap-3 border-b-2 border-ink px-5 py-4">
-        <TrendingUp className="mt-0.5 size-5 shrink-0 text-heat-ink" aria-hidden />
+      <header className="flex items-start gap-3 border-b border-ink px-4 py-3 sm:px-5">
+        <TrendingUp className="mt-0.5 size-4 shrink-0 text-ink-muted" aria-hidden />
         <div>
           <h3
             id="evidence-progress-heading"
@@ -85,15 +70,18 @@ export function EvidenceProgressDelta({
             {EVIDENCE_COPY.panelScore}
           </dt>
           <dd className="mt-2 flex flex-wrap items-center gap-2 font-sans text-sm text-ink">
-            <span className="font-mono font-semibold">
-              {progress.scoreBefore != null ? progress.scoreBefore.toFixed(1) : "—"}
-            </span>
+            <AnimatedScore
+              value={progress.scoreBefore}
+              className="font-mono font-semibold"
+            />
             <ArrowRight className="size-4 text-ink-subtle" aria-hidden />
-            <span className="font-mono font-semibold">
-              {progress.scoreAfter != null ? progress.scoreAfter.toFixed(1) : "—"}
-            </span>
+            <AnimatedScore
+              value={progress.scoreAfter}
+              animateFrom={progress.scoreBefore}
+              className="font-mono font-semibold"
+            />
             {progress.scoreDelta != null && progress.scoreDelta !== 0 && (
-              <ScoreDeltaBadge delta={progress.scoreDelta} />
+              <ScoreDeltaBadge delta={progress.scoreDelta} animate />
             )}
           </dd>
         </div>

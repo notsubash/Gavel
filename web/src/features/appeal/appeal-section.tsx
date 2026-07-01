@@ -85,7 +85,7 @@ export function AppealSection({
   if (!appeal) return null;
 
   return (
-    <div className="mt-12 border-t-2 border-rule-soft pt-10">
+    <div className="mt-8 border-t border-rule-soft pt-8">
       <EvidenceProgressDelta
         appeal={appeal}
         confidenceBefore={confidenceBefore}

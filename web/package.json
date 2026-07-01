@@ -22,7 +22,8 @@
     "test:lens": "node --experimental-strip-types --test scripts/test-lens-quality.mjs",
     "test:lineage": "node --experimental-strip-types scripts/test-lineage.mjs",
     "test:confidence": "node --experimental-strip-types scripts/test-confidence.mjs",
-    "test:version-diff": "node --experimental-strip-types scripts/test-version-diff.mjs"
+    "test:version-diff": "node --experimental-strip-types scripts/test-version-diff.mjs",
+    "test:latest-improvement": "node --experimental-strip-types scripts/test-latest-improvement.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",

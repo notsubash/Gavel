@@ -23,7 +23,7 @@ export function NextActionsStrip({
   return (
     <section
       id="next-actions-strip"
-      className={cn("mt-6 border-2 border-rule-soft bg-paper-2", className)}
+      className={cn("mt-5 border border-rule-soft bg-paper-2", className)}
       aria-labelledby="next-actions-heading"
     >
       <div className="flex min-h-11 flex-wrap items-center justify-between gap-4 border-b border-rule-soft px-4 py-3 sm:px-5">

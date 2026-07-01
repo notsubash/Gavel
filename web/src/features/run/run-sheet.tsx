@@ -27,6 +27,7 @@ import { JudgeColumn, JudgeColumnSkeleton } from "./judge-column";
 import { PhaseRail } from "./phase-rail";
 import { RunControls } from "./run-controls";
 import { collapsibleSummaryClass, RunContextGroup } from "./run-context-group";
+import { LatestImprovement } from "./latest-improvement";
 import { NextActionsStrip } from "./next-actions-strip";
 import { PanelQualityDebugBadge } from "./panel-quality-debug";
 import { RUN_PAGE_COPY } from "./run-page-copy";
@@ -273,11 +274,11 @@ function RunSheetContent({
 
   const foldSections: Record<RunFoldSection, ReactNode> = {
     decision: showDecisionCard ? (
-      <section className="mt-10" aria-labelledby="decision-heading">
+      <section className="mt-8" aria-labelledby="decision-heading">
         <h2 id="decision-heading" className="font-serif text-2xl font-semibold text-ink">
           {RUN_PAGE_COPY.overallDecision}
         </h2>
-        <div className="mt-6">
+        <div className="mt-5">
           <VerdictCard
             synthesisProse={stream.synthesis}
             structuredSynthesis={stream.structuredSynthesis}
@@ -304,7 +305,7 @@ function RunSheetContent({
     ) : null,
     judges: collapseJudgeDetail ? (
       <details
-        className="group mt-10 border-t-2 border-rule-soft pt-10"
+        className="group mt-8 border-t border-rule-soft pt-8"
         aria-labelledby="judge-panel-heading"
       >
         <summary className={collapsibleSummaryClass}>
@@ -314,7 +315,7 @@ function RunSheetContent({
           />
           <span id="judge-panel-heading">{RUN_PAGE_COPY.judgePanel}</span>
         </summary>
-        <div className="mt-6">
+        <div className="mt-5">
           {judgeGrid}
           <JudgePanelFootnotes
             hasRevote={hasRevote}
@@ -326,7 +327,7 @@ function RunSheetContent({
         </div>
       </details>
     ) : (
-      <section className="mt-10" aria-labelledby="judge-panel-heading">
+      <section className="mt-8" aria-labelledby="judge-panel-heading">
         <h2
           id="judge-panel-heading"
           className="font-serif text-2xl font-semibold text-ink"
@@ -361,7 +362,7 @@ function RunSheetContent({
     ),
     transcript: (
       <details
-        className="group mt-12 border-t-2 border-rule-soft pt-10"
+        className="group mt-8 border-t border-rule-soft pt-8"
         aria-labelledby="debate-transcript-heading"
         {...(liveDebate ? { open: true } : {})}
       >
@@ -375,7 +376,7 @@ function RunSheetContent({
             <span className="font-sans text-sm font-normal text-heat-ink">(live)</span>
           )}
         </summary>
-        <div className="mt-6">
+        <div className="mt-5">
           <DebateTranscript turns={stream.debateTurns} currentRound={stream.currentRound} />
         </div>
       </details>
@@ -433,6 +434,16 @@ function RunSheetContent({
         <div className="mt-8">
           <PhaseRail phase={stream.phase} />
         </div>
+
+        {showDecisionCard && (
+          <LatestImprovement
+            completed={status === "completed"}
+            version={version}
+            parentRunId={parentRunId}
+            currentVerdicts={revealedVerdicts}
+            className="mt-8"
+          />
+        )}
 
         {RUN_FOLD_ORDERS[variant].map((section) => {
           const node = foldSections[section];

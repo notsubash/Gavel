@@ -78,7 +78,7 @@ export function VerdictCard({
     >
       {quality.lowConfidence && <LowConfidenceBanner reasons={quality.reasons} />}
 
-      <header className="border-b-2 border-ink px-6 py-5">
+      <header className="border-b border-ink px-5 py-4">
         <p className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-muted">
           Recommendation
         </p>
@@ -96,11 +96,11 @@ export function VerdictCard({
         </p>
       </header>
 
-      <details className="group px-6 py-5">
+      <details className="group px-5 py-4">
         <summary className="cursor-pointer list-none font-sans text-sm font-semibold text-ink underline decoration-rule-soft underline-offset-4 marker:content-none group-open:mb-4">
           Full rationale
         </summary>
-        <div className="space-y-6 border-t-2 border-rule-soft pt-4">
+        <div className="space-y-5 border-t border-rule-soft pt-3">
           {structured.top_strengths.length > 0 && (
             <section>
               <h4 className="font-serif text-lg font-semibold text-ink">Strengths</h4>

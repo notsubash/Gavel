@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, type CSSProperties } from "react";
 
 import {
   computeConfidenceFromVerdicts,
@@ -27,9 +27,11 @@ function tierClass(tier: ReturnType<typeof confidenceTier>): string {
 function ConfidenceBar({
   item,
   compact = false,
+  delayMs = 0,
 }: {
   item: ConfidenceDimensionScore;
   compact?: boolean;
+  delayMs?: number;
 }) {
   const tier = item.tier;
   return (
@@ -66,8 +68,17 @@ function ConfidenceBar({
         aria-label={`${item.label} confidence: ${item.value} out of 100, ${tier}`}
       >
         <div
-          className={cn("h-full transition-[width] duration-200 motion-reduce:transition-none", tierClass(tier))}
-          style={{ width: `${item.value}%` }}
+          className={cn(
+            "h-full motion-reduce:!w-[var(--fill-pct)] motion-reduce:animate-none",
+            "animate-progress-fill transition-[width] duration-200 motion-reduce:transition-none",
+            tierClass(tier),
+          )}
+          style={
+            {
+              "--fill-pct": `${item.value}%`,
+              animationDelay: `${delayMs}ms`,
+            } as CSSProperties
+          }
         />
       </div>
       {!compact && item.driver && (
@@ -109,8 +120,8 @@ export function ConfidenceBars({
         <h3 className="font-sans text-sm font-semibold text-ink">{title}</h3>
       )}
       <div className={cn(compact ? "grid gap-2 sm:grid-cols-2" : "grid gap-4 sm:grid-cols-2")}>
-        {snapshot.dimensions.map((item) => (
-          <ConfidenceBar key={item.dimension} item={item} compact={compact} />
+        {snapshot.dimensions.map((item, index) => (
+          <ConfidenceBar key={item.dimension} item={item} compact={compact} delayMs={index * 60} />
         ))}
       </div>
     </section>

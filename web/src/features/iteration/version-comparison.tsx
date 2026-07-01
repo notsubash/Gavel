@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { Skeleton } from "@/ui/skeleton";
 
 import { ScoreDeltaBadge } from "../appeal/score-delta-badge";
+import { AnimatedScore } from "@/ui/animated-score";
 import { ConfidenceBars } from "./confidence-bars";
 import { VERSION_COPY } from "../run/run-page-copy";
 
@@ -136,15 +137,20 @@ function VersionComparisonContent({
             Panel score
           </span>
           <span className="font-mono text-2xl font-bold tabular-nums text-ink">
-            {diff.scoreAfter.toFixed(1)}/10
+            <AnimatedScore
+              value={diff.scoreAfter}
+              decimals={1}
+              suffix="/10"
+              animateFrom={diff.scoreBefore}
+            />
           </span>
           {diff.scoreDelta !== 0 ? (
-            <ScoreDeltaBadge delta={diff.scoreDelta} />
+            <ScoreDeltaBadge delta={diff.scoreDelta} animate />
           ) : (
             <span className="font-sans text-xs text-ink-muted">unchanged</span>
           )}
           <span className="font-sans text-sm text-ink-subtle">
-            was {diff.scoreBefore.toFixed(1)}/10
+            was <AnimatedScore value={diff.scoreBefore} decimals={1} suffix="/10" className="font-mono" />
           </span>
         </div>
         <p className="mt-3 font-sans text-sm text-ink-muted">

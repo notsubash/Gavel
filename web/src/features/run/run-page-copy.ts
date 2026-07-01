@@ -34,6 +34,7 @@ export const RUN_PAGE_COPY = {
   stopReviewTitle: "Stop this review?",
   stopReviewDescription: "The judges will halt between turns. You can always submit a new idea.",
   contextSummary: "Related reviews, sources, metrics",
+  latestImprovement: "Latest improvement",
 } as const;
 
 export const HOME_COPY = {

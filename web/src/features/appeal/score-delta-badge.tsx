@@ -24,7 +24,7 @@ export function ScoreDeltaBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center border border-ink px-1.5 py-0.5 font-mono text-xs font-bold leading-none",
+        "inline-flex items-center border border-rule-soft px-1.5 py-0.5 font-mono text-xs font-bold leading-none",
         positive ? "bg-pass/15 text-pass" : "bg-fail/15 text-fail",
         animate && "animate-delta-pop",
       )}

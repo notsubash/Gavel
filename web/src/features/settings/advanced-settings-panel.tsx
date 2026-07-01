@@ -39,7 +39,7 @@ function SettingsSection({
 }) {
   return (
     <section className="border-t-2 border-rule-soft pt-10 first:border-t-0 first:pt-0">
-      <h2 className="font-serif text-2xl font-semibold text-ink">{title}</h2>
+      <h2 className="font-sans text-2xl font-semibold text-ink">{title}</h2>
       <p className="mt-2 max-w-prose font-sans text-sm text-ink-muted">{description}</p>
       <div className="mt-6 space-y-6">{children}</div>
     </section>
@@ -76,10 +76,10 @@ export function AdvancedSettingsPanel() {
   return (
     <div className="space-y-10">
       <header>
-        <p className="font-sans text-sm font-semibold uppercase tracking-widest text-heat-ink">
+        <p className="font-sans text-sm font-semibold uppercase tracking-widest text-cta">
           Maintainer
         </p>
-        <h1 className="mt-2 font-serif text-title font-semibold text-ink md:text-display-md">
+        <h1 className="mt-2 font-sans text-title font-semibold text-ink md:text-display-md">
           Advanced settings
         </h1>
         <p className="mt-4 max-w-prose font-sans text-ink-muted">
@@ -174,9 +174,9 @@ export function AdvancedSettingsPanel() {
                 <label
                   key={id}
                   className={cn(
-                    "block cursor-pointer border-2 p-4 transition-colors",
+                    "block cursor-pointer rounded-ui border p-4 transition-colors duration-200",
                     active
-                      ? "border-ink bg-card shadow-soft"
+                      ? "border-cta bg-card shadow-soft"
                       : "border-rule-soft bg-paper-2 hover:border-ink-muted",
                   )}
                 >
@@ -187,7 +187,7 @@ export function AdvancedSettingsPanel() {
                       value={id}
                       checked={active}
                       onChange={() => patch({ run_fold_variant: id })}
-                      className="mt-1 size-4 accent-heat"
+                      className="mt-1 size-4 accent-cta"
                     />
                     <div className="min-w-0 flex-1">
                       <p className="font-sans text-sm font-semibold text-ink">

@@ -70,7 +70,7 @@ export function RelatedRoasts({
         <button
           type="button"
           onClick={() => void query.refetch()}
-          className="mt-2 font-sans text-xs font-semibold text-heat-ink underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-heat"
+          className="mt-2 font-sans text-xs font-semibold text-cta underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta"
         >
           Retry
         </button>
@@ -85,7 +85,7 @@ export function RelatedRoasts({
   return (
     <aside aria-labelledby="related-roasts-heading">
       <div className="flex items-center gap-2">
-        <Sparkles className="size-4 text-heat-ink" aria-hidden />
+        <Sparkles className="size-4 text-cta" aria-hidden />
         <Heading
           id="related-roasts-heading"
           className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-muted"
@@ -98,9 +98,9 @@ export function RelatedRoasts({
           <li key={item.run_id}>
             <Link
               href={`/run/${item.run_id}`}
-              className="block border border-rule-soft bg-card p-3 transition-colors hover:border-ink hover:bg-paper-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-heat"
+              className="block border border-rule-soft bg-card p-3 transition-colors hover:border-ink hover:bg-paper-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta"
             >
-              <p className="font-serif text-sm font-semibold leading-snug text-ink">
+              <p className="font-sans text-sm font-semibold leading-snug text-ink">
                 {item.idea_preview}
               </p>
               <VerdictHint item={item} />

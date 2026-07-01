@@ -11,7 +11,7 @@ import { RunMetricsBar } from "./run-metrics-bar";
 import { SourcesPanel } from "./sources-panel";
 
 export const collapsibleSummaryClass =
-  "flex cursor-pointer list-none items-center gap-2 font-serif text-2xl font-semibold text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-heat [&::-webkit-details-marker]:hidden";
+  "flex cursor-pointer list-none items-center gap-2 font-sans text-2xl font-semibold text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta [&::-webkit-details-marker]:hidden";
 
 const subsectionHeadingClass =
   "font-sans text-xs font-semibold uppercase tracking-widest text-ink-muted";

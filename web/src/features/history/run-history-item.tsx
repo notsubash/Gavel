@@ -51,16 +51,16 @@ export function RunHistoryItem({ item }: { item: RunListItem }) {
   const showConfidence = item.status === "completed";
 
   return (
-    <li className="border-2 border-ink bg-card shadow-soft">
+    <li className="border border-rule-soft bg-card shadow-soft">
       <Link
         href={`/run/${item.run_id}`}
         className={cn(
           "group block p-4 transition-colors",
-          "hover:bg-paper-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-heat",
+          "hover:bg-paper-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta",
         )}
       >
         <div className="flex items-start justify-between gap-4">
-          <p className="font-serif text-lg font-semibold text-ink group-hover:text-heat-ink">
+          <p className="font-sans text-lg font-semibold text-ink group-hover:text-cta">
             {item.idea_preview}
           </p>
           <span className="inline-flex shrink-0 items-center gap-1.5 font-sans text-xs font-semibold uppercase tracking-wide text-ink-muted">

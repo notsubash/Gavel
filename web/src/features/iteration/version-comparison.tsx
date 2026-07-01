@@ -217,7 +217,7 @@ function VersionComparisonContent({
             return (
               <div
                 key={judgeId}
-                className="border-2 border-rule-soft bg-card p-4 shadow-soft"
+                className="border border-rule-soft bg-card p-4 shadow-soft"
               >
                 <p className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-muted">
                   {JUDGE_META[judgeId].lensTag}
@@ -278,7 +278,7 @@ export function VersionComparison({
   if (parentRunId && version > 1) {
     return (
       <section className="mt-10" aria-labelledby="version-comparison-heading">
-        <h2 id="version-comparison-heading" className="font-serif text-2xl font-semibold text-ink">
+        <h2 id="version-comparison-heading" className="font-sans text-2xl font-semibold text-ink">
           {VERSION_COPY.comparisonTitle}
         </h2>
         <div className="mt-6">

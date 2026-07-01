@@ -61,7 +61,7 @@ function headlineForStatus(status: RunStatus, phase: RunState["phase"]): string 
 function TerminalBanner({ state }: { state: RunState }) {
   if (state.status === "completed") {
     return (
-      <div className="flex items-start gap-3 border-2 border-pass bg-card p-4">
+      <div className="flex items-start gap-3 border border-pass/40 bg-card p-4">
         <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-pass" aria-hidden />
         <div>
           <p className="font-sans text-sm font-semibold text-ink">Run complete</p>
@@ -75,7 +75,7 @@ function TerminalBanner({ state }: { state: RunState }) {
 
   if (state.status === "failed") {
     return (
-      <div className="flex items-start gap-3 border-2 border-fail bg-card p-4">
+      <div className="flex items-start gap-3 border border-fail/40 bg-card p-4">
         <AlertTriangle className="mt-0.5 size-5 shrink-0 text-fail" aria-hidden />
         <div>
           <p className="font-sans text-sm font-semibold text-ink">Run failed</p>
@@ -94,7 +94,7 @@ function TerminalBanner({ state }: { state: RunState }) {
 
   if (state.status === "cancelled") {
     return (
-      <div className="flex items-start gap-3 border-2 border-conditional bg-card p-4">
+      <div className="flex items-start gap-3 border border-conditional/40 bg-card p-4">
         <XCircle className="mt-0.5 size-5 shrink-0 text-conditional" aria-hidden />
         <div>
           <p className="font-sans text-sm font-semibold text-ink">Run cancelled</p>
@@ -275,7 +275,7 @@ function RunSheetContent({
   const foldSections: Record<RunFoldSection, ReactNode> = {
     decision: showDecisionCard ? (
       <section className="mt-8" aria-labelledby="decision-heading">
-        <h2 id="decision-heading" className="font-serif text-2xl font-semibold text-ink">
+        <h2 id="decision-heading" className="font-sans text-2xl font-semibold text-ink">
           {RUN_PAGE_COPY.overallDecision}
         </h2>
         <div className="mt-5">
@@ -330,7 +330,7 @@ function RunSheetContent({
       <section className="mt-8" aria-labelledby="judge-panel-heading">
         <h2
           id="judge-panel-heading"
-          className="font-serif text-2xl font-semibold text-ink"
+          className="font-sans text-2xl font-semibold text-ink"
         >
           {RUN_PAGE_COPY.judgePanel}
         </h2>
@@ -373,7 +373,7 @@ function RunSheetContent({
           />
           <span id="debate-transcript-heading">{RUN_PAGE_COPY.debateTranscript}</span>
           {liveDebate && (
-            <span className="font-sans text-sm font-normal text-heat-ink">(live)</span>
+            <span className="font-sans text-sm font-normal text-cta">(live)</span>
           )}
         </summary>
         <div className="mt-5">
@@ -393,11 +393,11 @@ function RunSheetContent({
 
   return (
     <>
-      <header className="col-span-12 lg:col-span-10 lg:col-start-2">
-        <p className="font-sans text-sm font-semibold uppercase tracking-widest text-heat-ink">
+      <header>
+        <p className="font-sans text-sm font-semibold uppercase tracking-widest text-cta">
           {RUN_PAGE_COPY.reviewEyebrow}
         </p>
-        <h1 className="mt-2 font-serif text-title font-semibold text-ink md:text-display-md">
+        <h1 className="mt-2 font-sans text-title font-semibold text-ink md:text-display-md">
           {headlineForStatus(status, stream.phase)}
         </h1>
         <p className="mt-4 max-w-prose font-sans text-ink-muted">
@@ -425,7 +425,7 @@ function RunSheetContent({
       </header>
 
       <div
-        className="col-span-12 mt-10 lg:col-span-10 lg:col-start-2"
+        className="mt-10"
         aria-live="polite"
         aria-busy={status === "running" || status === "created"}
       >
@@ -530,7 +530,7 @@ export function RunSheet({
   if (statusQuery.isLoading) {
     return (
       <EditorialContainer className="py-12 md:py-16 lg:py-24">
-        <div className="col-span-12 lg:col-span-10 lg:col-start-2 space-y-4">
+        <div className="space-y-4">
           <Skeleton className="h-8 w-64" />
           <Skeleton className="h-12 w-full max-w-xl" />
           <Skeleton className="h-24 w-full" />
@@ -544,8 +544,8 @@ export function RunSheet({
       statusQuery.error instanceof ApiError && statusQuery.error.status === 404;
     return (
       <EditorialContainer className="py-12 md:py-16 lg:py-24">
-        <div className="col-span-12 lg:col-span-8 lg:col-start-3 text-center">
-          <h1 className="font-serif text-title font-semibold text-ink">
+        <div className="text-center">
+          <h1 className="font-sans text-title font-semibold text-ink">
             {notFound ? "Run not found" : "Could not load run"}
           </h1>
           <p className="mt-4 font-sans text-ink-muted">

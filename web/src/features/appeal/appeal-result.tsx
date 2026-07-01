@@ -44,7 +44,7 @@ export function AppealResultView({
       className={embedded ? undefined : "mt-12 border-t-2 border-rule-soft pt-10"}
       aria-labelledby="appeal-result-heading"
     >
-      <h2 id="appeal-result-heading" className="scroll-mt-28 font-serif text-2xl font-semibold text-ink">
+      <h2 id="appeal-result-heading" className="scroll-mt-28 font-sans text-2xl font-semibold text-ink">
         {EVIDENCE_COPY.resultTitle}
       </h2>
       <p className="mt-2 max-w-prose font-sans text-sm text-ink-muted">

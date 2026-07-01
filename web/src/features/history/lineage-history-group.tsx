@@ -26,7 +26,7 @@ function VersionRow({ item }: { item: RunListItem }) {
       href={`/run/${item.run_id}`}
       className={cn(
         "flex items-center justify-between gap-3 py-2 pl-4 font-sans text-sm",
-        "border-l-2 border-rule-soft hover:bg-paper-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-heat",
+        "border-l-2 border-rule-soft hover:bg-paper-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta",
       )}
     >
       <span className="font-mono text-ink-muted">
@@ -57,15 +57,15 @@ export function LineageHistoryGroup({ lineage }: { lineage: RunListItem[] }) {
   const showConfidence = latest.status === "completed";
 
   return (
-    <li className="border-2 border-ink bg-card shadow-soft">
+    <li className="border border-rule-soft bg-card shadow-soft">
       <Link
         href={`/run/${latest.run_id}`}
         className={cn(
           "group block p-4 transition-colors hover:bg-paper-2",
-          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-heat",
+          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta",
         )}
       >
-        <p className="font-serif text-lg font-semibold text-ink group-hover:text-heat-ink">
+        <p className="font-sans text-lg font-semibold text-ink group-hover:text-cta">
           {root.idea_preview}
         </p>
 

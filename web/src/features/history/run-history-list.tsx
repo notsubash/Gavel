@@ -20,7 +20,7 @@ function HistorySkeleton() {
   return (
     <ul className="space-y-4">
       {Array.from({ length: 4 }).map((_, i) => (
-        <li key={i} className="border-2 border-rule-soft bg-card p-4">
+        <li key={i} className="border border-rule-soft bg-card p-4">
           <Skeleton className="h-6 w-3/4" />
           <Skeleton className="mt-3 h-4 w-1/2" />
           <Skeleton className="mt-2 h-3 w-1/3" />
@@ -39,11 +39,11 @@ export function RunHistoryList() {
 
   return (
     <EditorialContainer className="py-12 md:py-16 lg:py-24">
-      <header className="col-span-12 lg:col-span-10 lg:col-start-2">
-        <p className="font-sans text-sm font-semibold uppercase tracking-widest text-heat-ink">
+      <header>
+        <p className="font-sans text-sm font-semibold uppercase tracking-widest text-cta">
           {HISTORY_COPY.eyebrow}
         </p>
-        <h1 className="mt-2 font-serif text-title font-semibold text-ink md:text-display-md">
+        <h1 className="mt-2 font-sans text-title font-semibold text-ink md:text-display-md">
           {HISTORY_COPY.title}
         </h1>
         <p className="mt-4 max-w-prose font-sans text-ink-muted">
@@ -51,11 +51,11 @@ export function RunHistoryList() {
         </p>
       </header>
 
-      <div className="col-span-12 mt-10 lg:col-span-10 lg:col-start-2">
+      <div className="mt-10">
         {query.isLoading && <HistorySkeleton />}
 
         {query.isError && (
-          <div className="border-2 border-fail bg-card p-6" role="alert">
+          <div className="border border-fail/40 bg-card p-6" role="alert">
             <p className="font-sans text-sm font-semibold text-ink">Could not load history</p>
             <p className="mt-2 font-sans text-sm text-ink-muted">
               {query.error instanceof ApiError
@@ -66,8 +66,8 @@ export function RunHistoryList() {
         )}
 
         {query.isSuccess && query.data.runs.length === 0 && (
-          <div className="border-2 border-dashed border-rule-soft bg-paper-2 p-10 text-center">
-            <p className="font-serif text-xl font-semibold text-ink">{HISTORY_COPY.emptyTitle}</p>
+          <div className="border border-dashed border-rule-soft bg-paper-2 p-10 text-center">
+            <p className="font-sans text-xl font-semibold text-ink">{HISTORY_COPY.emptyTitle}</p>
             <p className="mt-2 font-sans text-sm text-ink-muted">
               {HISTORY_COPY.emptyDescription}
             </p>

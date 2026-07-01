@@ -56,9 +56,28 @@ export const SETTINGS_COPY = {
 export const HISTORY_COPY = {
   eyebrow: "Archive",
   title: "Idea timeline",
-  description: "Every iteration of your startup ideas — reopen any review.",
+  description: "Startups you are iterating — version count, score, and latest movement at a glance.",
   emptyTitle: "No reviews yet",
   emptyDescription: "Submit your first idea — it will show up here when the review finishes.",
+  versions: "versions",
+  currentScore: "Current score",
+  latestDelta: "Latest delta",
+  olderVersions: (count: number) =>
+    `${count} older version${count === 1 ? "" : "s"}`,
+} as const;
+
+export const VERSION_COPY = {
+  comparisonTitle: "What changed since last version",
+  comparisonLead: (version: number, chainNote: string) =>
+    `Comparing v${version} to the prior version${chainNote}.`,
+  scoreDeltaReason: "Summary",
+  removed: "Removed",
+  added: "Added",
+  changed: "Changed",
+  evidenceAdded: "Evidence noted",
+  noPriorVersion:
+    "No prior version to compare yet. Refine this idea after you update the pitch to see what changed.",
+  confidenceTitle: "Confidence by dimension",
 } as const;
 
 export const EVIDENCE_COPY = {

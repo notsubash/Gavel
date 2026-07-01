@@ -5,19 +5,22 @@ import Link from "next/link";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 import type { RunListItem } from "@/lib/api/types-helpers";
+import { lineageCurrentScore, lineageScoreDelta } from "@/lib/confidence/confidence";
 import { sidebarLineageVersions } from "@/lib/lineage/lineage";
 import { cn } from "@/lib/utils";
 
+import { ScoreDeltaBadge } from "../appeal/score-delta-badge";
+import { HISTORY_COPY } from "../run/run-page-copy";
+
+import { HistoryConfidencePreview } from "./history-confidence-preview";
 import { RunHistoryItem } from "./run-history-item";
 
-function formatAvg(item: RunListItem): string | null {
-  const avg = item.verdict_summary?.avg_score;
-  if (avg == null || item.status !== "completed") return null;
-  return `${avg.toFixed(1)}/10`;
+function formatAvg(score: number): string {
+  return `${score.toFixed(1)}/10`;
 }
 
 function VersionRow({ item }: { item: RunListItem }) {
-  const avg = formatAvg(item);
+  const avg = item.verdict_summary?.avg_score;
   return (
     <Link
       href={`/run/${item.run_id}`}
@@ -28,7 +31,7 @@ function VersionRow({ item }: { item: RunListItem }) {
     >
       <span className="font-mono text-ink-muted">
         v{item.version}
-        {avg ? ` · ${avg}` : ""}
+        {avg != null && item.status === "completed" ? ` · ${formatAvg(avg)}` : ""}
       </span>
       <span className="font-mono text-xs text-ink-subtle">
         {new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
@@ -48,8 +51,10 @@ export function LineageHistoryGroup({ lineage }: { lineage: RunListItem[] }) {
   }
 
   const latest = lineage[lineage.length - 1]!;
-  const latestAvg = formatAvg(latest);
+  const currentScore = lineageCurrentScore(lineage);
+  const latestDelta = lineageScoreDelta(lineage);
   const { visible, hidden } = sidebarLineageVersions(lineage);
+  const showConfidence = latest.status === "completed";
 
   return (
     <li className="border-2 border-ink bg-card shadow-soft">
@@ -63,11 +68,46 @@ export function LineageHistoryGroup({ lineage }: { lineage: RunListItem[] }) {
         <p className="font-serif text-lg font-semibold text-ink group-hover:text-heat-ink">
           {root.idea_preview}
         </p>
-        <p className="mt-1 font-sans text-sm text-ink-muted">
-          {lineage.length} versions
-          {latestAvg ? ` · latest v${latest.version} (${latestAvg})` : ""}
-        </p>
+
+        <dl className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-sans text-sm text-ink-muted">
+          <div>
+            <dt className="sr-only">Version count</dt>
+            <dd>
+              {lineage.length} {HISTORY_COPY.versions}
+            </dd>
+          </div>
+          {currentScore != null && (
+            <div>
+              <dt className="sr-only">{HISTORY_COPY.currentScore}</dt>
+              <dd>
+                {HISTORY_COPY.currentScore}:{" "}
+                <span className="font-mono font-semibold text-ink">
+                  {formatAvg(currentScore)}
+                </span>
+              </dd>
+            </div>
+          )}
+          {latestDelta != null && (
+            <div className="flex items-center gap-2">
+              <dt className="sr-only">{HISTORY_COPY.latestDelta}</dt>
+              <dd className="flex items-center gap-2">
+                {HISTORY_COPY.latestDelta}:
+                {latestDelta !== 0 ? (
+                  <ScoreDeltaBadge delta={latestDelta} />
+                ) : (
+                  <span className="font-sans text-xs text-ink-muted">unchanged</span>
+                )}
+              </dd>
+            </div>
+          )}
+        </dl>
       </Link>
+
+      {showConfidence && (
+        <div className="border-t border-rule-soft px-4 pb-4">
+          <HistoryConfidencePreview runId={latest.run_id} className="mt-3" />
+        </div>
+      )}
 
       {hidden.length > 0 && (
         <div className="border-t border-rule-soft px-4 py-2">
@@ -82,7 +122,7 @@ export function LineageHistoryGroup({ lineage }: { lineage: RunListItem[] }) {
             ) : (
               <ChevronDown className="size-3.5" aria-hidden />
             )}
-            {hidden.length} older version{hidden.length === 1 ? "" : "s"}
+            {HISTORY_COPY.olderVersions(hidden.length)}
           </button>
           {expanded && (
             <div className="mt-1">

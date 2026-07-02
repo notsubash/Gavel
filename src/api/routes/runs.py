@@ -24,6 +24,7 @@ from api.schemas import (
     SimilarRunsResponse,
 )
 from config import Settings
+from judges.confidence import confidence_before_after
 
 logger = logging.getLogger(__name__)
 
@@ -149,7 +150,10 @@ def get_run_panel(
     verdicts = panel.get("verdicts")
     if not isinstance(verdicts, list):
         raise HTTPException(status_code=409, detail="Run has no completed panel yet")
-    return RunPanelResponse(verdicts=verdicts)
+    return RunPanelResponse(
+        verdicts=verdicts,
+        confidence_snapshot=manager.get_confidence_snapshot(run_id),
+    )
 
 
 @router.get("/runs/{run_id}", response_model=RunStatusResponse)
@@ -198,12 +202,20 @@ async def appeal_run(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     outcomes = result.evidence_outcomes
+    movement = confidence_before_after(
+        manager.get_debate_result(run_id),
+        result.revised_structured_synthesis,
+        original_verdicts=original_panel.verdicts,
+        revised_verdicts=result.revised_panel.verdicts,
+    )
 
     return AppealResponse(
         appeal_text=body.appeal_text.strip(),
         original_panel=original_panel.model_dump(mode="json"),
         revised_panel=result.revised_panel.model_dump(mode="json"),
         revised_synthesis=result.revised_synthesis,
+        revised_structured_synthesis=result.revised_structured_synthesis,
+        confidence_before_after=movement,
         target_judges=list(result.target_judges),
         evidence_outcomes=[
             AppealJudgeOutcomeResponse(

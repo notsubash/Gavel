@@ -22,6 +22,14 @@ Field rules:
 - top_strengths: up to three short plain sentences naming real strengths surfaced in the debate.
 - top_risks: up to three short plain sentences naming the highest-priority risks or fixes, ordered by urgency.
 - biggest_disagreement: one plain sentence naming the single sharpest split among judges.
+- confidence_dimensions: exactly four objects, one per dimension key demand, pricing, competition, moat.
+  Each object must include:
+  - dimension: the key string (demand, pricing, competition, or moat)
+  - value: integer 0 to 100 for how confident the panel is in that dimension
+  - driver: one plain sentence naming the top concern or evidence gap for that dimension
+  - next_action: one plain sentence describing the fastest proof that would raise confidence
+  Gauge each dimension holistically from the debate — do not average judge scores mechanically.
+  Use Low (0-39) when unresolved critical risk remains, Medium (40-69) when plausible but unproven, High (70-100) when judges cite concrete proof.
 
 Write every field in plain prose. No markdown, bullet characters, or numbered lists inside field values.
 Ground every field in the debate transcript and original verdicts; do not invent facts.

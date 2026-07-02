@@ -98,6 +98,8 @@ export const VERSION_COPY = {
   noPriorVersion:
     "No prior version to compare yet. Refine this idea after you update the pitch to see what changed.",
   confidenceTitle: "Confidence by dimension",
+  confidenceWhy: "See why",
+  confidenceNextAction: "Raise weakest dimension",
 } as const;
 
 export const EVIDENCE_COPY = {
@@ -120,7 +122,9 @@ export const EVIDENCE_COPY = {
     "Updated verdicts after your evidence. Outcome badges show whether each judge's ask was met.",
   progressTitle: "Progress update",
   panelScore: "Panel score",
-  confidence: "Confidence",
+  confidence: "Overall confidence",
+  confidenceDimensions: "Confidence by dimension",
+  confidenceUnchanged: "Dimension confidence unchanged after this evidence.",
   yourEvidence: "Your evidence:",
   minLengthError: (min: number) => `Evidence must be at least ${min} characters.`,
   maxLengthError: (max: number) => `Evidence must be at most ${max} characters.`,

@@ -1,13 +1,16 @@
 "use client";
 
-import { useMemo, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 
 import {
-  computeConfidenceFromVerdicts,
   confidenceTier,
+  parseConfidenceFromStructuredSynthesis,
+  resolveConfidenceSnapshot,
+  weakestDimensionAction,
   type ConfidenceDimensionScore,
   type ConfidenceSnapshot,
 } from "@/lib/confidence/confidence";
+import { isConfidenceEngineEnabled } from "@/lib/feature-flags";
 import type { Verdict } from "@/lib/sse/types";
 import { cn } from "@/lib/utils";
 
@@ -81,10 +84,53 @@ function ConfidenceBar({
           }
         />
       </div>
-      {!compact && item.driver && (
-        <p className="font-sans text-xs leading-relaxed text-ink-muted">
-          {item.driver}
-        </p>
+    </div>
+  );
+}
+
+function ConfidenceWhy({
+  snapshot,
+  compact = false,
+}: {
+  snapshot: ConfidenceSnapshot;
+  compact?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const weakest = snapshot.dimensions.find((item) => item.dimension === snapshot.weakest);
+  const supporting = snapshot.dimensions
+    .filter((item) => item.driver)
+    .sort((left, right) => left.value - right.value)
+    .slice(0, 2);
+  const nextAction = weakestDimensionAction(snapshot);
+
+  if (!weakest && supporting.length === 0) return null;
+
+  return (
+    <div className={cn(compact ? "mt-2" : "mt-3")}>
+      <button
+        type="button"
+        className="font-sans text-sm font-semibold text-ink underline decoration-rule-soft underline-offset-4 hover:text-cta"
+        aria-expanded={open}
+        aria-controls="confidence-why-panel"
+        aria-label="See why confidence scores are what they are"
+        onClick={() => setOpen((value) => !value)}
+      >
+        {VERSION_COPY.confidenceWhy}
+      </button>
+      {open && (
+        <div id="confidence-why-panel" className="mt-3 space-y-3 border-l-2 border-rule-soft pl-4">
+          {supporting.map((item) => (
+            <p key={item.dimension} className="font-sans text-sm leading-relaxed text-ink-muted">
+              <span className="font-semibold text-ink">{item.label}:</span> {item.driver}
+            </p>
+          ))}
+          {nextAction && (
+            <p className="font-sans text-sm leading-relaxed text-ink">
+              <span className="font-semibold">{VERSION_COPY.confidenceNextAction}:</span>{" "}
+              {nextAction}
+            </p>
+          )}
+        </div>
       )}
     </div>
   );
@@ -92,24 +138,33 @@ function ConfidenceBar({
 
 export function ConfidenceBars({
   verdicts,
+  structuredSynthesis,
   snapshot: providedSnapshot,
   className,
   compact = false,
   title = VERSION_COPY.confidenceTitle,
+  showWhy = true,
 }: {
   verdicts?: Verdict[];
+  structuredSynthesis?: unknown;
   snapshot?: ConfidenceSnapshot | null;
   className?: string;
   compact?: boolean;
   title?: string;
+  showWhy?: boolean;
 }) {
-  const snapshot = useMemo(() => {
-    if (providedSnapshot) return providedSnapshot;
-    if (!verdicts?.length) return null;
-    return computeConfidenceFromVerdicts(verdicts);
-  }, [providedSnapshot, verdicts]);
+  const snapshot = useMemo(
+    () =>
+      resolveConfidenceSnapshot({
+        snapshot: providedSnapshot,
+        structuredSynthesis,
+        verdicts,
+        allowDeterministicFallback: !parseConfidenceFromStructuredSynthesis(structuredSynthesis),
+      }),
+    [providedSnapshot, structuredSynthesis, verdicts],
+  );
 
-  if (!snapshot) return null;
+  if (!isConfidenceEngineEnabled() || !snapshot) return null;
 
   return (
     <section
@@ -124,6 +179,7 @@ export function ConfidenceBars({
           <ConfidenceBar key={item.dimension} item={item} compact={compact} delayMs={index * 60} />
         ))}
       </div>
+      {showWhy && <ConfidenceWhy snapshot={snapshot} compact={compact} />}
     </section>
   );
 }

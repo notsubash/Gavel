@@ -12,6 +12,8 @@ import { appealBaselineVerdicts, deriveTargetJudgesForEvidence, findDuplicateEvi
 import { ApiError } from "@/lib/api/client";
 import { getRunStatus } from "@/lib/api/runs";
 import { heatCtaClass } from "@/lib/cta-classes";
+import { parseConfidenceFromStructuredSynthesis } from "@/lib/confidence/confidence";
+import { isConfidenceEngineEnabled } from "@/lib/feature-flags";
 import { JUDGE_ORDER } from "@/lib/sse/types";
 import { useRunStream } from "@/lib/sse/use-run-stream";
 import type { LensUniquenessAssessment } from "@/lib/lens/lens-quality";
@@ -23,6 +25,7 @@ import { DebateTranscript } from "./debate-transcript";
 import { AppealSection, responseToAppeal } from "../appeal/appeal-section";
 import { CompleteExperimentModal } from "../appeal/complete-experiment-modal";
 import { VersionBadge, VersionComparison } from "../iteration/version-comparison";
+import { ConfidenceBars } from "../iteration/confidence-bars";
 import { JudgeColumn, JudgeColumnSkeleton } from "./judge-column";
 import { PhaseRail } from "./phase-rail";
 import { RunControls } from "./run-controls";
@@ -218,6 +221,10 @@ function RunSheetContent({
       (stream.synthesis ? parseDecisionVerdictProse(stream.synthesis) : null);
     return structured?.confidence ?? null;
   }, [stream.structuredSynthesis, stream.synthesis]);
+  const confidenceSnapshotBefore = useMemo(
+    () => parseConfidenceFromStructuredSynthesis(stream.structuredSynthesis),
+    [stream.structuredSynthesis],
+  );
   const autoTargetJudges = useMemo(
     () =>
       deriveTargetJudgesForEvidence(
@@ -295,6 +302,13 @@ function RunSheetContent({
               canSubmitEvidence ? () => setExperimentModalOpen(true) : undefined
             }
           />
+          {isConfidenceEngineEnabled() && (
+            <ConfidenceBars
+              verdicts={revealedVerdicts}
+              structuredSynthesis={stream.structuredSynthesis}
+              className="mt-6"
+            />
+          )}
           <NextActionsStrip
             runId={runId}
             experiment={workflowBrief.experiment}
@@ -349,6 +363,7 @@ function RunSheetContent({
         version={version}
         parentRunId={parentRunId}
         currentVerdicts={revealedVerdicts}
+        structuredSynthesis={stream.structuredSynthesis}
         completed={status === "completed"}
       />
     ),
@@ -358,6 +373,7 @@ function RunSheetContent({
         baselineVerdicts={revealedVerdicts}
         appeal={appeal}
         confidenceBefore={confidenceBefore}
+        confidenceSnapshotBefore={confidenceSnapshotBefore}
       />
     ),
     transcript: (

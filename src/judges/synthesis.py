@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from judges.confidence import ConfidenceDimensionScore
 from judges.schemas import RoastPanel, Verdict
 from verification import is_degenerate_fixes
 
@@ -42,6 +43,11 @@ class Synthesis(BaseModel):
         min_length=5,
         max_length=BIGGEST_DISAGREEMENT_MAX_LENGTH,
         description="The single biggest point of disagreement among judges.",
+    )
+    confidence_dimensions: list[ConfidenceDimensionScore] = Field(
+        default_factory=list,
+        max_length=4,
+        description="Per-dimension confidence gauges grounded in judge debate.",
     )
 
     @field_validator("top_strengths", "top_risks", mode="before")

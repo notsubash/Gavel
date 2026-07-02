@@ -3,6 +3,11 @@
 import { useMemo } from "react";
 
 import type { AppealResponse } from "@/lib/api/types-helpers";
+import {
+  parseConfidenceFromStructuredSynthesis,
+  parseConfidenceMovement,
+  type ConfidenceSnapshot,
+} from "@/lib/confidence/confidence";
 import { appealBaselineVerdicts, appealJudgeOutcomes } from "@/lib/appeal/coaching";
 import type { AppealResult, JudgeId, Verdict } from "@/lib/sse/types";
 import { JUDGE_ORDER } from "@/lib/sse/types";
@@ -59,6 +64,12 @@ function responseToAppeal(result: AppealResponse): AppealResult {
     originalByJudge,
     revisedByJudge,
     revisedSynthesis: result.revised_synthesis,
+    revisedStructuredSynthesis:
+      result.revised_structured_synthesis &&
+      typeof result.revised_structured_synthesis === "object"
+        ? (result.revised_structured_synthesis as Record<string, unknown>)
+        : null,
+    confidenceBeforeAfter: parseConfidenceMovement(result.confidence_before_after),
     targetJudges,
     evidenceOutcomes,
   };
@@ -69,11 +80,13 @@ export function AppealSection({
   baselineVerdicts,
   appeal,
   confidenceBefore,
+  confidenceSnapshotBefore,
 }: {
   completed: boolean;
   baselineVerdicts: Verdict[];
   appeal: AppealResult | null;
   confidenceBefore: ConfidenceLevel | null;
+  confidenceSnapshotBefore?: ConfidenceSnapshot | null;
 }) {
   const coachingBaseline = useMemo(
     () => appealBaselineVerdicts(baselineVerdicts),
@@ -84,11 +97,21 @@ export function AppealSection({
   if (coachingBaseline.length === 0 && !appeal) return null;
   if (!appeal) return null;
 
+  const confidenceMovement =
+    appeal.confidenceBeforeAfter ??
+    (confidenceSnapshotBefore
+      ? {
+          before: confidenceSnapshotBefore,
+          after: parseConfidenceFromStructuredSynthesis(appeal.revisedStructuredSynthesis),
+        }
+      : null);
+
   return (
     <div className="mt-8 border-t border-rule-soft pt-8">
       <EvidenceProgressDelta
         appeal={appeal}
         confidenceBefore={confidenceBefore}
+        confidenceMovement={confidenceMovement ?? undefined}
         className="mb-8"
       />
       <AppealResultView appeal={appeal} embedded />

@@ -1,16 +1,23 @@
 import type { components } from "./types";
 
+export type RunPanelResponse = components["schemas"]["RunPanelResponse"] & {
+  confidence_snapshot?: Record<string, unknown> | null;
+};
+
+export type AppealResponse = components["schemas"]["AppealResponse"] & {
+  revised_structured_synthesis?: Record<string, unknown> | null;
+  confidence_before_after?: Record<string, unknown> | null;
+};
+
 export type CreateRunRequest = components["schemas"]["CreateRunRequest"];
 export type RunCreatedResponse = components["schemas"]["RunCreatedResponse"];
 export type RunStatusResponse = components["schemas"]["RunStatusResponse"];
 export type AppealRequest = components["schemas"]["AppealRequest"];
-export type AppealResponse = components["schemas"]["AppealResponse"];
 export type RunListResponse = components["schemas"]["RunListResponse"];
 export type RunListItem = components["schemas"]["RunListItem"];
 export type VerdictSummary = components["schemas"]["VerdictSummary"];
 export type SimilarRunsResponse = components["schemas"]["SimilarRunsResponse"];
 export type SimilarRunItem = components["schemas"]["SimilarRunItem"];
-export type RunPanelResponse = components["schemas"]["RunPanelResponse"];
 
 export type ApiRunStatus = RunStatusResponse["status"];
 

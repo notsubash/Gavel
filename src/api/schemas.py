@@ -55,6 +55,7 @@ class RunStatusResponse(BaseModel):
 
 class RunPanelResponse(BaseModel):
     verdicts: list[dict[str, Any]]
+    confidence_snapshot: dict[str, Any] | None = None
 
 
 class ApiEventEnvelope(BaseModel):
@@ -95,6 +96,8 @@ class AppealResponse(BaseModel):
     original_panel: dict[str, Any]
     revised_panel: dict[str, Any]
     revised_synthesis: str
+    revised_structured_synthesis: dict[str, Any] | None = None
+    confidence_before_after: dict[str, Any] | None = None
     target_judges: list[str] = Field(default_factory=list)
     evidence_outcomes: list[AppealJudgeOutcomeResponse] = Field(default_factory=list)
 

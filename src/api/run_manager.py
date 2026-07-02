@@ -37,7 +37,12 @@ from appeal.service import AppealResult, run_appeal
 from config import Settings, get_settings
 from debate.revote import appeal_baseline_panel
 from events import RunMetrics
-from judges.schemas import RoastPanel
+from judges.confidence import (
+    confidence_before_after,
+    confidence_snapshot_from_debate,
+    confidence_snapshot_from_structured,
+)
+from judges.schemas import RoastPanel, Verdict
 from memory.identity import LOCAL_USER
 from memory.retrieval import records_for_memory
 from observability.metrics import log_run_metrics
@@ -197,6 +202,49 @@ class RunManager:
             return None
         return _effective_panel_for_run(self._store, run_id)
 
+    def get_confidence_snapshot(self, run_id: str) -> dict | None:
+        record = self.get(run_id)
+        if record is None or record.status != "completed":
+            return None
+
+        appeal = self._store.get_latest_event(run_id, "appeal_completed")
+        if appeal is not None:
+            revised_structured = appeal.payload.get("revised_structured_synthesis")
+            if isinstance(revised_structured, dict):
+                revised_panel = appeal.payload.get("revised_panel")
+                verdicts: list[Verdict] = []
+                if isinstance(revised_panel, dict):
+                    try:
+                        verdicts = RoastPanel.model_validate(revised_panel).verdicts
+                    except Exception:
+                        verdicts = []
+                snapshot = confidence_snapshot_from_structured(revised_structured, verdicts or None)
+                return snapshot.model_dump(mode="json") if snapshot else None
+
+        completed = self._store.get_latest_event(run_id, "run_completed")
+        if completed is None:
+            return None
+        debate_result = completed.payload.get("debate_result")
+        roast_panel = completed.payload.get("roast_panel")
+        verdicts = []
+        if isinstance(roast_panel, dict):
+            try:
+                verdicts = RoastPanel.model_validate(roast_panel).verdicts
+            except Exception:
+                verdicts = []
+        snapshot = confidence_snapshot_from_debate(
+            debate_result if isinstance(debate_result, dict) else None,
+            verdicts or None,
+        )
+        return snapshot.model_dump(mode="json") if snapshot else None
+
+    def get_debate_result(self, run_id: str) -> dict | None:
+        completed = self._store.get_latest_event(run_id, "run_completed")
+        if completed is None:
+            return None
+        debate_result = completed.payload.get("debate_result")
+        return debate_result if isinstance(debate_result, dict) else None
+
     def get(self, run_id: str) -> RunRecord | None:
         state = self._runs.get(run_id)
         if state is not None:
@@ -288,6 +336,12 @@ class RunManager:
         )
 
         outcomes = result.evidence_outcomes
+        movement = confidence_before_after(
+            debate_result,
+            result.revised_structured_synthesis,
+            original_verdicts=roast_panel.verdicts,
+            revised_verdicts=result.revised_panel.verdicts,
+        )
         state = self._ensure_state(run_id)
         try:
             state.append_once(
@@ -300,6 +354,8 @@ class RunManager:
                         "original_panel": roast_panel.model_dump(mode="json"),
                         "revised_panel": result.revised_panel.model_dump(mode="json"),
                         "revised_synthesis": result.revised_synthesis,
+                        "revised_structured_synthesis": result.revised_structured_synthesis,
+                        "confidence_before_after": movement,
                         "target_judges": list(result.target_judges),
                         "evidence_outcomes": [
                             {

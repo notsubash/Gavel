@@ -19,7 +19,7 @@ import {
   type ExperimentStatus,
 } from "@/lib/experiment/experiment";
 import { getStoredExperimentStatus } from "@/lib/experiment/experiment-storage";
-import { isConfidenceEngineEnabled } from "@/lib/feature-flags";
+import { isConfidenceEngineEnabled, isJudgeIdentityEnabled } from "@/lib/feature-flags";
 import { JUDGE_ORDER } from "@/lib/sse/types";
 import { useRunStream } from "@/lib/sse/use-run-stream";
 import type { LensUniquenessAssessment } from "@/lib/lens/lens-quality";
@@ -27,6 +27,7 @@ import type { RunState, RunStatus, Verdict, AppealResult } from "@/lib/sse/types
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/ui/skeleton";
 
+import { DebateConsequenceBlock } from "./debate-consequence-block";
 import { DebateTranscript } from "./debate-transcript";
 import { AppealSection, responseToAppeal } from "../appeal/appeal-section";
 import { CompleteExperimentModal } from "../appeal/complete-experiment-modal";
@@ -309,6 +310,7 @@ function RunSheetContent({
                 scoreDelta={scoreDelta}
                 scoreChangeReason={stream.revoteChangeReasons[id]}
                 evidenceAskCollides={duplicateEvidenceJudges.has(id)}
+                baselineVerdict={baseline}
               />
             );
           })}
@@ -346,6 +348,15 @@ function RunSheetContent({
               className="mt-6"
             />
           )}
+          <DebateConsequenceBlock
+            structuredSynthesis={stream.structuredSynthesis}
+            synthesisProse={stream.synthesis}
+            verdicts={revealedVerdicts}
+            revoteBaseline={stream.revoteBaseline}
+            revoteChangeReasons={stream.revoteChangeReasons}
+            topProblems={workflowBrief.problems}
+            className="mt-6"
+          />
           <NextActionsStrip
             runId={runId}
             experiment={experiment}
@@ -553,7 +564,7 @@ function JudgePanelFootnotes({
           {revoteQuality.reasons.join(" ")}
         </p>
       )}
-      {!revoteQuality?.scoresMoved && hasRevote && (
+      {!revoteQuality?.scoresMoved && hasRevote && !isJudgeIdentityEnabled() && (
         <p className="mt-3 max-w-prose font-sans text-sm text-ink-muted">
           No judge changed their score after the debate.
         </p>

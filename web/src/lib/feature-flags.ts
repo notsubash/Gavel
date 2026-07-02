@@ -12,3 +12,8 @@ export function isConfidenceEngineEnabled(): boolean {
 export function isExperimentEntityEnabled(): boolean {
   return process.env.NEXT_PUBLIC_EXPERIMENT_ENTITY !== "false";
 }
+
+/** Phase 8 rollback — set NEXT_PUBLIC_JUDGE_IDENTITY=false for legacy judge cards. */
+export function isJudgeIdentityEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_JUDGE_IDENTITY !== "false";
+}

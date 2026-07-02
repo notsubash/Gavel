@@ -55,12 +55,31 @@ export const SETTINGS_COPY = {
 } as const;
 
 export const HISTORY_COPY = {
+  eyebrow: "Workspaces",
+  title: "Startups you're iterating",
+  description:
+    "Each row is one startup workspace — versions, score, movement, and your open next action.",
+  emptyTitle: "No workspaces yet",
+  emptyDescription: "Submit your first idea — it becomes a workspace when the review finishes.",
+  versionCount: (count: number) => `${count} ${count === 1 ? "version" : "versions"}`,
+  currentScore: "Score",
+  latestDelta: "Delta",
+  openNextAction: "Next action",
+  nextActionOpenReview: "Open review",
+  nextActionViewFailed: "View failed review",
+  nextActionViewCancelled: "View cancelled review",
+  olderVersions: (count: number) =>
+    `${count} older version${count === 1 ? "" : "s"}`,
+} as const;
+
+/** Rollback copy when NEXT_PUBLIC_WORKSPACE_HISTORY=false. */
+export const HISTORY_COPY_LEGACY = {
   eyebrow: "Archive",
   title: "Idea timeline",
-  description: "Startups you are iterating — version count, score, and latest movement at a glance.",
+  description: "Version chains grouped by idea lineage.",
   emptyTitle: "No reviews yet",
   emptyDescription: "Submit your first idea — it will show up here when the review finishes.",
-  versions: "versions",
+  versionCount: (count: number) => `${count} ${count === 1 ? "version" : "versions"}`,
   currentScore: "Current score",
   latestDelta: "Latest delta",
   olderVersions: (count: number) =>

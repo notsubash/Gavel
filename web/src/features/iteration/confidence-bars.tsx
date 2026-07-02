@@ -54,8 +54,7 @@ function ConfidenceBar({
             compact ? "text-[10px]" : "text-xs",
           )}
         >
-          {item.value}
-          <span className="sr-only"> out of 100, </span>
+          {item.value}/100
           <span aria-hidden> · {tier}</span>
         </span>
       </div>

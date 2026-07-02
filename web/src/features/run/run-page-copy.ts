@@ -16,6 +16,10 @@ export const RUN_PAGE_COPY = {
   topProblems: "Top problems",
   highestPriority: "Highest priority",
   recommendedExperiment: "Recommended experiment",
+  experimentAudience: "Audience",
+  experimentEffort: "Estimated effort",
+  experimentQuestions: "Questions to answer",
+  experimentHypothesis: "What you're testing",
   todaysGoal: "Today's goal",
   presentEvidence: "Present evidence",
   presentEvidenceLead: "Completed your experiment? Share results to update this review.",
@@ -104,9 +108,18 @@ export const VERSION_COPY = {
 
 export const EVIDENCE_COPY = {
   modalTitle: "Complete experiment",
-  modalLead: "Tell the panel what you learned. We will route your update to the judges most tied to your top blocker.",
+  modalLead:
+    "Tell the panel what you learned running this experiment. We route your update to the judges most tied to your top blocker.",
   modalSubmit: "Submit evidence",
   experimentFocus: "Your experiment:",
+  experimentHypothesis: "Hypothesis:",
+  changedAssumptionLabel: "Key assumption that changed",
+  changedAssumptionPlaceholder:
+    "We assumed power users would look at key labels — interviews showed they rely on muscle memory instead.",
+  artifactLinksLabel: "Links or artifacts",
+  artifactLinksPlaceholder:
+    "Paste one URL per line (interview notes, Loom demo, spreadsheet, pre-order page…)",
+  artifactLinksHint: "Optional — http and https links only.",
   autoTargetJudges: "Auto-selected judges",
   evidenceAsk: "Needs to hear:",
   attachmentsLabel: "Supporting notes",

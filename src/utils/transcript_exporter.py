@@ -95,10 +95,14 @@ def export_transcript(
             lines.extend(["### Strengths", ""])
             lines.extend(f"- {item}" for item in structured.top_strengths)
             lines.append("")
-        if structured.top_risks and structured.top_risks != priorities:
-            lines.extend(["### Top Risks", ""])
-            lines.extend(f"- {item}" for item in structured.top_risks)
-            lines.append("")
+        if structured.top_risks:
+            extra_risks = [item for item in structured.top_risks if item not in priorities]
+            if extra_risks:
+                lines.extend(["### Top Risks", ""])
+                lines.extend(f"- {item}" for item in extra_risks)
+                lines.append("")
+        if structured.highest_priority:
+            lines.extend(["### Highest Priority", "", structured.highest_priority, ""])
         lines.extend(["### Biggest Disagreement", "", structured.biggest_disagreement, ""])
     elif synthesis:
         lines.extend(["---", "", "## Final Synthesis", "", synthesis, ""])

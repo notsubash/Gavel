@@ -1,6 +1,6 @@
 import type { RunListItem } from "../../lib/api/types-helpers";
+import { deriveExperiment, experimentSummaryLine } from "../../lib/experiment/experiment.ts";
 import { parseVerdict } from "../../lib/lineage/lineage.ts";
-import { deriveWorkflowBrief } from "../run/structured-synthesis.ts";
 import { HISTORY_COPY, RUN_PAGE_COPY } from "../run/run-page-copy.ts";
 
 export type WorkspaceNextAction = {
@@ -33,7 +33,7 @@ export function deriveNextActionFromStatus(
   }
 }
 
-/** Match run page `#next-actions-strip` — uses workflow experiment, not raw judge fix. */
+/** Match run page `#next-actions-strip` — uses structured experiment from judge fixes. */
 export function deriveNextActionFromPanel(
   runId: string,
   status: RunListItem["status"],
@@ -49,8 +49,8 @@ export function deriveNextActionFromPanel(
     .map(parseVerdict)
     .filter((verdict): verdict is NonNullable<ReturnType<typeof parseVerdict>> => verdict !== null);
 
-  const { experiment } = deriveWorkflowBrief(synthesisProse, structuredSynthesis, verdicts);
-  const detail = experiment.trim();
+  const experiment = deriveExperiment(runId, synthesisProse, structuredSynthesis, verdicts);
+  const detail = experimentSummaryLine(experiment).trim();
   if (detail) {
     return {
       label: RUN_PAGE_COPY.completeExperiment,

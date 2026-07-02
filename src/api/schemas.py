@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 RunStatus = Literal["created", "running", "completed", "failed", "cancelled"]
 IDEA_MAX_LENGTH = 8000
@@ -67,6 +67,50 @@ class ApiEventEnvelope(BaseModel):
 
 
 APPEAL_MAX_LENGTH = 4000
+ARTIFACT_LINKS_MAX = 5
+ASSUMPTION_MAX_LENGTH = 500
+
+
+def _sanitize_artifact_links(links: list[str] | None) -> list[str]:
+    if not links:
+        return []
+    cleaned: list[str] = []
+    for raw in links[:ARTIFACT_LINKS_MAX]:
+        link = raw.strip()
+        if link.lower().startswith(("http://", "https://")):
+            cleaned.append(link)
+    return cleaned
+
+
+class ExperimentContextRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    experiment_id: str | None = Field(default=None, max_length=64)
+    changed_assumption: str | None = Field(default=None, max_length=ASSUMPTION_MAX_LENGTH)
+    artifact_links: list[str] | None = Field(default=None, max_length=ARTIFACT_LINKS_MAX)
+
+    @field_validator("changed_assumption", mode="before")
+    @classmethod
+    def strip_changed_assumption(cls, value: str | None) -> str | None:
+        if value is None or not isinstance(value, str):
+            return value
+        stripped = value.strip()
+        return stripped or None
+
+    @field_validator("artifact_links", mode="before")
+    @classmethod
+    def sanitize_artifact_links(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        cleaned = _sanitize_artifact_links(value)
+        return cleaned or None
+
+
+class ExperimentContextResponse(BaseModel):
+    experiment_id: str | None = None
+    status: Literal["submitted", "reviewed"] = "reviewed"
+    changed_assumption: str | None = None
+    artifact_links: list[str] = Field(default_factory=list)
 
 
 class AppealRequest(BaseModel):
@@ -80,6 +124,10 @@ class AppealRequest(BaseModel):
     target_judges: list[str] | None = Field(
         default=None,
         description="Optional judge ids the founder is specifically addressing.",
+    )
+    experiment_context: ExperimentContextRequest | None = Field(
+        default=None,
+        description="Optional structured experiment completion metadata.",
     )
 
 
@@ -98,6 +146,7 @@ class AppealResponse(BaseModel):
     revised_synthesis: str
     revised_structured_synthesis: dict[str, Any] | None = None
     confidence_before_after: dict[str, Any] | None = None
+    experiment_context: ExperimentContextResponse | None = None
     target_judges: list[str] = Field(default_factory=list)
     evidence_outcomes: list[AppealJudgeOutcomeResponse] = Field(default_factory=list)
 

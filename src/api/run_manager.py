@@ -300,6 +300,7 @@ class RunManager:
         appeal_text: str,
         settings: Settings,
         target_judges: list[str] | None = None,
+        experiment_context: dict | None = None,
     ) -> tuple[RoastPanel, AppealResult]:
         record = self.get(run_id)
         if record is None:
@@ -356,6 +357,7 @@ class RunManager:
                         "revised_synthesis": result.revised_synthesis,
                         "revised_structured_synthesis": result.revised_structured_synthesis,
                         "confidence_before_after": movement,
+                        "experiment_context": experiment_context,
                         "target_judges": list(result.target_judges),
                         "evidence_outcomes": [
                             {

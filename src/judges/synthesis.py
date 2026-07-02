@@ -12,7 +12,29 @@ from verification import is_degenerate_fixes
 
 SYNTHESIS_ITEM_MAX_LENGTH = 300
 BIGGEST_DISAGREEMENT_MAX_LENGTH = 400
+EXPERIMENT_TITLE_MAX_LENGTH = 200
+EXPERIMENT_AUDIENCE_MAX_LENGTH = 120
+EXPERIMENT_HYPOTHESIS_MAX_LENGTH = 300
 _NUMBERED_PROSE_SYNTHESIS = re.compile(r"\*\*1\.\s*Overall verdict:\*\*", re.I)
+
+_META_SUMMARY_PATTERNS = (
+    re.compile(r"\bevery (single )?judge\b", re.I),
+    re.compile(r"\bindependently concluded\b", re.I),
+    re.compile(r"\bscoring it between\b", re.I),
+    re.compile(r"\bacross all (five )?(perspectives|judges|lenses)\b", re.I),
+    re.compile(r"\ball five judges\b", re.I),
+)
+
+
+def is_meta_summary_text(text: str) -> bool:
+    """Guardrail: panel aggregate commentary is not an idea problem."""
+    normalized = text.lower()
+    if any(pattern.search(normalized) for pattern in _META_SUMMARY_PATTERNS):
+        return True
+    return bool(
+        re.search(r"\bunanimous(ly)?\b", normalized)
+        and re.search(r"\b(judge|panel|verdict)\b", normalized)
+    )
 
 
 def is_numbered_prose_synthesis(text: str | None) -> bool:
@@ -32,6 +54,34 @@ class ConfidenceLevel(StrEnum):
     HIGH = "HIGH"
 
 
+class RecommendedExperiment(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(min_length=10, max_length=EXPERIMENT_TITLE_MAX_LENGTH)
+    audience: str = Field(min_length=5, max_length=EXPERIMENT_AUDIENCE_MAX_LENGTH)
+    hypothesis: str = Field(min_length=10, max_length=EXPERIMENT_HYPOTHESIS_MAX_LENGTH)
+    questions: list[str] = Field(min_length=3, max_length=5)
+    effort_minutes: int = Field(ge=15, le=2880)
+
+    @field_validator("questions", mode="before")
+    @classmethod
+    def trim_questions(cls, value):
+        if not isinstance(value, list):
+            return value
+        return [item for item in value if isinstance(item, str) and item.strip()][:5]
+
+    @field_validator("questions")
+    @classmethod
+    def validate_questions(cls, items: list[str]) -> list[str]:
+        cleaned: list[str] = []
+        for item in items:
+            text = " ".join(item.split())
+            if len(text) > SYNTHESIS_ITEM_MAX_LENGTH:
+                text = text[: SYNTHESIS_ITEM_MAX_LENGTH - 3].rstrip() + "..."
+            cleaned.append(text)
+        return cleaned
+
+
 class Synthesis(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -39,18 +89,29 @@ class Synthesis(BaseModel):
     confidence: ConfidenceLevel
     top_strengths: list[str] = Field(default_factory=list, max_length=3)
     top_risks: list[str] = Field(default_factory=list, max_length=3)
+    top_problems: list[str] = Field(
+        default_factory=list,
+        max_length=3,
+        description="Concrete flaws in the idea or business — never panel score summaries.",
+    )
+    highest_priority: str | None = Field(
+        default=None,
+        max_length=BIGGEST_DISAGREEMENT_MAX_LENGTH,
+        description="The single most urgent uncertainty or blocker the founder must resolve first.",
+    )
     biggest_disagreement: str = Field(
         min_length=5,
         max_length=BIGGEST_DISAGREEMENT_MAX_LENGTH,
         description="The single biggest point of disagreement among judges.",
     )
+    recommended_experiment: RecommendedExperiment | None = None
     confidence_dimensions: list[ConfidenceDimensionScore] = Field(
         default_factory=list,
         max_length=4,
         description="Per-dimension confidence gauges grounded in judge debate.",
     )
 
-    @field_validator("top_strengths", "top_risks", mode="before")
+    @field_validator("top_strengths", "top_risks", "top_problems", mode="before")
     @classmethod
     def trim_bounded_list(cls, value):
         if not isinstance(value, list):
@@ -58,7 +119,7 @@ class Synthesis(BaseModel):
         trimmed = [item for item in value if isinstance(item, str) and item.strip()][:3]
         return trimmed
 
-    @field_validator("top_strengths", "top_risks")
+    @field_validator("top_strengths", "top_risks", "top_problems")
     @classmethod
     def validate_list_items(cls, items: list[str]) -> list[str]:
         cleaned: list[str] = []
@@ -68,6 +129,11 @@ class Synthesis(BaseModel):
                 text = text[: SYNTHESIS_ITEM_MAX_LENGTH - 3].rstrip() + "..."
             cleaned.append(text)
         return cleaned
+
+    @field_validator("top_problems")
+    @classmethod
+    def reject_meta_problems(cls, items: list[str]) -> list[str]:
+        return [item for item in items if not is_meta_summary_text(item)]
 
 
 def parse_structured_synthesis(debate_result: dict[str, Any] | None) -> Synthesis | None:
@@ -93,6 +159,8 @@ def synthesis_to_prose(synthesis: Synthesis) -> str:
     if synthesis.top_risks:
         lines.append("**Top risks:**")
         lines.extend(f"- {item}" for item in synthesis.top_risks)
+    if synthesis.highest_priority:
+        lines.append(f"**Highest priority:** {synthesis.highest_priority}")
     lines.append(f"**Biggest disagreement:** {synthesis.biggest_disagreement}")
     return "\n".join(lines)
 
@@ -103,8 +171,13 @@ def top_priorities(
     *,
     limit: int = 3,
 ) -> list[str]:
+    if synthesis and synthesis.top_problems:
+        return synthesis.top_problems[:limit]
+
     if synthesis and synthesis.top_risks:
-        return synthesis.top_risks[:limit]
+        substantive = [item for item in synthesis.top_risks if not is_meta_summary_text(item)]
+        if substantive:
+            return substantive[:limit]
 
     if roast_panel is None:
         return []

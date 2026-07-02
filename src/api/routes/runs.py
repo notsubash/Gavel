@@ -16,6 +16,7 @@ from api.schemas import (
     AppealRequest,
     AppealResponse,
     CreateRunRequest,
+    ExperimentContextResponse,
     RunCreatedResponse,
     RunListItem,
     RunListResponse,
@@ -195,6 +196,7 @@ async def appeal_run(
             body.appeal_text,
             settings,
             body.target_judges,
+            body.experiment_context.model_dump(mode="json") if body.experiment_context else None,
         )
     except KeyError:
         raise HTTPException(status_code=404, detail="Run not found") from None
@@ -209,6 +211,16 @@ async def appeal_run(
         revised_verdicts=result.revised_panel.verdicts,
     )
 
+    experiment_response: ExperimentContextResponse | None = None
+    if body.experiment_context is not None:
+        ctx = body.experiment_context
+        experiment_response = ExperimentContextResponse(
+            experiment_id=ctx.experiment_id,
+            status="reviewed",
+            changed_assumption=ctx.changed_assumption,
+            artifact_links=list(ctx.artifact_links or []),
+        )
+
     return AppealResponse(
         appeal_text=body.appeal_text.strip(),
         original_panel=original_panel.model_dump(mode="json"),
@@ -216,6 +228,7 @@ async def appeal_run(
         revised_synthesis=result.revised_synthesis,
         revised_structured_synthesis=result.revised_structured_synthesis,
         confidence_before_after=movement,
+        experiment_context=experiment_response,
         target_judges=list(result.target_judges),
         evidence_outcomes=[
             AppealJudgeOutcomeResponse(

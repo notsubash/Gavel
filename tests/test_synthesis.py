@@ -8,8 +8,10 @@ from judges.schemas import RoastPanel, Verdict
 from judges.synthesis import (
     ConfidenceLevel,
     OverallRecommendation,
+    RecommendedExperiment,
     Synthesis,
     assess_verdict_output_quality,
+    is_meta_summary_text,
     parse_structured_synthesis,
     synthesis_compact_summary,
     synthesis_to_prose,
@@ -82,7 +84,24 @@ def _structured_debate_result() -> dict:
             "No proof of buyer urgency yet.",
             "Sales cycles may be too long for the current GTM.",
         ],
+        top_problems=[
+            "No proof of buyer urgency yet.",
+            "Sales cycles may be too long for the current GTM.",
+            "Incumbents can copy the core workflow in one sprint.",
+        ],
+        highest_priority="Prove that compliance leads will pay before the next build sprint.",
         biggest_disagreement="The VC wants a narrower wedge while the PM wants broader TAM.",
+        recommended_experiment={
+            "title": "Run five buyer interviews with compliance leads this week.",
+            "audience": "Compliance leads at mid-size hospitals",
+            "hypothesis": "Buyers rank audit prep as a top-three weekly pain.",
+            "questions": [
+                "Do they rank audit prep in their top three pains unprompted?",
+                "What tools do they use today?",
+                "Would they pilot a workflow that saves one hour per audit?",
+            ],
+            "effort_minutes": 120,
+        },
     )
     return {
         "debate_messages": [],
@@ -95,7 +114,18 @@ class SynthesisHelpersTest(unittest.TestCase):
     def test_parse_structured_synthesis_returns_none_for_legacy_records(self):
         self.assertIsNone(parse_structured_synthesis({"final_synthesis": "Too vague to fund."}))
 
-    def test_top_priorities_prefers_structured_risks(self):
+    def test_top_priorities_prefers_top_problems(self):
+        synthesis = Synthesis(
+            overall_recommendation=OverallRecommendation.NO_GO,
+            confidence=ConfidenceLevel.HIGH,
+            top_risks=["Every single judge independently concluded this fails."],
+            top_problems=["Fix buyer proof first.", "Validate pricing."],
+            biggest_disagreement="Judges split on timing.",
+        )
+        priorities = top_priorities(synthesis, _panel())
+        self.assertEqual(priorities, ["Fix buyer proof first.", "Validate pricing."])
+
+    def test_top_priorities_prefers_structured_risks_when_no_problems(self):
         synthesis = Synthesis(
             overall_recommendation=OverallRecommendation.NO_GO,
             confidence=ConfidenceLevel.HIGH,
@@ -104,6 +134,49 @@ class SynthesisHelpersTest(unittest.TestCase):
         )
         priorities = top_priorities(synthesis, _panel())
         self.assertEqual(priorities, ["Fix buyer proof first.", "Validate pricing."])
+
+    def test_reject_meta_top_problems(self):
+        synthesis = Synthesis(
+            overall_recommendation=OverallRecommendation.NO_GO,
+            confidence=ConfidenceLevel.HIGH,
+            top_problems=[
+                "Every single judge independently concluded this product fails.",
+                "Zero switching costs block repeat revenue.",
+            ],
+            biggest_disagreement="Split on wedge.",
+        )
+        self.assertEqual(len(synthesis.top_problems), 1)
+        self.assertIn("switching costs", synthesis.top_problems[0])
+
+    def test_recommended_experiment_parses(self):
+        experiment = RecommendedExperiment(
+            title="Run fifteen interviews with video editors who own Stream Decks.",
+            audience="Video editors who own Stream Decks",
+            hypothesis="Editors rank forgotten shortcuts as a top-three workflow pain.",
+            questions=[
+                "Do they rank shortcut friction unprompted?",
+                "How often do they switch NLEs mid-task?",
+                "Would they pay for a fix?",
+            ],
+            effort_minutes=120,
+        )
+        synthesis = Synthesis(
+            overall_recommendation=OverallRecommendation.NO_GO,
+            confidence=ConfidenceLevel.HIGH,
+            biggest_disagreement="VC vs PM on wedge.",
+            recommended_experiment=experiment,
+        )
+        parsed = parse_structured_synthesis({"structured_synthesis": synthesis.model_dump()})
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed.recommended_experiment.title, experiment.title)
+
+    def test_is_meta_summary_text(self):
+        self.assertTrue(
+            is_meta_summary_text(
+                "Every single judge independently concluded this product fails as a venture investment."
+            )
+        )
+        self.assertFalse(is_meta_summary_text("Zero switching costs block repeat revenue."))
 
     def test_top_priorities_falls_back_to_recommended_fixes(self):
         synthesis = Synthesis(
@@ -147,6 +220,8 @@ class StructuredTranscriptExportTest(unittest.TestCase):
             self.assertIn("**Confidence:** MEDIUM", content)
             self.assertIn("### Top Priorities", content)
             self.assertIn("1. No proof of buyer urgency yet.", content)
+            self.assertIn("### Highest Priority", content)
+            self.assertIn("Prove that compliance leads will pay", content)
             self.assertIn("### Biggest Disagreement", content)
             self.assertIn("VC wants a narrower wedge", content)
 

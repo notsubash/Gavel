@@ -128,7 +128,7 @@ class DebateRevoteTest(unittest.TestCase):
         self.assertEqual(len(panel.verdicts), 5)
         self.assertEqual(panel.verdicts[0].score, 4)
 
-    def test_degenerate_revote_panel_retries_then_fails_closed(self):
+    def test_degenerate_revote_panel_retries_then_continues(self):
         debate_messages = [{"speaker": "vc", "round": 1, "content": "Still weak."}]
         judges = ["vc", "engineer", "pm", "customer", "competitor"]
         degenerate_panel = RoastPanel(verdicts=[_verdict(judge, score=3) for judge in judges])
@@ -140,8 +140,8 @@ class DebateRevoteTest(unittest.TestCase):
             emitted.append(event)
 
         with patch("debate.revote._emit_revote_custom", side_effect=capture):
-            with self.assertRaisesRegex(ValueError, "degenerate"):
-                run_revote(model, "AI privacy summarizer.", degenerate_panel, debate_messages)
+            panel = run_revote(model, "AI privacy summarizer.", degenerate_panel, debate_messages)
+        self.assertEqual(len(panel.verdicts), 5)
         self.assertEqual(model.structured_model.calls, 10)
         # ponytail: first attempt streams 1 started + 5 judges; retry is silent.
         self.assertEqual(len(emitted), 6)

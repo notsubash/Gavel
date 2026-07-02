@@ -7,3 +7,8 @@ export function isWorkspaceHistoryEnabled(): boolean {
 export function isConfidenceEngineEnabled(): boolean {
   return process.env.NEXT_PUBLIC_CONFIDENCE_ENGINE !== "false";
 }
+
+/** Phase 7 rollback — set NEXT_PUBLIC_EXPERIMENT_ENTITY=false for plain-text experiment. */
+export function isExperimentEntityEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_EXPERIMENT_ENTITY !== "false";
+}

@@ -7,12 +7,25 @@ export type RunPanelResponse = components["schemas"]["RunPanelResponse"] & {
 export type AppealResponse = components["schemas"]["AppealResponse"] & {
   revised_structured_synthesis?: Record<string, unknown> | null;
   confidence_before_after?: Record<string, unknown> | null;
+  experiment_context?: {
+    experiment_id?: string | null;
+    status?: "submitted" | "reviewed";
+    changed_assumption?: string | null;
+    artifact_links?: string[];
+  } | null;
+};
+
+export type AppealRequest = components["schemas"]["AppealRequest"] & {
+  experiment_context?: {
+    experiment_id?: string;
+    changed_assumption?: string;
+    artifact_links?: string[];
+  };
 };
 
 export type CreateRunRequest = components["schemas"]["CreateRunRequest"];
 export type RunCreatedResponse = components["schemas"]["RunCreatedResponse"];
 export type RunStatusResponse = components["schemas"]["RunStatusResponse"];
-export type AppealRequest = components["schemas"]["AppealRequest"];
 export type RunListResponse = components["schemas"]["RunListResponse"];
 export type RunListItem = components["schemas"]["RunListItem"];
 export type VerdictSummary = components["schemas"]["VerdictSummary"];

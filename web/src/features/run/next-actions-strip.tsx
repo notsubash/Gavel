@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
 import { secondaryCtaClass } from "@/lib/cta-classes";
+import type { Experiment } from "@/lib/experiment/experiment";
 import { cn } from "@/lib/utils";
 
 import { RUN_PAGE_COPY } from "./run-page-copy";
@@ -16,7 +17,7 @@ export function NextActionsStrip({
   className,
 }: {
   runId: string;
-  experiment: string;
+  experiment: Experiment;
   completed: boolean;
   className?: string;
 }) {
@@ -46,7 +47,12 @@ export function NextActionsStrip({
           </Link>
         </div>
       </div>
-      <p className="px-4 py-4 font-sans text-sm leading-relaxed text-ink sm:px-5">{experiment}</p>
+      <div className="px-4 py-4 sm:px-5">
+        <p className="font-sans text-sm font-semibold leading-relaxed text-ink">{experiment.title}</p>
+        <p className="mt-1.5 font-sans text-sm leading-relaxed text-ink-muted">
+          {experiment.hypothesis}
+        </p>
+      </div>
     </section>
   );
 }

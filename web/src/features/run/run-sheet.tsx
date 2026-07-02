@@ -13,6 +13,12 @@ import { ApiError } from "@/lib/api/client";
 import { getRunStatus } from "@/lib/api/runs";
 import { heatCtaClass } from "@/lib/cta-classes";
 import { parseConfidenceFromStructuredSynthesis } from "@/lib/confidence/confidence";
+import {
+  deriveExperiment,
+  resolveExperimentStatus,
+  type ExperimentStatus,
+} from "@/lib/experiment/experiment";
+import { getStoredExperimentStatus } from "@/lib/experiment/experiment-storage";
 import { isConfidenceEngineEnabled } from "@/lib/feature-flags";
 import { JUDGE_ORDER } from "@/lib/sse/types";
 import { useRunStream } from "@/lib/sse/use-run-stream";
@@ -165,10 +171,17 @@ function RunSheetContent({
   const liveDebate = status === "running" && stream.phase === "debate";
   const [appealResult, setAppealResult] = useState<AppealResult | null>(stream.appeal);
   const [experimentModalOpen, setExperimentModalOpen] = useState(false);
+  const [storedExperimentStatus, setStoredExperimentStatus] = useState<ExperimentStatus | null>(
+    null,
+  );
   const [postRunReplaySettled, setPostRunReplaySettled] = useState(false);
   const scrollToAppealOnSubmit = useRef(false);
 
   const appeal = appealResult ?? stream.appeal;
+
+  useEffect(() => {
+    setStoredExperimentStatus(getStoredExperimentStatus(runId));
+  }, [runId]);
 
   useEffect(() => {
     if (stream.appeal) setAppealResult(stream.appeal);
@@ -215,6 +228,25 @@ function RunSheetContent({
       ),
     [stream.synthesis, stream.structuredSynthesis, revealedVerdicts],
   );
+  const experiment = useMemo(() => {
+    const base = deriveExperiment(
+      runId,
+      stream.synthesis,
+      stream.structuredSynthesis,
+      revealedVerdicts,
+    );
+    return resolveExperimentStatus(base, {
+      hasAppeal: Boolean(appeal),
+      storedStatus: storedExperimentStatus,
+    });
+  }, [
+    runId,
+    stream.synthesis,
+    stream.structuredSynthesis,
+    revealedVerdicts,
+    appeal,
+    storedExperimentStatus,
+  ]);
   const confidenceBefore = useMemo(() => {
     const structured =
       parseStructuredSynthesis(stream.structuredSynthesis) ??
@@ -225,14 +257,18 @@ function RunSheetContent({
     () => parseConfidenceFromStructuredSynthesis(stream.structuredSynthesis),
     [stream.structuredSynthesis],
   );
-  const autoTargetJudges = useMemo(
-    () =>
-      deriveTargetJudgesForEvidence(
-        revealedVerdicts,
-        workflowBrief.blocker ?? workflowBrief.problems[0] ?? null,
-      ),
-    [revealedVerdicts, workflowBrief.blocker, workflowBrief.problems],
-  );
+  const autoTargetJudges = useMemo(() => {
+    if (experiment.sourceJudge) return [experiment.sourceJudge];
+    return deriveTargetJudgesForEvidence(
+      revealedVerdicts,
+      workflowBrief.blocker ?? workflowBrief.problems[0] ?? null,
+    );
+  }, [
+    experiment.sourceJudge,
+    revealedVerdicts,
+    workflowBrief.blocker,
+    workflowBrief.problems,
+  ]);
   const canSubmitEvidence =
     appealBaseline.length > 0 && !appeal && postRunReplaySettled;
   const evidenceReplayPending =
@@ -295,6 +331,7 @@ function RunSheetContent({
             synthesisProse={stream.synthesis}
             structuredSynthesis={stream.structuredSynthesis}
             verdicts={revealedVerdicts}
+            experiment={experiment}
             completed={status === "completed"}
             evidenceLink={evidenceLink}
             evidenceReplayPending={evidenceReplayPending}
@@ -311,7 +348,7 @@ function RunSheetContent({
           )}
           <NextActionsStrip
             runId={runId}
-            experiment={workflowBrief.experiment}
+            experiment={experiment}
             completed={status === "completed"}
           />
         </div>
@@ -474,9 +511,10 @@ function RunSheetContent({
         onOpenChange={setExperimentModalOpen}
         targetJudges={autoTargetJudges}
         baselineVerdicts={revealedVerdicts}
-        experiment={workflowBrief.experiment}
+        experiment={experiment}
         onSuccess={(result) => {
           scrollToAppealOnSubmit.current = true;
+          setStoredExperimentStatus("submitted");
           setAppealResult(responseToAppeal(result));
         }}
       />

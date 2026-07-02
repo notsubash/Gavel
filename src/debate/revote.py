@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import concurrent.futures
+import logging
 
 from jinja2 import Environment, FileSystemLoader
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -24,6 +25,7 @@ from observability.metrics import RunMetricsCollector
 from run_control import check_abort
 
 template_env = Environment(loader=FileSystemLoader(PROMPTS_DIR))
+logger = logging.getLogger(__name__)
 
 
 def score_change_reason(original: Verdict, revised: Verdict) -> str | None:
@@ -215,8 +217,8 @@ def run_revote(
         )
         verdicts = [results[judge] for judge in JUDGE_ORDER]
         if is_degenerate_panel(verdicts):
-            raise ValueError(
-                "Revised panel remained degenerate after retry; refusing suspicious uniform scores"
+            logger.warning(
+                "Revised panel remained degenerate after retry; continuing with low-confidence flag"
             )
 
     return RoastPanel(verdicts=verdicts)

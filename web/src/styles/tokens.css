@@ -1,5 +1,5 @@
 :root {
-  /* Trust & authority palette (product-realignment-plan §3) */
+  /* Trust & authority palette (product-realignment-plan §3) — legacy default */
   --primary: #0f172a;
   --secondary: #334155;
   --cta: #0369a1;
@@ -17,7 +17,11 @@
   --heat: var(--cta);
   --heat-ink: var(--cta);
 
-  /* Elevation (non-circular names for @theme mapping) */
+  /* Shell (Path A) */
+  --shell-width: 15rem;
+  --shell-nav-meta-tracking: 0.01em;
+
+  /* Elevation — reserve for modals, toasts, and one optional highlight surface */
   --elevation-hard: 0 1px 2px rgb(15 23 42 / 0.06);
   --elevation-soft: 0 1px 3px rgb(15 23 42 / 0.08), 0 1px 2px rgb(15 23 42 / 0.04);
 
@@ -25,6 +29,10 @@
   --pass: #15803d;
   --fail: #b91c1c;
   --conditional: #a16207;
+
+  /* Information / AI processing */
+  --info: #0369a1;
+  --ai-processing: #5b21b6;
 
   /* Judge accents (muted for document tone) */
   --judge-vc: #475569;
@@ -47,13 +55,27 @@
   --dur-in: 200ms;
   --dur-out: 250ms;
 
-  /* Type scale */
-  --text-12: 0.75rem;
-  --text-14: 0.875rem;
-  --text-16: 1rem;
+  /* Type scale — Phase 9 locked */
+  --text-12: 0.75rem; /* 12 — captions */
+  --text-13: 0.8125rem; /* 13 — meta */
+  --text-14: 0.875rem; /* 14 — compact body */
+  --text-16: 1rem; /* 16 — in-app body default */
   --text-20: 1.25rem;
+  --text-22: 1.375rem; /* 22 — section headings in-app */
   --text-28: 1.75rem;
   --text-44: 2.25rem;
+  --text-48: 3rem; /* 48 — display / home hero */
   --text-56: 2.75rem;
   --text-72: 3.5rem;
+}
+
+/*
+ * Phase 9 — Path A (Lean Notion) warm paper overrides.
+ * Scoped to shell v2 so NEXT_PUBLIC_UI_SHELL_V2=false restores cool legacy palette.
+ * Path B would replace this block with dark base; Path C would add --heat vermilion + serif.
+ */
+[data-ui-shell-v2] {
+  --paper: #fbfbfa;
+  --paper-2: #f4f3f1;
+  --rule-soft: #e8e6e3;
 }

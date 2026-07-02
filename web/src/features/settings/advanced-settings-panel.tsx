@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useEffect, useState, type ReactNode } from "react";
 
 import {
   DEFAULT_RUN_FOLD_VARIANT,
@@ -10,6 +10,7 @@ import {
   type RunFoldVariant,
 } from "@/features/run/run-fold-layout";
 import { SETTINGS_COPY } from "@/features/run/run-page-copy";
+import { isUiShellV2Enabled } from "@/lib/feature-flags";
 import {
   DEFAULT_ADVANCED_SETTINGS,
   loadAdvancedSettings,
@@ -38,10 +39,10 @@ function SettingsSection({
   children: ReactNode;
 }) {
   return (
-    <section className="border-t-2 border-rule-soft pt-10 first:border-t-0 first:pt-0">
-      <h2 className="font-sans text-2xl font-semibold text-ink">{title}</h2>
-      <p className="mt-2 max-w-prose font-sans text-sm text-ink-muted">{description}</p>
-      <div className="mt-6 space-y-6">{children}</div>
+    <section className="border-t border-rule-soft pt-8 first:border-t-0 first:pt-0">
+      <h2 className="font-sans text-section font-semibold text-ink">{title}</h2>
+      <p className="mt-2 max-w-prose font-sans text-meta text-ink-muted">{description}</p>
+      <div className="mt-5 space-y-5">{children}</div>
     </section>
   );
 }
@@ -73,16 +74,23 @@ export function AdvancedSettingsPanel() {
     (typeof RUN_FOLD_VARIANTS)[RunFoldVariant],
   ][];
 
+  const shellV2 = isUiShellV2Enabled();
+
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <header>
-        <p className="font-sans text-sm font-semibold uppercase tracking-widest text-cta">
+        <p className="font-sans text-meta font-semibold uppercase tracking-widest text-cta">
           Maintainer
         </p>
-        <h1 className="mt-2 font-sans text-title font-semibold text-ink md:text-display-md">
+        <h1
+          className={cn(
+            "mt-2 font-sans font-semibold text-ink",
+            shellV2 ? "text-section" : "text-title md:text-display-md",
+          )}
+        >
           Advanced settings
         </h1>
-        <p className="mt-4 max-w-prose font-sans text-ink-muted">
+        <p className="mt-3 max-w-prose font-sans text-body text-ink-muted">
           {SETTINGS_COPY.intro}{" "}
           <Link href="/" className="font-semibold text-ink underline-offset-4 hover:underline">
             home
@@ -176,7 +184,7 @@ export function AdvancedSettingsPanel() {
                   className={cn(
                     "block cursor-pointer rounded-ui border p-4 transition-colors duration-200",
                     active
-                      ? "border-cta bg-card shadow-soft"
+                      ? "border-cta bg-card"
                       : "border-rule-soft bg-paper-2 hover:border-ink-muted",
                   )}
                 >

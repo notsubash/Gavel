@@ -17,3 +17,8 @@ export function isExperimentEntityEnabled(): boolean {
 export function isJudgeIdentityEnabled(): boolean {
   return process.env.NEXT_PUBLIC_JUDGE_IDENTITY !== "false";
 }
+
+/** Phase 9 rollback — set NEXT_PUBLIC_UI_SHELL_V2=false for header + centered column layout. */
+export function isUiShellV2Enabled(): boolean {
+  return process.env.NEXT_PUBLIC_UI_SHELL_V2 !== "false";
+}

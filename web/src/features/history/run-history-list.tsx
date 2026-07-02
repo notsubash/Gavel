@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { EditorialContainer } from "@/components/app-shell";
 import { ApiError } from "@/lib/api/client";
 import { listRuns } from "@/lib/api/runs";
-import { isWorkspaceHistoryEnabled } from "@/lib/feature-flags";
+import { isUiShellV2Enabled, isWorkspaceHistoryEnabled } from "@/lib/feature-flags";
 import { heatCtaClass } from "@/lib/cta-classes";
 import { groupByLineage } from "@/lib/lineage/lineage";
 import { deriveStartupWorkspace } from "@/lib/lineage/workspace";
@@ -48,6 +48,7 @@ function HistorySkeleton({ rowBased }: { rowBased: boolean }) {
 
 export function RunHistoryList() {
   const workspaceHistory = isWorkspaceHistoryEnabled();
+  const shellV2 = isUiShellV2Enabled();
   const copy = workspaceHistory ? HISTORY_COPY : HISTORY_COPY_LEGACY;
   const query = useQuery({
     queryKey: ["runs", "list"],
@@ -56,26 +57,31 @@ export function RunHistoryList() {
   });
 
   return (
-    <EditorialContainer className="py-12 md:py-16 lg:py-24">
+    <EditorialContainer className={shellV2 ? "py-4 md:py-6" : "py-12 md:py-16 lg:py-24"}>
       <header>
-        <p className="font-sans text-sm font-semibold uppercase tracking-widest text-cta">
+        <p className="font-sans text-meta font-semibold uppercase tracking-widest text-cta">
           {copy.eyebrow}
         </p>
-        <h1 className="mt-2 font-sans text-title font-semibold text-ink md:text-display-md">
+        <h1
+          className={cn(
+            "mt-2 font-sans font-semibold text-ink",
+            shellV2 ? "text-section" : "text-title md:text-display-md",
+          )}
+        >
           {copy.title}
         </h1>
-        <p className="mt-4 max-w-prose font-sans text-ink-muted">
+        <p className="mt-3 max-w-prose font-sans text-body text-ink-muted">
           {copy.description}
         </p>
       </header>
 
-      <div className="mt-10">
+      <div className={shellV2 ? "mt-6" : "mt-10"}>
         {query.isLoading && <HistorySkeleton rowBased={workspaceHistory} />}
 
         {query.isError && (
-          <div className="border border-fail/40 bg-card p-6" role="alert">
-            <p className="font-sans text-sm font-semibold text-ink">Could not load history</p>
-            <p className="mt-2 font-sans text-sm text-ink-muted">
+          <div className="surface-flat p-6" role="alert">
+            <p className="font-sans text-body font-semibold text-ink">Could not load workspaces</p>
+            <p className="mt-2 font-sans text-meta text-ink-muted">
               {query.error instanceof ApiError
                 ? "The API returned an error. Try refreshing."
                 : "Check your connection and try again."}
@@ -84,9 +90,9 @@ export function RunHistoryList() {
         )}
 
         {query.isSuccess && query.data.runs.length === 0 && (
-          <div className="border border-dashed border-rule-soft bg-paper-2 p-10 text-center">
-            <p className="font-sans text-xl font-semibold text-ink">{copy.emptyTitle}</p>
-            <p className="mt-2 font-sans text-sm text-ink-muted">
+          <div className="border border-dashed border-rule-soft bg-paper-2 p-8 text-center md:p-10">
+            <p className="font-sans text-section font-semibold text-ink">{copy.emptyTitle}</p>
+            <p className="mt-2 font-sans text-meta text-ink-muted">
               {copy.emptyDescription}
             </p>
             <Link href="/" className={cn("mt-6 inline-flex", heatCtaClass)}>

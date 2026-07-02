@@ -28,10 +28,16 @@
   --font-serif: var(--font-ui), system-ui, sans-serif;
   --font-sans: var(--font-ui), system-ui, sans-serif;
   --font-mono: var(--font-mono), ui-monospace, monospace;
+  --text-meta: var(--text-13);
+  --text-body: var(--text-16);
+  --text-section: var(--text-22);
   --text-title: var(--text-28);
   --text-display-md: var(--text-44);
   --text-display-lg: var(--text-56);
   --text-display-xl: var(--text-72);
+  --text-display-home: var(--text-48);
+  --color-info: var(--info);
+  --color-ai-processing: var(--ai-processing);
   --shadow-hard: var(--elevation-hard);
   --shadow-soft: var(--elevation-soft);
   --radius-editorial: var(--radius-0);
@@ -43,6 +49,28 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-ui), system-ui, sans-serif;
+  font-size: var(--text-16);
+  line-height: 1.5;
+}
+
+/* Path A — flat workflow rows (hover + focus, not color alone) */
+.surface-row {
+  border-bottom: 1px solid var(--rule-soft);
+  transition: background-color var(--dur-in) var(--ease);
+}
+
+.surface-row:hover {
+  background: var(--paper-2);
+}
+
+.surface-row[data-active="true"] {
+  background: var(--paper-2);
+  box-shadow: inset 3px 0 0 var(--cta);
+}
+
+.surface-flat {
+  border: 1px solid var(--rule-soft);
+  background: var(--card);
 }
 
 :focus {

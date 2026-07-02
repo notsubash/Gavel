@@ -8,7 +8,7 @@ function SynthesisFallback({ content, className }: { content: string; className?
   return (
     <blockquote
       className={cn(
-        "border border-rule-soft bg-paper-2 p-6 font-sans text-base leading-relaxed text-ink shadow-soft whitespace-pre-wrap md:text-lg",
+        "border border-rule-soft bg-paper-2 p-6 font-sans text-body leading-relaxed text-ink whitespace-pre-wrap",
         className,
       )}
     >
@@ -139,7 +139,7 @@ export function SynthesisBlock({
   return (
     <article
       className={cn(
-        "border border-rule-soft bg-card shadow-soft",
+        "surface-flat",
         className,
       )}
     >

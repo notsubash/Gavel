@@ -1,6 +1,9 @@
 "use client";
 
+import { EditorialContainer } from "@/components/app-shell";
 import { heatCtaClass } from "@/lib/cta-classes";
+import { isUiShellV2Enabled } from "@/lib/feature-flags";
+import { cn } from "@/lib/utils";
 
 export default function Error({
   error,
@@ -9,17 +12,26 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const shellV2 = isUiShellV2Enabled();
+
   return (
-    <div role="alert" className="mx-auto w-full max-w-3xl px-4 py-16 md:px-6">
-      <h1 className="font-sans text-title font-semibold text-ink">
-        Something went wrong
-      </h1>
-      <p className="mt-4 max-w-prose text-ink-muted">
-        {error.message || "An unexpected error occurred."}
-      </p>
-      <button type="button" onClick={reset} className={`mt-8 ${heatCtaClass} px-6`}>
-        Try again
-      </button>
-    </div>
+    <EditorialContainer className={shellV2 ? "py-10 md:py-12" : "py-16 md:py-20"}>
+      <div role="alert">
+        <h1
+          className={cn(
+            "font-sans font-semibold text-ink",
+            shellV2 ? "text-section" : "text-title",
+          )}
+        >
+          Review could not load
+        </h1>
+        <p className="mt-3 max-w-prose font-sans text-body text-ink-muted">
+          {error.message || "Something interrupted this review session."}
+        </p>
+        <button type="button" onClick={reset} className={cn("mt-6", heatCtaClass, "px-6")}>
+          Try again
+        </button>
+      </div>
+    </EditorialContainer>
   );
 }

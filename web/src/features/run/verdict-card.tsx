@@ -73,25 +73,25 @@ export function VerdictCard({
 
   return (
     <article
-      className={cn("border border-rule-soft bg-card shadow-soft", className)}
+      className={cn("surface-flat", className)}
       aria-labelledby="decision-verdict-heading"
     >
       {quality.lowConfidence && <LowConfidenceBanner reasons={quality.reasons} />}
 
-      <header className="border-b border-rule-soft px-5 py-4">
-        <p className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-muted">
+      <header className="border-b border-rule-soft border-l-4 border-l-cta bg-paper-2 px-5 py-5">
+        <p className="font-sans text-meta font-semibold uppercase tracking-widest text-ink-muted">
           Recommendation
         </p>
         <h3
           id="decision-verdict-heading"
           className={cn(
-            "mt-2 font-sans text-3xl font-semibold md:text-4xl",
+            "mt-2 font-sans text-section font-semibold md:text-3xl",
             RECOMMENDATION_CLASS[structured.overall_recommendation],
           )}
         >
           {RECOMMENDATION_LABEL[structured.overall_recommendation]}
         </h3>
-        <p className="mt-2 font-sans text-sm text-ink-muted">
+        <p className="mt-2 font-sans text-meta text-ink-muted">
           {structured.confidence} confidence
         </p>
       </header>

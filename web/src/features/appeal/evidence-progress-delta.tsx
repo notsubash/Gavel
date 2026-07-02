@@ -105,7 +105,7 @@ export function EvidenceProgressDelta({
 
   return (
     <section
-      className={cn("border border-rule-soft bg-card shadow-soft", className)}
+      className={cn("surface-flat", className)}
       aria-labelledby="evidence-progress-heading"
     >
       <header className="flex items-start gap-3 border-b border-rule-soft px-4 py-3 sm:px-5">

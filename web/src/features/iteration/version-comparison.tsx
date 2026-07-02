@@ -223,7 +223,7 @@ function VersionComparisonContent({
             return (
               <div
                 key={judgeId}
-                className="border border-rule-soft bg-card p-4 shadow-soft"
+                className="surface-flat p-4"
               >
                 <p className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-muted">
                   {JUDGE_META[judgeId].lensTag}

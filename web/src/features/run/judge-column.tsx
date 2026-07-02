@@ -290,7 +290,7 @@ export function JudgeColumn({
       <article
         className={cn(
           "flex flex-col border border-rule-soft p-4",
-          compact ? "bg-paper-2" : "bg-card shadow-soft",
+          compact ? "bg-paper-2" : "bg-card",
         )}
         aria-busy={view.status === "thinking"}
         aria-label={`${meta.name} — ${meta.lensTag}${view.status === "thinking" ? " — reading your pitch" : ""}`}
@@ -326,7 +326,7 @@ export function JudgeColumn({
     <article
       className={cn(
         "flex flex-col border border-rule-soft p-4",
-        compact ? "bg-paper-2" : "bg-card shadow-soft",
+        compact ? "bg-paper-2" : "bg-card",
       )}
       aria-label={`${meta.name} — ${meta.lensTag} — ${verdict.verdict}`}
     >

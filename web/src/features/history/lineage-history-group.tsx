@@ -57,7 +57,7 @@ export function LineageHistoryGroup({ lineage }: { lineage: RunListItem[] }) {
   const showConfidence = latest.status === "completed";
 
   return (
-    <li className="border border-rule-soft bg-card shadow-soft">
+    <li className="surface-flat">
       <Link
         href={`/run/${latest.run_id}`}
         className={cn(

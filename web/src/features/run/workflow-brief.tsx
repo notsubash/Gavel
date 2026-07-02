@@ -12,7 +12,7 @@ import { ExperimentCard, ExperimentLegacyText } from "./experiment-card";
 import { RUN_PAGE_COPY } from "./run-page-copy";
 import { deriveWorkflowBrief } from "./structured-synthesis";
 
-const cardClass = "border border-rule-soft bg-card";
+const cardClass = "surface-flat";
 
 export function WorkflowBrief({
   synthesisProse,

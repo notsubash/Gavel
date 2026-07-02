@@ -19,7 +19,7 @@ import {
   type ExperimentStatus,
 } from "@/lib/experiment/experiment";
 import { getStoredExperimentStatus } from "@/lib/experiment/experiment-storage";
-import { isConfidenceEngineEnabled, isJudgeIdentityEnabled } from "@/lib/feature-flags";
+import { isConfidenceEngineEnabled, isJudgeIdentityEnabled, isUiShellV2Enabled } from "@/lib/feature-flags";
 import { JUDGE_ORDER } from "@/lib/sse/types";
 import { useRunStream } from "@/lib/sse/use-run-stream";
 import type { LensUniquenessAssessment } from "@/lib/lens/lens-quality";
@@ -291,6 +291,13 @@ function RunSheetContent({
   }, [status, appeal, appealBaseline.length]);
 
   const collapseJudgeDetail = status === "completed" && !showJudgeSkeletons;
+  const shellV2 = isUiShellV2Enabled();
+  const sectionHeadingClass = shellV2
+    ? "font-sans text-section font-semibold text-ink"
+    : "font-sans text-2xl font-semibold text-ink";
+  const pageTitleClass = shellV2
+    ? "mt-2 font-sans text-section font-semibold text-ink"
+    : "mt-2 font-sans text-title font-semibold text-ink md:text-display-md";
 
   const judgeGrid = (
     <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -320,7 +327,7 @@ function RunSheetContent({
   const foldSections: Record<RunFoldSection, ReactNode> = {
     decision: showDecisionCard ? (
       <section className="mt-8" aria-labelledby="decision-heading">
-        <h2 id="decision-heading" className="font-sans text-2xl font-semibold text-ink">
+        <h2 id="decision-heading" className={sectionHeadingClass}>
           {RUN_PAGE_COPY.overallDecision}
         </h2>
         <div className="mt-5">
@@ -392,7 +399,7 @@ function RunSheetContent({
       <section className="mt-8" aria-labelledby="judge-panel-heading">
         <h2
           id="judge-panel-heading"
-          className="font-sans text-2xl font-semibold text-ink"
+          className={sectionHeadingClass}
         >
           {RUN_PAGE_COPY.judgePanel}
         </h2>
@@ -458,13 +465,13 @@ function RunSheetContent({
   return (
     <>
       <header>
-        <p className="font-sans text-sm font-semibold uppercase tracking-widest text-cta">
+        <p className="font-sans text-meta font-semibold uppercase tracking-widest text-cta">
           {RUN_PAGE_COPY.reviewEyebrow}
         </p>
-        <h1 className="mt-2 font-sans text-title font-semibold text-ink md:text-display-md">
+        <h1 className={pageTitleClass}>
           {headlineForStatus(status, stream.phase)}
         </h1>
-        <p className="mt-4 max-w-prose font-sans text-ink-muted">
+        <p className="mt-3 max-w-prose font-sans text-body text-ink-muted">
           <span className="font-semibold text-ink">Idea:</span> {ideaPreview}
         </p>
         <p className="mt-2 font-mono text-xs text-ink-subtle">
@@ -594,7 +601,7 @@ export function RunSheet({
 
   if (statusQuery.isLoading) {
     return (
-      <EditorialContainer className="py-12 md:py-16 lg:py-24">
+      <EditorialContainer className={isUiShellV2Enabled() ? "py-6 md:py-8" : "py-12 md:py-16 lg:py-24"}>
         <div className="space-y-4">
           <Skeleton className="h-8 w-64" />
           <Skeleton className="h-12 w-full max-w-xl" />
@@ -608,9 +615,12 @@ export function RunSheet({
     const notFound =
       statusQuery.error instanceof ApiError && statusQuery.error.status === 404;
     return (
-      <EditorialContainer className="py-12 md:py-16 lg:py-24">
+      <EditorialContainer className={isUiShellV2Enabled() ? "py-6 md:py-8" : "py-12 md:py-16 lg:py-24"}>
         <div className="text-center">
-          <h1 className="font-sans text-title font-semibold text-ink">
+          <h1 className={cn(
+            "font-sans font-semibold text-ink",
+            isUiShellV2Enabled() ? "text-section" : "text-title",
+          )}>
             {notFound ? "Run not found" : "Could not load run"}
           </h1>
           <p className="mt-4 font-sans text-ink-muted">
@@ -632,7 +642,7 @@ export function RunSheet({
     statusQuery.data;
 
   return (
-    <EditorialContainer className="py-12 md:py-16 lg:py-24">
+    <EditorialContainer className={isUiShellV2Enabled() ? "py-6 md:py-8" : "py-12 md:py-16 lg:py-24"}>
       <RunSheetContent
         key={runId}
         runId={runId}

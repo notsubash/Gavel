@@ -51,7 +51,7 @@ export function RunHistoryItem({ item }: { item: RunListItem }) {
   const showConfidence = item.status === "completed";
 
   return (
-    <li className="border border-rule-soft bg-card shadow-soft">
+    <li className="surface-flat">
       <Link
         href={`/run/${item.run_id}`}
         className={cn(

@@ -128,9 +128,10 @@ export function WorkspaceHistoryRow({ workspace }: { workspace: StartupWorkspace
   return (
     <li
       className={cn(
-        "border-b border-rule-soft last:border-b-0",
-        isActiveWorkspace && "bg-paper-2/60",
+        "surface-row last:border-b-0",
+        isActiveWorkspace && "bg-paper-2/60 shadow-[inset_3px_0_0_0_var(--cta)]",
       )}
+      data-active={isActiveWorkspace || undefined}
     >
       <div
         className={cn(
@@ -146,7 +147,7 @@ export function WorkspaceHistoryRow({ workspace }: { workspace: StartupWorkspace
               "block min-w-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta",
             )}
           >
-            <p className="truncate font-sans text-base font-semibold text-ink group-hover:text-cta">
+            <p className="truncate font-sans text-body font-semibold text-ink group-hover:text-cta">
               {workspace.displayName}
             </p>
           </Link>

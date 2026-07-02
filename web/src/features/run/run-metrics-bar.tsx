@@ -62,7 +62,7 @@ function MetricsTooltip({
   if (!active || !payload?.[0]) return null;
   const row = payload[0].payload;
   return (
-    <div className="border border-rule-soft bg-card px-3 py-2 font-sans text-xs shadow-soft">
+    <div className="border border-rule-soft bg-card px-3 py-2 font-sans text-meta">
       <p className="font-semibold text-ink">{row.label}</p>
       <p className="mt-1 text-ink-muted">
         {row.seconds.toFixed(1)}s · {row.tokens.toLocaleString()} tokens · {row.phase}

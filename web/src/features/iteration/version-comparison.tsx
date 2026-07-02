@@ -67,10 +67,12 @@ function VersionComparisonContent({
   version,
   parentRunId,
   currentVerdicts,
+  structuredSynthesis,
 }: {
   version: number;
   parentRunId: string;
   currentVerdicts: Verdict[];
+  structuredSynthesis?: unknown;
 }) {
   const priorQuery = useQuery({
     queryKey: runPanelQueryKey(parentRunId),
@@ -199,7 +201,11 @@ function VersionComparisonContent({
         </p>
       )}
 
-      <ConfidenceBars verdicts={currentVerdicts} className="mt-8" />
+      <ConfidenceBars
+        verdicts={currentVerdicts}
+        structuredSynthesis={structuredSynthesis}
+        className="mt-8"
+      />
 
       <details className="group mt-8 border-t border-rule-soft pt-6">
         <summary className="cursor-pointer font-sans text-sm font-semibold text-ink-muted hover:text-ink">
@@ -217,7 +223,7 @@ function VersionComparisonContent({
             return (
               <div
                 key={judgeId}
-                className="border border-rule-soft bg-card p-4 shadow-soft"
+                className="surface-flat p-4"
               >
                 <p className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-muted">
                   {JUDGE_META[judgeId].lensTag}
@@ -252,11 +258,13 @@ export function VersionComparison({
   version,
   parentRunId,
   currentVerdicts,
+  structuredSynthesis,
   completed,
 }: {
   version: number;
   parentRunId?: string | null;
   currentVerdicts: Verdict[];
+  structuredSynthesis?: unknown;
   completed: boolean;
 }) {
   if (!completed || currentVerdicts.length === 0) return null;
@@ -270,7 +278,11 @@ export function VersionComparison({
         <p className="max-w-prose font-sans text-sm text-ink-muted">
           {VERSION_COPY.noPriorVersion}
         </p>
-        <ConfidenceBars verdicts={currentVerdicts} className="mt-6" />
+        <ConfidenceBars
+          verdicts={currentVerdicts}
+          structuredSynthesis={structuredSynthesis}
+          className="mt-6"
+        />
       </section>
     );
   }
@@ -286,6 +298,7 @@ export function VersionComparison({
             version={version}
             parentRunId={parentRunId}
             currentVerdicts={currentVerdicts}
+            structuredSynthesis={structuredSynthesis}
           />
         </div>
       </section>
@@ -294,7 +307,10 @@ export function VersionComparison({
 
   return (
     <section className="mt-10" aria-label="Confidence">
-      <ConfidenceBars verdicts={currentVerdicts} />
+      <ConfidenceBars
+        verdicts={currentVerdicts}
+        structuredSynthesis={structuredSynthesis}
+      />
     </section>
   );
 }

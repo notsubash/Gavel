@@ -10,6 +10,8 @@ from langgraph.config import get_stream_writer
 from config import DEBATE_PERSONAS, JUDGE_ORDER, PROMPTS_DIR
 from debate.revote import roast_panel_from_state_verdicts, run_revote
 from idea_context import wrap_user_idea
+from judges.confidence import guard_confidence_dimensions
+from judges.schemas import Verdict
 from judges.synthesis import Synthesis, synthesis_to_prose
 from llm_resilience import call_with_llm_retry, is_transient_llm_error
 from observability.metrics import RunMetricsCollector
@@ -255,6 +257,15 @@ def make_moderator_node(model: Any, metrics: RunMetricsCollector | None = None):
 
         structured, structured_response = _invoke_structured_synthesis(model, prompt)
         if structured is not None:
+            try:
+                verdicts = [Verdict.model_validate(v) for v in state["verdicts"]]
+                guarded = guard_confidence_dimensions(
+                    structured.model_dump(mode="json"),
+                    verdicts,
+                )
+                structured = Synthesis.model_validate(guarded)
+            except Exception:
+                logger.warning("Confidence guardrails failed; using raw synthesis", exc_info=True)
             synthesis = synthesis_to_prose(structured)
             response_payload = structured
             metrics_response = structured_response

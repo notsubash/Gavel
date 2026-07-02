@@ -10,7 +10,7 @@ import { sidebarLineageVersions } from "@/lib/lineage/lineage";
 import { cn } from "@/lib/utils";
 
 import { ScoreDeltaBadge } from "../appeal/score-delta-badge";
-import { HISTORY_COPY } from "../run/run-page-copy";
+import { HISTORY_COPY_LEGACY } from "../run/run-page-copy";
 
 import { HistoryConfidencePreview } from "./history-confidence-preview";
 import { RunHistoryItem } from "./run-history-item";
@@ -57,7 +57,7 @@ export function LineageHistoryGroup({ lineage }: { lineage: RunListItem[] }) {
   const showConfidence = latest.status === "completed";
 
   return (
-    <li className="border border-rule-soft bg-card shadow-soft">
+    <li className="surface-flat">
       <Link
         href={`/run/${latest.run_id}`}
         className={cn(
@@ -73,14 +73,14 @@ export function LineageHistoryGroup({ lineage }: { lineage: RunListItem[] }) {
           <div>
             <dt className="sr-only">Version count</dt>
             <dd>
-              {lineage.length} {HISTORY_COPY.versions}
+              {HISTORY_COPY_LEGACY.versionCount(lineage.length)}
             </dd>
           </div>
           {currentScore != null && (
             <div>
-              <dt className="sr-only">{HISTORY_COPY.currentScore}</dt>
+              <dt className="sr-only">{HISTORY_COPY_LEGACY.currentScore}</dt>
               <dd>
-                {HISTORY_COPY.currentScore}:{" "}
+                {HISTORY_COPY_LEGACY.currentScore}:{" "}
                 <span className="font-mono font-semibold text-ink">
                   {formatAvg(currentScore)}
                 </span>
@@ -89,9 +89,9 @@ export function LineageHistoryGroup({ lineage }: { lineage: RunListItem[] }) {
           )}
           {latestDelta != null && (
             <div className="flex items-center gap-2">
-              <dt className="sr-only">{HISTORY_COPY.latestDelta}</dt>
+              <dt className="sr-only">{HISTORY_COPY_LEGACY.latestDelta}</dt>
               <dd className="flex items-center gap-2">
-                {HISTORY_COPY.latestDelta}:
+                {HISTORY_COPY_LEGACY.latestDelta}:
                 {latestDelta !== 0 ? (
                   <ScoreDeltaBadge delta={latestDelta} />
                 ) : (
@@ -122,7 +122,7 @@ export function LineageHistoryGroup({ lineage }: { lineage: RunListItem[] }) {
             ) : (
               <ChevronDown className="size-3.5" aria-hidden />
             )}
-            {HISTORY_COPY.olderVersions(hidden.length)}
+            {HISTORY_COPY_LEGACY.olderVersions(hidden.length)}
           </button>
           {expanded && (
             <div className="mt-1">

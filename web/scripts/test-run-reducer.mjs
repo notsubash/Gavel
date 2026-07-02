@@ -301,6 +301,101 @@ test("debate_completed replay restores revote state without live revote events",
   );
 });
 
+test("run_completed with initial snapshot only skips roast panel and stores baseline", () => {
+  const initial = { ...VERDICT };
+  const events = [
+    env(0, "stream_connected", { status: "connected" }),
+    env(1, "run_completed", {
+      roast_panel: { verdicts: [initial] },
+      debate_result: {
+        debate_messages: [],
+        final_synthesis: "Done.",
+        initial_verdicts: [initial],
+        revised_verdicts: [],
+      },
+    }),
+  ];
+  const state = reduceEnvelopes(events);
+  assert.equal(state.judges.vc.verdict, undefined);
+  assert.equal(state.revoteBaseline.vc?.score, 3);
+});
+
+test("applyRevoteFromPanels clears stale change reason when score moves without explanation", () => {
+  const initial = { ...VERDICT };
+  const revised = { ...VERDICT, score: 5 };
+  const events = [
+    env(0, "stream_connected", { status: "connected" }),
+    env(1, "judge_verdict_completed", {
+      judge: "vc",
+      verdict: VERDICT,
+      completed: 1,
+      total: 5,
+    }),
+    env(2, "revote_started", { total: 5 }),
+    env(3, "revote_judge_completed", {
+      judge: "vc",
+      verdict: { ...VERDICT, score: 4, evidence_to_change_verdict: "Old reason." },
+      original_score: 3,
+      completed: 1,
+      total: 5,
+      change_reason: "Old reason.",
+    }),
+    env(4, "debate_completed", {
+      debate_messages: [],
+      final_synthesis: "Iterate.",
+      initial_verdicts: [initial],
+      revised_verdicts: [revised],
+    }),
+  ];
+  const state = reduceEnvelopes(events);
+  assert.equal(state.judges.vc.verdict?.score, 5);
+  assert.equal(state.revoteChangeReasons.vc, undefined);
+});
+
+test("run_completed with empty revote arrays falls back to roast panel", () => {
+  const events = [
+    env(0, "stream_connected", { status: "connected" }),
+    env(1, "run_completed", {
+      roast_panel: { verdicts: [VERDICT] },
+      debate_result: {
+        debate_messages: [],
+        final_synthesis: "Done.",
+        initial_verdicts: [],
+        revised_verdicts: [],
+      },
+    }),
+  ];
+  const state = reduceEnvelopes(events);
+  assert.equal(state.judges.vc.verdict?.score, 3);
+  assert.equal(Object.keys(state.revoteBaseline).length, 0);
+});
+
+test("run_completed with revote replay skips initial roast panel overwrite", () => {
+  const initial = { ...VERDICT };
+  const revised = {
+    ...VERDICT,
+    score: 6,
+    verdict: "CONDITIONAL",
+    evidence_to_change_verdict: "Debate shifted risk framing.",
+  };
+  const events = [
+    env(0, "stream_connected", { status: "connected" }),
+    env(1, "run_completed", {
+      roast_panel: { verdicts: [initial] },
+      debate_result: {
+        debate_messages: [],
+        final_synthesis: "Iterate.",
+        initial_verdicts: [initial],
+        revised_verdicts: [revised],
+      },
+    }),
+  ];
+  const state = reduceEnvelopes(events);
+  assert.equal(state.judges.vc.verdict?.score, 6);
+  assert.equal(state.revoteBaseline.vc?.score, 3);
+  assert.equal(state.revoteChangeReasons.vc, "Debate shifted risk framing.");
+});
+
 test("run_completed stores panel_quality from SSE payload", () => {
   const events = [
     env(0, "stream_connected", { status: "connected" }),

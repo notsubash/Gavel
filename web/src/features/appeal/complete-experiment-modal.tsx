@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { Loader2, Paperclip } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -13,6 +13,12 @@ import { submitAppeal } from "@/lib/api/runs";
 import type { AppealResponse } from "@/lib/api/types-helpers";
 import { parseApiDetail, APPEAL_MAX_LENGTH, APPEAL_MIN_LENGTH } from "@/lib/api/types-helpers";
 import { appealCoachingHint } from "@/lib/appeal/coaching";
+import type { Experiment } from "@/lib/experiment/experiment";
+import {
+  nextExperimentStatus,
+  formatEffort,
+} from "@/lib/experiment/experiment";
+import { setStoredExperimentStatus } from "@/lib/experiment/experiment-storage";
 import { JUDGE_META } from "@/lib/sse/judges";
 import type { JudgeId, Verdict } from "@/lib/sse/types";
 import { Button } from "@/ui/button";
@@ -24,6 +30,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/ui/dialog";
+import { Input } from "@/ui/input";
 import { Label } from "@/ui/label";
 import { Textarea } from "@/ui/textarea";
 
@@ -31,6 +38,18 @@ import { EVIDENCE_COPY } from "../run/run-page-copy";
 
 const APPEAL_MIN = APPEAL_MIN_LENGTH;
 const APPEAL_MAX = APPEAL_MAX_LENGTH;
+const ASSUMPTION_MAX = 500;
+const ARTIFACT_LINKS_MAX = 5;
+
+const URL_PATTERN = /^https?:\/\/.+/i;
+
+function parseArtifactLinks(raw: string): string[] {
+  return raw
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, ARTIFACT_LINKS_MAX);
+}
 
 const experimentSchema = z.object({
   appeal_text: z
@@ -38,6 +57,25 @@ const experimentSchema = z.object({
     .trim()
     .min(APPEAL_MIN, EVIDENCE_COPY.minLengthError(APPEAL_MIN))
     .max(APPEAL_MAX, EVIDENCE_COPY.maxLengthError(APPEAL_MAX)),
+  changed_assumption: z
+    .string()
+    .trim()
+    .max(ASSUMPTION_MAX, `Assumption must be at most ${ASSUMPTION_MAX} characters.`),
+  artifact_links: z
+    .string()
+    .trim()
+    .superRefine((value, ctx) => {
+      if (!value) return;
+      const links = parseArtifactLinks(value);
+      for (const link of links) {
+        if (!URL_PATTERN.test(link)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Invalid URL: ${link.slice(0, 60)}`,
+          });
+        }
+      }
+    }),
 });
 
 type ExperimentFormValues = z.infer<typeof experimentSchema>;
@@ -56,7 +94,7 @@ export function CompleteExperimentModal({
   onOpenChange: (open: boolean) => void;
   targetJudges: JudgeId[];
   baselineVerdicts: Verdict[];
-  experiment: string;
+  experiment: Experiment;
   onSuccess: (result: AppealResponse) => void;
 }) {
   const {
@@ -67,9 +105,15 @@ export function CompleteExperimentModal({
     formState: { errors, isSubmitting },
   } = useForm<ExperimentFormValues>({
     resolver: zodResolver(experimentSchema),
-    defaultValues: { appeal_text: "" },
+    defaultValues: { appeal_text: "", changed_assumption: "", artifact_links: "" },
     mode: "onBlur",
   });
+
+  useEffect(() => {
+    if (open) {
+      setStoredExperimentStatus(runId, nextExperimentStatus(experiment.status, "start"));
+    }
+  }, [open, runId, experiment.status]);
 
   const length = watch("appeal_text").trim().length;
   const verdictByJudge = useMemo(
@@ -78,12 +122,21 @@ export function CompleteExperimentModal({
   );
 
   const mutation = useMutation({
-    mutationFn: (values: ExperimentFormValues) =>
-      submitAppeal(runId, {
+    mutationFn: (values: ExperimentFormValues) => {
+      const artifactLinks = parseArtifactLinks(values.artifact_links);
+      const changedAssumption = values.changed_assumption.trim();
+      return submitAppeal(runId, {
         appeal_text: values.appeal_text,
         target_judges: targetJudges.length > 0 ? targetJudges : undefined,
-      }),
+        experiment_context: {
+          experiment_id: experiment.experimentId,
+          changed_assumption: changedAssumption || undefined,
+          artifact_links: artifactLinks.length > 0 ? artifactLinks : undefined,
+        },
+      });
+    },
     onSuccess: (result) => {
+      setStoredExperimentStatus(runId, "submitted");
       reset();
       onOpenChange(false);
       onSuccess(result);
@@ -112,7 +165,7 @@ export function CompleteExperimentModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent aria-describedby="complete-experiment-description">
+      <DialogContent aria-describedby="complete-experiment-description" className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{EVIDENCE_COPY.modalTitle}</DialogTitle>
           <DialogDescription id="complete-experiment-description">
@@ -120,10 +173,21 @@ export function CompleteExperimentModal({
           </DialogDescription>
         </DialogHeader>
 
-        <p className="rounded-md border border-rule-soft bg-paper-2 px-4 py-3 font-sans text-sm text-ink-muted">
-          <span className="font-semibold text-ink">{EVIDENCE_COPY.experimentFocus}</span>{" "}
-          {experiment}
-        </p>
+        <div className="space-y-3 rounded-md border border-rule-soft bg-paper-2 px-4 py-3">
+          <div>
+            <p className="font-sans text-xs font-semibold uppercase tracking-wide text-ink-muted">
+              {EVIDENCE_COPY.experimentFocus}
+            </p>
+            <p className="mt-1 font-sans text-sm font-semibold text-ink">{experiment.title}</p>
+          </div>
+          <p className="font-sans text-sm text-ink-muted">
+            <span className="font-semibold text-ink">{EVIDENCE_COPY.experimentHypothesis}</span>{" "}
+            {experiment.hypothesis}
+          </p>
+          <p className="font-sans text-xs text-ink-muted">
+            {experiment.audience} · {formatEffort(experiment.effortMinutes)}
+          </p>
+        </div>
 
         {targetJudges.length > 0 && (
           <div>
@@ -189,6 +253,47 @@ export function CompleteExperimentModal({
                 {length}/{APPEAL_MAX}
               </p>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="experiment-changed-assumption" className="font-sans text-sm font-semibold text-ink">
+              {EVIDENCE_COPY.changedAssumptionLabel}
+            </Label>
+            <Input
+              id="experiment-changed-assumption"
+              placeholder={EVIDENCE_COPY.changedAssumptionPlaceholder}
+              disabled={busy}
+              aria-invalid={Boolean(errors.changed_assumption)}
+              {...register("changed_assumption")}
+            />
+            {errors.changed_assumption && (
+              <p className="font-sans text-sm text-fail" role="alert">
+                {errors.changed_assumption.message}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="experiment-artifact-links" className="font-sans text-sm font-semibold text-ink">
+              {EVIDENCE_COPY.artifactLinksLabel}
+            </Label>
+            <Textarea
+              id="experiment-artifact-links"
+              rows={3}
+              placeholder={EVIDENCE_COPY.artifactLinksPlaceholder}
+              disabled={busy}
+              aria-invalid={Boolean(errors.artifact_links)}
+              aria-describedby="experiment-artifact-links-hint"
+              {...register("artifact_links")}
+            />
+            <p id="experiment-artifact-links-hint" className="font-sans text-xs text-ink-muted">
+              {EVIDENCE_COPY.artifactLinksHint}
+            </p>
+            {errors.artifact_links && (
+              <p className="font-sans text-sm text-fail" role="alert">
+                {errors.artifact_links.message}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">

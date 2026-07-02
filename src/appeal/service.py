@@ -1,5 +1,6 @@
 import concurrent.futures
 from dataclasses import dataclass
+import logging
 from typing import Any
 
 from jinja2 import Environment, FileSystemLoader
@@ -8,17 +9,24 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from appeal.coaching import appeal_judge_outcomes, normalize_target_judges
 from config import JUDGE_ORDER, PROMPTS_DIR
 from idea_context import wrap_untrusted, wrap_user_idea
+from judges.confidence import (
+    AppealSynthesis,
+    appeal_synthesis_to_prose,
+    guard_confidence_dimensions,
+)
 from judges.schemas import RoastPanel, Verdict
 from judges.service import invoke_structured_verdict, judge_system_prompt
 from observability import build_run_config, idea_fingerprint, optional_config_kwargs, traceable
 
 template_env = Environment(loader=FileSystemLoader(PROMPTS_DIR))
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
 class AppealResult:
     revised_panel: RoastPanel
     revised_synthesis: str
+    revised_structured_synthesis: dict | None = None
     target_judges: tuple[str, ...] = ()
     evidence_outcomes: tuple = ()  # tuple[AppealJudgeOutcome, ...] — ponytail: avoid circular import in type hint
 
@@ -98,7 +106,35 @@ def synthesize_appeal(
     original_synthesis: str | None,
     appeal_text: str,
     run_config: dict | None = None,
-) -> str:
+) -> tuple[str, dict | None]:
+    structured_prompt = template_env.get_template(
+        "appeal_synthesis_structured_prompt.jinja2"
+    ).render(
+        startup_idea=wrap_user_idea(startup_idea),
+        original_synthesis=original_synthesis or "No original synthesis was produced.",
+        appeal_text=wrap_untrusted(appeal_text, "appeal"),
+        original_panel=_format_panel(original_panel),
+        revised_panel=_format_panel(revised_panel),
+    )
+    structured_factory = getattr(model, "with_structured_output", None)
+    if structured_factory is not None:
+        try:
+            structured_model = structured_factory(AppealSynthesis)
+            result = structured_model.invoke(
+                [{"role": "user", "content": structured_prompt}],
+                **optional_config_kwargs(run_config),
+            )
+            if result is not None:
+                structured = AppealSynthesis.model_validate(result)
+                payload = structured.model_dump(mode="json")
+                payload = guard_confidence_dimensions(payload, revised_panel.verdicts)
+                return appeal_synthesis_to_prose(structured), payload
+        except Exception:
+            logger.warning(
+                "Appeal structured synthesis failed; falling back to prose", exc_info=True
+            )
+
+    # ponytail: prose fallback when structured output fails.
     prompt = template_env.get_template("appeal_synthesis_prompt.jinja2").render(
         startup_idea=wrap_user_idea(startup_idea),
         original_synthesis=original_synthesis or "No original synthesis was produced.",
@@ -115,7 +151,7 @@ def synthesize_appeal(
         ],
         **optional_config_kwargs(run_config),
     )
-    return _response_text(response)
+    return _response_text(response), None
 
 
 @traceable(name="run_appeal", run_type="chain", tags=["phase:appeal"])
@@ -165,7 +201,7 @@ def run_appeal(
 
     revised_verdicts = [results[judge] for judge in JUDGE_ORDER]
     revised_panel = RoastPanel(verdicts=revised_verdicts)
-    revised_synthesis = synthesize_appeal(
+    revised_synthesis, revised_structured = synthesize_appeal(
         model=model,
         startup_idea=startup_idea,
         original_panel=roast_panel,
@@ -184,6 +220,7 @@ def run_appeal(
     return AppealResult(
         revised_panel=revised_panel,
         revised_synthesis=revised_synthesis,
+        revised_structured_synthesis=revised_structured,
         target_judges=resolved_targets,
         evidence_outcomes=tuple(
             appeal_judge_outcomes(roast_panel, revised_panel, resolved_targets)

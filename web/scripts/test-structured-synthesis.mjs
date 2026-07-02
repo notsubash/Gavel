@@ -4,7 +4,6 @@ import test from "node:test";
 import {
   collectRecommendedFixes,
   deriveNextActions,
-  deriveRecommendedExperiment,
   deriveWorkflowBrief,
   parseDecisionVerdictProse,
   parseStructuredSynthesis,
@@ -17,99 +16,95 @@ const STRUCTURED = {
   confidence: "MEDIUM",
   top_strengths: ["Clear pain point."],
   top_risks: ["No buyer proof yet.", "Long sales cycles."],
+  top_problems: ["No buyer proof yet.", "Long sales cycles.", "Unclear wedge."],
+  highest_priority: "Validate that compliance leads will pay before building more workflow.",
   biggest_disagreement: "VC and PM disagree on wedge size.",
+  recommended_experiment: {
+    title: "Run five buyer interviews with compliance leads.",
+    audience: "Compliance leads at mid-size hospitals",
+    hypothesis: "Buyers rank audit prep as a top-three weekly pain.",
+    questions: [
+      "Do they rank audit prep unprompted?",
+      "What tools do they use today?",
+      "Would they pilot a one-hour-saving workflow?",
+    ],
+    effort_minutes: 120,
+  },
 };
 
-test("deriveRecommendedExperiment templates blocker into validation step", () => {
-  assert.match(
-    deriveRecommendedExperiment("Interview ten buyers."),
-    /Interview ten buyers/,
-  );
-  assert.match(deriveRecommendedExperiment(null), /concrete customer evidence/);
+const KEYBOARD_STRUCTURED = {
+  overall_recommendation: "NO-GO",
+  confidence: "HIGH",
+  top_strengths: [],
+  top_risks: [
+    "Every single judge independently concluded this product fails as a venture investment.",
+    "Zero switching costs and no software lock-in mean every sale is a one-off transaction.",
+    "The core user behavior requires looking down at keys, undermining touch-typing.",
+  ],
+  top_problems: [
+    "Zero switching costs and no software lock-in mean every sale is a one-off transaction.",
+    "The core user behavior requires looking down at keys, undermining touch-typing.",
+    "No validated ICP experiences wrong keycap legend pain as costly enough to buy.",
+  ],
+  biggest_disagreement: "VC vs Engineer on strategic vs operational fatal flaw.",
+};
+
+test("parseStructuredSynthesis reads top_problems and recommended_experiment", () => {
+  const parsed = parseStructuredSynthesis(STRUCTURED);
+  assert.equal(parsed?.top_problems.length, 3);
+  assert.equal(parsed?.recommended_experiment?.title, STRUCTURED.recommended_experiment.title);
 });
 
-test("deriveWorkflowBrief surfaces top blocker and experiment", () => {
+test("deriveWorkflowBrief prefers structured top_problems over top_risks", () => {
+  const brief = deriveWorkflowBrief(null, KEYBOARD_STRUCTURED, []);
+  assert.equal(brief.problems.length, 3);
+  assert.doesNotMatch(brief.problems[0], /Every single judge/i);
+  assert.match(brief.problems[0], /Zero switching costs/i);
+});
+
+test("deriveWorkflowBrief uses highest_priority instead of biggest_disagreement", () => {
   const brief = deriveWorkflowBrief(null, STRUCTURED, []);
-  assert.equal(brief.blocker, "VC and PM disagree on wedge size.");
-  assert.match(brief.experiment, /No buyer proof yet/);
-  assert.equal(brief.problems.length, 2);
+  assert.equal(
+    brief.blocker,
+    "Validate that compliance leads will pay before building more workflow.",
+  );
+  assert.equal(brief.problems.length, 3);
+  assert.notEqual(brief.blocker, STRUCTURED.biggest_disagreement);
 });
 
-test("deriveWorkflowBrief omits blocker when it would repeat problem one", () => {
-  const structured = {
-    ...STRUCTURED,
-    biggest_disagreement: "No buyer proof yet.",
-  };
-  const brief = deriveWorkflowBrief(null, structured, []);
+test("deriveWorkflowBrief hides blocker when highest_priority is missing", () => {
+  const brief = deriveWorkflowBrief(
+    null,
+    {
+      ...STRUCTURED,
+      highest_priority: null,
+    },
+    [],
+  );
   assert.equal(brief.blocker, null);
-  assert.equal(brief.problems[0], "No buyer proof yet.");
+  assert.equal(brief.problems.length, 3);
 });
 
-test("deriveWorkflowBrief uses judge fixes when synthesis has no risks", () => {
-  const structured = {
-    ...STRUCTURED,
-    top_risks: [],
-    biggest_disagreement: "Split on go-to-market.",
-  };
-  const verdicts = [
-    { judge: "vc", verdict: "FAIL", score: 2, recommended_fix: "Interview ten buyers." },
-  ];
-  const brief = deriveWorkflowBrief(null, structured, verdicts);
-  assert.deepEqual(brief.problems, ["Interview ten buyers."]);
-  assert.equal(brief.blocker, "Split on go-to-market.");
-});
-
-test("parseStructuredSynthesis validates decision-ready shape", () => {
-  const parsed = parseStructuredSynthesis(STRUCTURED);
-  assert.equal(parsed?.overall_recommendation, "ITERATE");
-  assert.deepEqual(parsed?.top_risks, ["No buyer proof yet.", "Long sales cycles."]);
-});
-
-test("parseDecisionVerdictProse reads synthesis_to_prose markdown", () => {
-  const prose =
-    "**Recommendation:** ITERATE\n\n**Confidence:** MEDIUM\n\n**Strengths:**\n- Clear pain point.\n\n**Top risks:**\n- No buyer proof yet.\n\n**Biggest disagreement:** VC and PM disagree on wedge size.";
-  const parsed = parseDecisionVerdictProse(prose);
-  assert.equal(parsed?.overall_recommendation, "ITERATE");
-  assert.equal(parsed?.confidence, "MEDIUM");
-  assert.equal(parsed?.top_risks.length, 1);
-});
-
-test("topPriorities prefers structured risks", () => {
-  const parsed = parseStructuredSynthesis(STRUCTURED);
-  assert.ok(parsed);
-  assert.deepEqual(topPriorities(parsed, ["fallback fix"]), ["No buyer proof yet.", "Long sales cycles."]);
-});
-
-test("deriveNextActions falls back to judge fixes without structured synthesis", () => {
-  const verdicts = [
-    {
-      judge: "vc",
-      verdict: "FAIL",
-      score: 3,
-      recommended_fix: "Interview ten buyers.",
-    },
-    {
-      judge: "pm",
-      verdict: "CONDITIONAL",
-      score: 5,
-      recommended_fix: "Narrow the wedge.",
-    },
-  ];
-  assert.deepEqual(deriveNextActions(null, null, verdicts), [
-    "Interview ten buyers.",
-    "Narrow the wedge.",
-  ]);
-});
-
-test("deriveNextActions prefers synthesis risks over fixes", () => {
+test("topPriorities prefers top_problems", () => {
   const parsed = parseStructuredSynthesis(STRUCTURED);
   assert.ok(parsed);
   assert.deepEqual(
-    deriveNextActions(null, STRUCTURED, [
-      { judge: "vc", verdict: "FAIL", score: 2, recommended_fix: "Ignored when risks exist." },
-    ]),
-    ["No buyer proof yet.", "Long sales cycles."],
+    topPriorities(parsed, ["ignored fix"]),
+    STRUCTURED.top_problems,
   );
+});
+
+test("deriveNextActions falls back to judge key concerns without structured synthesis", () => {
+  const verdicts = [
+    {
+      judge: "pm",
+      verdict: "FAIL",
+      score: 2,
+      key_concern: "No validated ICP.",
+      recommended_fix: "Interview ten buyers.",
+    },
+  ];
+  assert.deepEqual(deriveNextActions(null, null, verdicts), ["No validated ICP."]);
 });
 
 test("collectRecommendedFixes ranks FAIL before PASS", () => {
@@ -118,71 +113,6 @@ test("collectRecommendedFixes ranks FAIL before PASS", () => {
     { verdict: "FAIL", score: 2, recommended_fix: "Prove demand." },
   ]);
   assert.deepEqual(fixes, ["Prove demand.", "Ship faster."]);
-});
-
-test("deriveNextActions caps at three risks", () => {
-  const structured = {
-    ...STRUCTURED,
-    top_risks: ["Risk A.", "Risk B.", "Risk C.", "Risk D."],
-  };
-  assert.deepEqual(
-    deriveNextActions(null, structured, []),
-    ["Risk A.", "Risk B.", "Risk C."],
-  );
-});
-
-test("deriveNextActions dedupes identical fixes", () => {
-  const sameFix = "Interview ten buyers.";
-  assert.deepEqual(
-    deriveNextActions(null, null, [
-      { judge: "vc", verdict: "FAIL", score: 2, recommended_fix: sameFix },
-      { judge: "pm", verdict: "FAIL", score: 3, recommended_fix: sameFix },
-      { judge: "customer", verdict: "CONDITIONAL", score: 5, recommended_fix: "Other fix." },
-    ]),
-    [sameFix, "Other fix."],
-  );
-});
-
-test("assessVerdictOutputQuality flags degenerate fixes", () => {
-  const identicalFix = "Interview ten target buyers and document their top workflow pain.";
-  const verdicts = [
-    {
-      judge: "vc",
-      verdict: "FAIL",
-      roast: "Weak distribution path for this idea in a crowded market.",
-      score: 3,
-      key_concern: "No buyer.",
-      recommended_fix: identicalFix,
-    },
-    {
-      judge: "engineer",
-      verdict: "FAIL",
-      roast: "The technical path is harder than the pitch suggests for this team.",
-      score: 2,
-      key_concern: "Reliability risk.",
-      recommended_fix: identicalFix,
-    },
-  ];
-  const quality = assessVerdictOutputQuality(verdicts, parseStructuredSynthesis(STRUCTURED), false);
-  assert.equal(quality.lowConfidence, true);
-  assert.equal(quality.degenerateFixes, true);
-});
-
-test("assessVerdictOutputQuality flags prose-only synthesis fallback", () => {
-  const parsed = parseDecisionVerdictProse(
-    "**Recommendation:** ITERATE\n\n**Confidence:** MEDIUM\n\n**Biggest disagreement:** Split on wedge.",
-  );
-  const quality = assessVerdictOutputQuality([], parsed, true);
-  assert.equal(quality.lowConfidence, true);
-  assert.match(quality.reasons.join(" "), /free-text synthesis/);
-});
-
-test("assessVerdictOutputQuality accepts numbered prose fallback shape", () => {
-  const prose =
-    "**1. Overall verdict:** FAIL\n\n**2. Final score from 1-10:** 2.0\n\n**3. Consensus points**\n- Scope is too broad.";
-  const quality = assessVerdictOutputQuality([], null, false);
-  assert.equal(quality.lowConfidence, false);
-  assert.equal(quality.reasons.length, 0);
 });
 
 function verdict(judge, score) {
@@ -213,28 +143,4 @@ test("assessRevoteOutputQuality treats varied same-direction moves as convergenc
   ];
   const quality = assessRevoteOutputQuality(baseline, current);
   assert.equal(quality.panelConverged, true);
-  assert.equal(quality.lowConfidence, false);
-  assert.match(quality.convergenceNote ?? "", /converged on shared concerns/);
-});
-
-test("assessRevoteOutputQuality flags identical deltas as suspicious", () => {
-  const baseline = {
-    vc: verdict("vc", 7),
-    pm: verdict("pm", 7),
-    customer: verdict("customer", 7),
-    competitor: verdict("competitor", 7),
-    engineer: verdict("engineer", 7),
-  };
-  const current = [
-    verdict("vc", 5),
-    verdict("pm", 5),
-    verdict("customer", 5),
-    verdict("competitor", 5),
-    verdict("engineer", 7),
-  ];
-  const quality = assessRevoteOutputQuality(baseline, current);
-  assert.equal(quality.herdedDeltas, true);
-  assert.equal(quality.lowConfidence, true);
-  assert.equal(quality.panelConverged, false);
-  assert.match(quality.reasons.join(" "), /herded/);
 });

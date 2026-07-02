@@ -20,8 +20,33 @@ Field rules:
 - confidence: exactly one of LOW, MEDIUM, or HIGH based on how aligned the judges were.
   Use HIGH when recommendation follows clearly from the score split; use LOW when judges disagreed sharply on framing despite similar scores.
 - top_strengths: up to three short plain sentences naming real strengths surfaced in the debate.
-- top_risks: up to three short plain sentences naming the highest-priority risks or fixes, ordered by urgency.
-- biggest_disagreement: one plain sentence naming the single sharpest split among judges.
+- top_risks: up to three short plain sentences naming the highest-priority risks, ordered by urgency. Risks may include market, economics, or execution concerns.
+- top_problems: exactly three short plain sentences naming concrete flaws in the idea, product, or business model.
+  Each item must describe what is wrong with the startup itself (buyer, behavior, economics, moat, feasibility).
+  Never summarize judge scores, panel agreement, or verdict counts. Never write "every judge concluded" or similar meta commentary.
+  Do not repeat top_risks verbatim — problems should read like founder-facing issue statements.
+- highest_priority: one plain sentence naming the single most urgent uncertainty or blocker the founder must resolve first.
+  Write from the founder's perspective — what to prove, validate, or fix before anything else matters.
+  Never describe judge disagreement and never name which judge said what.
+  Do not copy top_problems[0], top_risks[0], or biggest_disagreement verbatim.
+- biggest_disagreement: one plain sentence naming the single sharpest split among judges on framing, severity, or strategy.
+  Name judge roles when helpful (for example VC vs PM). This field is panel disagreement only — never restate a founder problem, risk, or next step.
+  Do not copy highest_priority or top_problems[0] verbatim.
+- recommended_experiment: one object describing the single best validation step the founder should run next.
+  Ground it in the debate and judge recommended fixes. Fields:
+  - title: one plain sentence naming the experiment action (what to run, not why judges failed).
+  - audience: who to test with — a specific ICP segment only, no interview instructions.
+  - hypothesis: one plain sentence stating the assumption being tested.
+  - questions: three to five plain questions the founder should answer by running the experiment. Founder-facing, not legal evidence demands.
+  - effort_minutes: realistic integer estimate (15 to 2880) for a solo founder to complete the experiment.
+- confidence_dimensions: exactly four objects, one per dimension key demand, pricing, competition, moat.
+  Each object must include:
+  - dimension: the key string (demand, pricing, competition, or moat)
+  - value: integer 0 to 100 for how confident the panel is in that dimension
+  - driver: one plain sentence naming the top concern or evidence gap for that dimension
+  - next_action: one plain sentence describing the fastest proof that would raise confidence
+  Gauge each dimension holistically from the debate — do not average judge scores mechanically.
+  Use Low (0-39) when unresolved critical risk remains, Medium (40-69) when plausible but unproven, High (70-100) when judges cite concrete proof.
 
 Write every field in plain prose. No markdown, bullet characters, or numbered lists inside field values.
 Ground every field in the debate transcript and original verdicts; do not invent facts.

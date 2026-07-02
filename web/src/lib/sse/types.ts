@@ -1,3 +1,4 @@
+import type { ConfidenceSnapshot } from "../confidence/confidence.ts";
 import type { LensUniquenessAssessment } from "../lens/lens-quality.ts";
 
 export type VerdictLabel = "PASS" | "FAIL" | "CONDITIONAL";
@@ -90,6 +91,11 @@ export interface AppealResult {
   originalByJudge: Record<JudgeId, Verdict>;
   revisedByJudge: Record<JudgeId, Verdict>;
   revisedSynthesis: string;
+  revisedStructuredSynthesis?: Record<string, unknown> | null;
+  confidenceBeforeAfter?: {
+    before: ConfidenceSnapshot | null;
+    after: ConfidenceSnapshot | null;
+  } | null;
   targetJudges: JudgeId[];
   evidenceOutcomes: AppealJudgeOutcome[];
 }

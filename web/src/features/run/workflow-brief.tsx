@@ -1,20 +1,24 @@
 "use client";
 
-import { ClipboardList, FlaskConical, Target } from "lucide-react";
+import { ClipboardList, Target } from "lucide-react";
 
 import { heatCtaClass } from "@/lib/cta-classes";
+import type { Experiment } from "@/lib/experiment/experiment";
+import { isExperimentEntityEnabled } from "@/lib/feature-flags";
 import type { Verdict } from "@/lib/sse/types";
 import { cn } from "@/lib/utils";
 
+import { ExperimentCard, ExperimentLegacyText } from "./experiment-card";
 import { RUN_PAGE_COPY } from "./run-page-copy";
 import { deriveWorkflowBrief } from "./structured-synthesis";
 
-const cardClass = "border border-rule-soft bg-card";
+const cardClass = "surface-flat";
 
 export function WorkflowBrief({
   synthesisProse,
   structuredSynthesis,
   verdicts,
+  experiment,
   completed,
   evidenceLink,
   evidenceReplayPending = false,
@@ -24,13 +28,14 @@ export function WorkflowBrief({
   synthesisProse: string | null;
   structuredSynthesis: unknown;
   verdicts: Verdict[];
+  experiment: Experiment;
   completed: boolean;
   evidenceLink?: { href: string; label: string; useModal?: boolean } | null;
   evidenceReplayPending?: boolean;
   onCompleteExperiment?: () => void;
   className?: string;
 }) {
-  const { problems, blocker, experiment } = deriveWorkflowBrief(
+  const { problems, blocker } = deriveWorkflowBrief(
     synthesisProse,
     structuredSynthesis,
     verdicts,
@@ -85,21 +90,11 @@ export function WorkflowBrief({
         </section>
       )}
 
-      <section
-        className={cn(cardClass, "flex items-start gap-3 px-4 py-3")}
-        aria-labelledby="experiment-heading"
-      >
-        <FlaskConical className="mt-0.5 size-4 shrink-0 text-ink-muted" aria-hidden />
-        <div>
-          <h3
-            id="experiment-heading"
-            className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-muted"
-          >
-            {RUN_PAGE_COPY.recommendedExperiment}
-          </h3>
-          <p className="mt-2 font-sans text-sm leading-relaxed text-ink">{experiment}</p>
-        </div>
-      </section>
+      {isExperimentEntityEnabled() ? (
+        <ExperimentCard experiment={experiment} />
+      ) : (
+        <ExperimentLegacyText experiment={experiment} />
+      )}
 
       {completed && evidenceLink && (
         <section

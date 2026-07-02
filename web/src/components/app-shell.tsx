@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { isUiShellV2Enabled } from "@/lib/feature-flags";
 import { heatCtaClass } from "@/lib/cta-classes";
 
 import { HealthStatus } from "./health-status";
@@ -59,7 +60,7 @@ export function AppFooter() {
   );
 }
 
-/** Minimal single-column workflow container (product-realignment-plan §3). */
+/** Minimal single-column workflow container (legacy layout when ui_shell_v2 is off). */
 export function EditorialContainer({
   children,
   className = "",
@@ -67,6 +68,10 @@ export function EditorialContainer({
   children: React.ReactNode;
   className?: string;
 }) {
+  if (isUiShellV2Enabled()) {
+    return <div className={className}>{children}</div>;
+  }
+
   return (
     <div className={`mx-auto w-full max-w-3xl px-4 md:px-6 ${className}`}>
       {children}

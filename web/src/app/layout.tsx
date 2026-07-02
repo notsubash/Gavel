@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 
 import { AppToaster } from "@/components/app-toaster";
-import { AppFooter, AppHeader, SkipLink } from "@/components/app-shell";
+import { AppLayout } from "@/components/app-layout";
+import { SkipLink } from "@/components/app-shell";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { QueryProvider } from "@/components/query-provider";
+import { isUiShellV2Enabled } from "@/lib/feature-flags";
 
 import "./globals.css";
 
@@ -33,22 +35,21 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const shellV2 = isUiShellV2Enabled();
+
   return (
     <html
       lang="en"
       className={`${plusJakarta.variable} ${jetbrainsMono.variable} h-full`}
+      {...(shellV2 ? { "data-ui-shell-v2": "" } : {})}
     >
       <body className="flex min-h-full flex-col antialiased">
         <SkipLink />
-        <AppHeader />
         <QueryProvider>
           <ErrorBoundary>
-            <main id="main" className="flex-1">
-              {children}
-            </main>
+            <AppLayout>{children}</AppLayout>
           </ErrorBoundary>
         </QueryProvider>
-        <AppFooter />
         <AppToaster />
       </body>
     </html>

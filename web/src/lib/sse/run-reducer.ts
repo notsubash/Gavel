@@ -11,6 +11,7 @@ import {
   type ResearchFindings,
 } from "./types.ts";
 import { appealJudgeOutcomes } from "../appeal/coaching.ts";
+import { parseConfidenceMovement } from "../confidence/confidence.ts";
 import { parsePanelQuality } from "../lens/lens-quality.ts";
 
 function isJudgeId(value: string): value is JudgeId {
@@ -177,6 +178,12 @@ function parseAppealResult(payload: Record<string, unknown>): AppealResult | nul
     originalByJudge,
     revisedByJudge,
     revisedSynthesis,
+    revisedStructuredSynthesis:
+      payload.revised_structured_synthesis &&
+      typeof payload.revised_structured_synthesis === "object"
+        ? (payload.revised_structured_synthesis as Record<string, unknown>)
+        : null,
+    confidenceBeforeAfter: parseConfidenceMovement(payload.confidence_before_after),
     targetJudges,
     evidenceOutcomes,
   };
@@ -208,6 +215,15 @@ function reconcileDebateMessages(
   return { ...state, debateTurns };
 }
 
+function applyRevoteBaseline(state: RunState, initialVerdicts: unknown[]): RunState {
+  const revoteBaseline = { ...state.revoteBaseline };
+  for (const item of initialVerdicts) {
+    const verdict = parseVerdict(item);
+    if (verdict) revoteBaseline[verdict.judge] = verdict;
+  }
+  return { ...state, revoteBaseline };
+}
+
 function applyRevoteFromPanels(
   state: RunState,
   initialVerdicts: unknown[],
@@ -235,6 +251,8 @@ function applyRevoteFromPanels(
     if (original && revised.score !== original.score && revised.evidence_to_change_verdict) {
       revoteChangeReasons[revised.judge] = revised.evidence_to_change_verdict;
     } else if (original && revised.score === original.score) {
+      delete revoteChangeReasons[revised.judge];
+    } else if (original && revised.score !== original.score) {
       delete revoteChangeReasons[revised.judge];
     }
   }
@@ -432,6 +450,8 @@ export function runReducer(state: RunState, envelope: ApiEventEnvelope): RunStat
         delete revoteChangeReasons[judge];
       } else if (typeof changeReason === "string" && changeReason.trim()) {
         revoteChangeReasons[judge] = changeReason;
+      } else if (typeof originalScore === "number" && verdict.score !== originalScore) {
+        delete revoteChangeReasons[judge];
       }
       return {
         ...next,
@@ -461,8 +481,10 @@ export function runReducer(state: RunState, envelope: ApiEventEnvelope): RunStat
       }
       const initialVerdicts = payload.initial_verdicts;
       const revisedVerdicts = payload.revised_verdicts;
-      if (Array.isArray(initialVerdicts) && Array.isArray(revisedVerdicts)) {
+      if (Array.isArray(initialVerdicts) && Array.isArray(revisedVerdicts) && revisedVerdicts.length > 0) {
         next = applyRevoteFromPanels(next, initialVerdicts, revisedVerdicts);
+      } else if (Array.isArray(initialVerdicts) && initialVerdicts.length > 0) {
+        next = applyRevoteBaseline(next, initialVerdicts);
       }
       return next;
     }
@@ -471,11 +493,6 @@ export function runReducer(state: RunState, envelope: ApiEventEnvelope): RunStat
       return { ...next, metrics: payload as unknown as RunState["metrics"] };
 
     case "run_completed": {
-      const roastPanel = (payload.roast_panel as { verdicts?: unknown[] } | undefined)?.verdicts;
-      if (Array.isArray(roastPanel)) {
-        const verdicts = roastPanel.map(parseVerdict).filter((v): v is Verdict => v !== null);
-        if (verdicts.length > 0) next = applyRoastPanel(next, verdicts);
-      }
       const debateResult = payload.debate_result as
         | {
             debate_messages?: unknown[];
@@ -485,6 +502,19 @@ export function runReducer(state: RunState, envelope: ApiEventEnvelope): RunStat
             revised_verdicts?: unknown[];
           }
         | undefined;
+      const hasRevoteSnapshot =
+        Array.isArray(debateResult?.initial_verdicts) &&
+        debateResult.initial_verdicts.length > 0;
+      const hasRevoteReplay =
+        hasRevoteSnapshot &&
+        Array.isArray(debateResult?.revised_verdicts) &&
+        debateResult.revised_verdicts.length > 0;
+
+      const roastPanel = (payload.roast_panel as { verdicts?: unknown[] } | undefined)?.verdicts;
+      if (Array.isArray(roastPanel) && !hasRevoteSnapshot) {
+        const verdicts = roastPanel.map(parseVerdict).filter((v): v is Verdict => v !== null);
+        if (verdicts.length > 0) next = applyRoastPanel(next, verdicts);
+      }
       if (debateResult) {
         if (Array.isArray(debateResult.debate_messages)) {
           next = reconcileDebateMessages(
@@ -498,15 +528,14 @@ export function runReducer(state: RunState, envelope: ApiEventEnvelope): RunStat
         if (debateResult.structured_synthesis) {
           next = { ...next, structuredSynthesis: debateResult.structured_synthesis };
         }
-        if (
-          Array.isArray(debateResult.initial_verdicts) &&
-          Array.isArray(debateResult.revised_verdicts)
-        ) {
+        if (hasRevoteReplay) {
           next = applyRevoteFromPanels(
             next,
-            debateResult.initial_verdicts,
-            debateResult.revised_verdicts,
+            debateResult.initial_verdicts!,
+            debateResult.revised_verdicts!,
           );
+        } else if (hasRevoteSnapshot) {
+          next = applyRevoteBaseline(next, debateResult.initial_verdicts!);
         }
       }
       const panelQuality = parsePanelQuality(payload.panel_quality);

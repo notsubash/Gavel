@@ -1,12 +1,16 @@
 import * as React from "react";
 
+import { isUiShellV2Enabled } from "@/lib/feature-flags";
 import { cn } from "@/lib/utils";
+
+const legacyElevation = isUiShellV2Enabled() ? "" : "shadow-soft";
 
 function Card({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "rounded-ui border border-rule-soft bg-card text-ink shadow-soft",
+        "rounded-ui border border-rule-soft bg-card text-ink",
+        legacyElevation,
         className,
       )}
       {...props}

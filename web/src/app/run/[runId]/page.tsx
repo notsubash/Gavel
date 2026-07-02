@@ -2,6 +2,7 @@ import { Suspense } from "react";
 
 import { RunSheet } from "@/features/run/run-sheet";
 import { EditorialContainer } from "@/components/app-shell";
+import { isUiShellV2Enabled } from "@/lib/feature-flags";
 import { Skeleton } from "@/ui/skeleton";
 
 type RunPageProps = {
@@ -11,7 +12,7 @@ type RunPageProps = {
 
 function RunSheetFallback() {
   return (
-    <EditorialContainer className="py-12 md:py-16 lg:py-24">
+    <EditorialContainer className={isUiShellV2Enabled() ? "py-6 md:py-8" : "py-12 md:py-16 lg:py-24"}>
       <div className="space-y-4">
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-12 w-full max-w-xl" />

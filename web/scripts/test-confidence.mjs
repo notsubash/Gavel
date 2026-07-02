@@ -5,11 +5,61 @@ import {
   confidenceTier,
   lineageCurrentScore,
   lineageScoreDelta,
+  parseConfidenceFromStructuredSynthesis,
+  parseConfidenceSnapshot,
+  resolveConfidenceSnapshot,
+  weakestDimensionAction,
 } from "../src/lib/confidence/confidence.ts";
-
 assert.equal(confidenceTier(30), "Low");
 assert.equal(confidenceTier(55), "Medium");
 assert.equal(confidenceTier(75), "High");
+
+const llmSnapshot = parseConfidenceFromStructuredSynthesis({
+  confidence_dimensions: [
+    {
+      dimension: "demand",
+      value: 35,
+      driver: "No buyer urgency proof.",
+      next_action: "Run five buyer interviews.",
+    },
+    {
+      dimension: "pricing",
+      value: 55,
+      driver: "Willingness to pay unclear.",
+      next_action: "Test two price points.",
+    },
+    {
+      dimension: "competition",
+      value: 40,
+      driver: "Incumbents are strong.",
+      next_action: "Document a wedge.",
+    },
+    {
+      dimension: "moat",
+      value: 62,
+      driver: "Defensibility is early.",
+      next_action: "File provisional IP.",
+    },
+  ],
+});
+assert.ok(llmSnapshot);
+assert.equal(llmSnapshot.weakest, "demand");
+assert.equal(weakestDimensionAction(llmSnapshot), "Run five buyer interviews.");
+
+const resolved = resolveConfidenceSnapshot({
+  structuredSynthesis: {
+    confidence_dimensions: llmSnapshot.dimensions.map((item) => ({
+      dimension: item.dimension,
+      value: item.value,
+      driver: item.driver,
+      next_action: item.nextAction,
+    })),
+  },
+  verdicts: [],
+  allowDeterministicFallback: false,
+});
+assert.ok(resolved);
+assert.equal(resolved.source, "llm");
 
 const verdicts = [
   {
@@ -51,11 +101,8 @@ const verdicts = [
 
 const snapshot = computeConfidenceFromVerdicts(verdicts);
 assert.ok(snapshot);
+assert.equal(snapshot.source, "deterministic");
 assert.equal(snapshot.weakest, "pricing");
-assert.equal(snapshot.dimensions.find((item) => item.dimension === "demand")?.value, 40);
-assert.equal(snapshot.dimensions.find((item) => item.dimension === "pricing")?.value, 30);
-assert.equal(snapshot.dimensions.find((item) => item.dimension === "competition")?.value, 40);
-assert.equal(snapshot.dimensions.find((item) => item.dimension === "moat")?.value, 65);
 
 const improved = verdicts.map((verdict) =>
   verdict.judge === "customer" ? { ...verdict, score: 6 } : verdict,
@@ -64,6 +111,13 @@ const after = computeConfidenceFromVerdicts(improved);
 assert.ok(after);
 const delta = confidenceDelta(snapshot, after);
 assert.equal(delta.pricing, 30);
+
+const apiSnapshot = parseConfidenceSnapshot({
+  dimensions: llmSnapshot.dimensions,
+  weakest: "demand",
+  source: "llm",
+});
+assert.ok(apiSnapshot);
 
 const lineage = [
   {
@@ -111,5 +165,15 @@ assert.equal(
   partialSnapshot.dimensions.find((item) => item.dimension === "pricing"),
   undefined,
 );
+
+const partialStructured = resolveConfidenceSnapshot({
+  structuredSynthesis: { confidence_dimensions: [] },
+  verdicts,
+  allowDeterministicFallback: !parseConfidenceFromStructuredSynthesis({
+    confidence_dimensions: [],
+  }),
+});
+assert.ok(partialStructured);
+assert.equal(partialStructured.source, "deterministic");
 
 console.log("test-confidence: ok");

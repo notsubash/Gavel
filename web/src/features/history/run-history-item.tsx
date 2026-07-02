@@ -6,7 +6,7 @@ import { AlertCircle, CheckCircle2, Clock, XCircle } from "lucide-react";
 import type { RunListItem } from "@/lib/api/types-helpers";
 import { cn } from "@/lib/utils";
 
-import { HISTORY_COPY } from "../run/run-page-copy";
+import { HISTORY_COPY_LEGACY } from "../run/run-page-copy";
 
 import { HistoryConfidencePreview } from "./history-confidence-preview";
 
@@ -51,7 +51,7 @@ export function RunHistoryItem({ item }: { item: RunListItem }) {
   const showConfidence = item.status === "completed";
 
   return (
-    <li className="border border-rule-soft bg-card shadow-soft">
+    <li className="surface-flat">
       <Link
         href={`/run/${item.run_id}`}
         className={cn(
@@ -76,9 +76,9 @@ export function RunHistoryItem({ item }: { item: RunListItem }) {
           </div>
           {showScore && (
             <div>
-              <dt className="sr-only">{HISTORY_COPY.currentScore}</dt>
+              <dt className="sr-only">{HISTORY_COPY_LEGACY.currentScore}</dt>
               <dd>
-                {HISTORY_COPY.currentScore}:{" "}
+                {HISTORY_COPY_LEGACY.currentScore}:{" "}
                 <span className="font-mono font-semibold text-ink">{avg.toFixed(1)}/10</span>
               </dd>
             </div>

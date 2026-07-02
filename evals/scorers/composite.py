@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from evals.scorers.appeal import score_appeal_discrimination
+from evals.scorers.debate_readability import score_debate_readability
 from evals.scorers.lens import score_lens_differentiation
 from evals.scorers.reliability import score_reliability
 
@@ -28,6 +29,7 @@ def score_idea_result(
         max_debate_rounds=max_debate_rounds,
     )
     lens = score_lens_differentiation(verdicts)
+    debate_readability = score_debate_readability(debate_result, verdicts=verdicts)
 
     legacy_output = reliability.get("fix_fields_legacy") or reliability.get("synthesis_legacy")
     revote_legacy = reliability.get("revote_legacy", True)
@@ -41,6 +43,12 @@ def score_idea_result(
     )
     lens_legacy = lens.get("lens_legacy", True)
     lens_ok = lens.get("lens_differentiation_passed", True) if not lens_legacy else True
+    debate_legacy = debate_readability.get("debate_readability_legacy", True)
+    debate_ok = (
+        debate_readability.get("debate_readability_passed", True)
+        if debate_legacy
+        else debate_readability.get("debate_readability_passed", False)
+    )
 
     appeal = score_appeal_discrimination(
         result,
@@ -59,12 +67,14 @@ def score_idea_result(
         and (legacy_output or (fixes_ok and synthesis_ok))
         and revote_ok
         and lens_ok
+        and debate_ok
         and appeal_ok
     )
 
     return {
         "reliability": reliability,
         "lens": lens,
+        "debate_readability": debate_readability,
         "appeal": appeal,
         "passed": passed,
     }

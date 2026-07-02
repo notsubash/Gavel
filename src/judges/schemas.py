@@ -1,6 +1,8 @@
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 ROAST_MAX_LENGTH = 1000
 KEY_CONCERN_MAX_LENGTH = 400
@@ -53,6 +55,16 @@ class Verdict(BaseModel):
         max_length=EVIDENCE_MAX_LENGTH,
         description="One specific piece of evidence that would change this judge's score.",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_llm_field_aliases(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        if "recommended_fixed" in data and "recommended_fix" not in data:
+            data = dict(data)
+            data["recommended_fix"] = data.pop("recommended_fixed")
+        return data
 
     @field_validator("roast", mode="before")
     @classmethod

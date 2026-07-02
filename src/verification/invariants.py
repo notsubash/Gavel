@@ -257,6 +257,17 @@ def verify_verdict_invariants(
             if duplicate is not None:
                 checks.append(duplicate)
 
+        if evidence and is_generic_evidence(evidence):
+            checks.append(
+                Check(
+                    code="evidence_to_change_verdict_generic",
+                    message=(
+                        "evidence_to_change_verdict must name concrete, verifiable proof "
+                        "— not generic research boilerplate"
+                    ),
+                )
+            )
+
     return VerificationResult(checks=checks)
 
 

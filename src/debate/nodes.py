@@ -6,18 +6,25 @@ from typing import Any
 from jinja2 import Environment, FileSystemLoader
 from langchain_core.messages import AIMessage
 from langgraph.config import get_stream_writer
+from pydantic import ValidationError
 
 from config import DEBATE_PERSONAS, JUDGE_ORDER, PROMPTS_DIR
 from debate.revote import roast_panel_from_state_verdicts, run_revote
 from idea_context import wrap_user_idea
 from judges.confidence import guard_confidence_dimensions
 from judges.schemas import Verdict
-from judges.synthesis import Synthesis, synthesis_to_prose
+from judges.synthesis import (
+    Synthesis,
+    SynthesisGuardrailError,
+    synthesis_to_prose,
+    verify_synthesis_invariants,
+)
 from llm_resilience import call_with_llm_retry, is_transient_llm_error
 from observability.metrics import RunMetricsCollector
 
 template_env = Environment(loader=FileSystemLoader(PROMPTS_DIR))
 logger = logging.getLogger(__name__)
+MODERATOR_MAX_ATTEMPTS = 3
 
 
 def _response_text(response: Any) -> str:
@@ -221,19 +228,60 @@ def _invoke_plain_synthesis(model: Any, prompt: str) -> tuple[str, Any]:
     return call_with_llm_retry(_invoke_once, label="moderator synthesis")
 
 
-def _invoke_structured_synthesis(model: Any, prompt: str) -> tuple[Synthesis | None, Any | None]:
+def _invoke_structured_synthesis(
+    model: Any,
+    prompt: str,
+    verdicts: list[Verdict],
+) -> tuple[Synthesis | None, Any | None]:
     structured_factory = getattr(model, "with_structured_output", None)
     if structured_factory is None:
         return None, None
-    try:
-        structured_model = structured_factory(Synthesis)
-        result = structured_model.invoke([{"role": "user", "content": prompt}])
-        if result is None:
-            return None, None
-        return Synthesis.model_validate(result), result
-    except Exception:
-        # ponytail: local models often miss structured output; legacy prose fallback below.
-        return None, None
+
+    structured_model = structured_factory(Synthesis)
+    current_prompt = prompt
+    last_error: ValidationError | SynthesisGuardrailError | ValueError | None = None
+
+    for attempt in range(MODERATOR_MAX_ATTEMPTS):
+        try:
+            result = structured_model.invoke([{"role": "user", "content": current_prompt}])
+            if result is None:
+                raise ValueError("Structured synthesis returned no output")
+            structured = Synthesis.model_validate(result)
+            guarded = guard_confidence_dimensions(
+                structured.model_dump(mode="json"),
+                verdicts,
+            )
+            structured = Synthesis.model_validate(guarded)
+            synthesis_check = verify_synthesis_invariants(structured, verdicts)
+            failure = synthesis_check.first_failure()
+            if failure is not None:
+                raise SynthesisGuardrailError(failure.message)
+            return structured, result
+        except (ValidationError, SynthesisGuardrailError, ValueError) as exc:
+            last_error = exc
+            if attempt + 1 >= MODERATOR_MAX_ATTEMPTS:
+                break
+            current_prompt = (
+                f"{prompt}\n\nYour previous structured synthesis was rejected: {exc}. "
+                "Return corrected complete JSON. confidence_dimensions must include exactly "
+                "four objects (demand, pricing, competition, moat) each with dimension, "
+                "value, driver, and next_action. top_problems must be founder-facing issue "
+                "statements — never repeat a judge key_concern or recommended_fix."
+            )
+        except Exception as exc:
+            # ponytail: transient LLM failures fall back to prose, same as pre-retry behavior.
+            if is_transient_llm_error(exc):
+                logger.warning("Moderator structured synthesis transient failure: %s", exc)
+                return None, None
+            raise
+
+    if last_error is not None:
+        logger.warning(
+            "Moderator structured synthesis failed after %d attempts: %s",
+            MODERATOR_MAX_ATTEMPTS,
+            last_error,
+        )
+    return None, None
 
 
 def _render_moderator_prompt(template_name: str, state: dict, transcript: str) -> str:
@@ -254,18 +302,10 @@ def make_moderator_node(model: Any, metrics: RunMetricsCollector | None = None):
 
         prompt = _render_moderator_prompt("moderator_node_prompt.jinja2", state, transcript)
         started_at = time.perf_counter()
+        verdicts = [Verdict.model_validate(v) for v in state["verdicts"]]
 
-        structured, structured_response = _invoke_structured_synthesis(model, prompt)
+        structured, structured_response = _invoke_structured_synthesis(model, prompt, verdicts)
         if structured is not None:
-            try:
-                verdicts = [Verdict.model_validate(v) for v in state["verdicts"]]
-                guarded = guard_confidence_dimensions(
-                    structured.model_dump(mode="json"),
-                    verdicts,
-                )
-                structured = Synthesis.model_validate(guarded)
-            except Exception:
-                logger.warning("Confidence guardrails failed; using raw synthesis", exc_info=True)
             synthesis = synthesis_to_prose(structured)
             response_payload = structured
             metrics_response = structured_response

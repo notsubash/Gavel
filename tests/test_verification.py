@@ -11,6 +11,7 @@ from verification import (
     fix_fields_missing_judges,
     is_degenerate_fixes,
     is_degenerate_panel,
+    is_generic_evidence,
     score_verdict_mismatches,
     verify_verdict_invariants,
 )
@@ -53,6 +54,15 @@ class VerificationInvariantsTest(unittest.TestCase):
         )
         self.assertFalse(result.ok)
         self.assertEqual(result.first_failure().code, "recommended_fix_duplicates_key_concern")
+
+    def test_verify_verdict_invariants_rejects_generic_evidence(self):
+        result = verify_verdict_invariants(
+            _verdict("vc", evidence_to_change_verdict="Do more research on the buyer."),
+            expected_judge="vc",
+        )
+        self.assertFalse(result.ok)
+        self.assertEqual(result.first_failure().code, "evidence_to_change_verdict_generic")
+        self.assertTrue(is_generic_evidence("Do more research on the buyer."))
 
     def test_score_verdict_mismatches_works_on_dicts(self):
         mismatches = score_verdict_mismatches(

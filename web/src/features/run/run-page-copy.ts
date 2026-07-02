@@ -112,6 +112,8 @@ export const VERSION_COPY = {
   noPriorVersion:
     "No prior version to compare yet. Refine this idea after you update the pitch to see what changed.",
   confidenceTitle: "Confidence by dimension",
+  confidenceEstimated:
+    "Estimated from judge scores — the moderator did not return a full dimension breakdown.",
   confidenceWhy: "See why",
   confidenceNextAction: "Raise weakest dimension",
 } as const;

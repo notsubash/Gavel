@@ -142,17 +142,6 @@ body {
   animation: delta-pop var(--dur-in) var(--ease) forwards;
 }
 
-@keyframes progress-fill {
-  to {
-    width: var(--fill-pct);
-  }
-}
-
-.animate-progress-fill {
-  width: 0;
-  animation: progress-fill 250ms var(--ease) forwards;
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from judges.confidence import ConfidenceDimensionKey, ConfidenceDimensionScore
 from judges.schemas import RoastPanel, Verdict
 from judges.synthesis import (
     ConfidenceLevel,
@@ -16,11 +17,41 @@ from judges.synthesis import (
     synthesis_compact_summary,
     synthesis_to_prose,
     top_priorities,
+    verify_synthesis_invariants,
 )
 from memory.context import build_memory_context
 from memory.models import IdeaRecord
 import tests  # noqa: F401
 from utils.transcript_exporter import export_transcript
+
+
+def _confidence_dimensions() -> list[ConfidenceDimensionScore]:
+    return [
+        ConfidenceDimensionScore(
+            dimension=ConfidenceDimensionKey.DEMAND,
+            value=35,
+            driver="No buyer urgency proof yet.",
+            next_action="Run five buyer interviews this week.",
+        ),
+        ConfidenceDimensionScore(
+            dimension=ConfidenceDimensionKey.PRICING,
+            value=45,
+            driver="Willingness to pay is unproven.",
+            next_action="Test two price points with target buyers.",
+        ),
+        ConfidenceDimensionScore(
+            dimension=ConfidenceDimensionKey.COMPETITION,
+            value=40,
+            driver="Incumbents can copy the workflow.",
+            next_action="Document a distribution wedge.",
+        ),
+        ConfidenceDimensionScore(
+            dimension=ConfidenceDimensionKey.MOAT,
+            value=30,
+            driver="No defensibility surfaced in debate.",
+            next_action="Identify proprietary data or workflow lock-in.",
+        ),
+    ]
 
 
 def _panel(*, recommended_fix: str | None = "Run five buyer interviews this week.") -> RoastPanel:
@@ -102,6 +133,7 @@ def _structured_debate_result() -> dict:
             ],
             "effort_minutes": 120,
         },
+        confidence_dimensions=_confidence_dimensions(),
     )
     return {
         "debate_messages": [],
@@ -121,6 +153,7 @@ class SynthesisHelpersTest(unittest.TestCase):
             top_risks=["Every single judge independently concluded this fails."],
             top_problems=["Fix buyer proof first.", "Validate pricing."],
             biggest_disagreement="Judges split on timing.",
+            confidence_dimensions=_confidence_dimensions(),
         )
         priorities = top_priorities(synthesis, _panel())
         self.assertEqual(priorities, ["Fix buyer proof first.", "Validate pricing."])
@@ -131,6 +164,7 @@ class SynthesisHelpersTest(unittest.TestCase):
             confidence=ConfidenceLevel.HIGH,
             top_risks=["Fix buyer proof first.", "Validate pricing."],
             biggest_disagreement="Judges split on timing.",
+            confidence_dimensions=_confidence_dimensions(),
         )
         priorities = top_priorities(synthesis, _panel())
         self.assertEqual(priorities, ["Fix buyer proof first.", "Validate pricing."])
@@ -144,9 +178,29 @@ class SynthesisHelpersTest(unittest.TestCase):
                 "Zero switching costs block repeat revenue.",
             ],
             biggest_disagreement="Split on wedge.",
+            confidence_dimensions=_confidence_dimensions(),
         )
         self.assertEqual(len(synthesis.top_problems), 1)
         self.assertIn("switching costs", synthesis.top_problems[0])
+
+    def test_recommended_experiment_coerces_long_audience(self):
+        long_audience = (
+            "Yourself and a hardware engineer with a bench supply, a logic analyzer, "
+            "and an oscilloscope for validating the prototype signal chain end to end."
+        )
+        experiment = RecommendedExperiment(
+            title="Bench-test the analog front end on real sensor noise before shipping.",
+            audience=long_audience,
+            hypothesis="The front end keeps SNR above target under typical ambient noise.",
+            questions=[
+                "Does measured SNR stay above 40 dB?",
+                "Does the filter reject 60 Hz hum?",
+                "Can you reproduce results across three boards?",
+            ],
+            effort_minutes=240,
+        )
+        self.assertLessEqual(len(experiment.audience), 120)
+        self.assertTrue(experiment.audience.endswith("..."))
 
     def test_recommended_experiment_parses(self):
         experiment = RecommendedExperiment(
@@ -165,6 +219,7 @@ class SynthesisHelpersTest(unittest.TestCase):
             confidence=ConfidenceLevel.HIGH,
             biggest_disagreement="VC vs PM on wedge.",
             recommended_experiment=experiment,
+            confidence_dimensions=_confidence_dimensions(),
         )
         parsed = parse_structured_synthesis({"structured_synthesis": synthesis.model_dump()})
         self.assertIsNotNone(parsed)
@@ -183,6 +238,7 @@ class SynthesisHelpersTest(unittest.TestCase):
             overall_recommendation=OverallRecommendation.ITERATE,
             confidence=ConfidenceLevel.LOW,
             biggest_disagreement="Engineer and VC disagree on feasibility.",
+            confidence_dimensions=_confidence_dimensions(),
         )
         priorities = top_priorities(synthesis, _panel())
         self.assertEqual(len(priorities), 3)
@@ -275,6 +331,28 @@ class VerdictOutputQualityTest(unittest.TestCase):
         quality = assess_verdict_output_quality(_panel(), _structured_debate_result())
         self.assertFalse(quality["low_confidence"])
         self.assertTrue(quality["structured_synthesis"])
+
+    def test_verify_synthesis_rejects_recycled_top_problem(self):
+        panel = _panel()
+        synthesis = Synthesis(
+            overall_recommendation=OverallRecommendation.NO_GO,
+            confidence=ConfidenceLevel.HIGH,
+            top_problems=[panel.verdicts[0].key_concern],
+            biggest_disagreement="VC vs PM on wedge.",
+            confidence_dimensions=_confidence_dimensions(),
+        )
+        result = verify_synthesis_invariants(synthesis, panel.verdicts)
+        self.assertFalse(result.ok)
+        self.assertEqual(result.first_failure().code, "top_problem_recycles_verdict")
+
+    def test_synthesis_requires_four_confidence_dimensions(self):
+        with self.assertRaises(ValueError):
+            Synthesis(
+                overall_recommendation=OverallRecommendation.NO_GO,
+                confidence=ConfidenceLevel.HIGH,
+                biggest_disagreement="Split on wedge.",
+                confidence_dimensions=_confidence_dimensions()[:2],
+            )
 
 
 if __name__ == "__main__":

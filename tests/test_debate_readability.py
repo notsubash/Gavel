@@ -5,6 +5,33 @@ import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from evals.scorers.debate_readability import score_debate_readability
 
+_CONFIDENCE_DIMENSIONS = [
+    {
+        "dimension": "demand",
+        "value": 40,
+        "driver": "Buyer proof is still missing.",
+        "next_action": "Run five buyer interviews.",
+    },
+    {
+        "dimension": "pricing",
+        "value": 45,
+        "driver": "Willingness to pay is unclear.",
+        "next_action": "Test two price points.",
+    },
+    {
+        "dimension": "competition",
+        "value": 50,
+        "driver": "Incumbents can copy the workflow.",
+        "next_action": "Document a distribution wedge.",
+    },
+    {
+        "dimension": "moat",
+        "value": 35,
+        "driver": "No defensibility surfaced yet.",
+        "next_action": "Identify proprietary data or lock-in.",
+    },
+]
+
 
 class DebateReadabilityScorerTests(unittest.TestCase):
     def test_legacy_debate_skips_gate(self):
@@ -20,6 +47,7 @@ class DebateReadabilityScorerTests(unittest.TestCase):
                 "biggest_disagreement": "VC and PM disagree on wedge size.",
                 "highest_priority": "Validate buyer willingness to pay.",
                 "top_problems": ["No buyer proof."],
+                "confidence_dimensions": _CONFIDENCE_DIMENSIONS,
             },
             "initial_verdicts": [{"judge": "vc", "score": 3}],
             "revised_verdicts": [
@@ -54,6 +82,7 @@ class DebateReadabilityScorerTests(unittest.TestCase):
                 "confidence": "MEDIUM",
                 "biggest_disagreement": "VC and PM disagree on wedge size.",
                 "top_problems": ["Validate buyer willingness to pay."],
+                "confidence_dimensions": _CONFIDENCE_DIMENSIONS,
             },
             "initial_verdicts": [],
             "revised_verdicts": [],
@@ -68,6 +97,7 @@ class DebateReadabilityScorerTests(unittest.TestCase):
                 "confidence": "MEDIUM",
                 "biggest_disagreement": "Engineer vs Customer on urgency.",
                 "highest_priority": "Run five buyer interviews.",
+                "confidence_dimensions": _CONFIDENCE_DIMENSIONS,
             },
             "initial_verdicts": [{"judge": "vc", "score": 3}],
             "revised_verdicts": [{"judge": "vc", "score": 5}],

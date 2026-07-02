@@ -6,9 +6,14 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from judges.confidence import ConfidenceDimensionScore
+from judges.confidence import CONFIDENCE_DIMENSIONS, ConfidenceDimensionScore
 from judges.schemas import RoastPanel, Verdict
 from verification import is_degenerate_fixes
+from verification.invariants import normalize_sentence
+from verification.lens import sentence_similarity
+from verification.result import Check, VerificationResult
+
+TOP_PROBLEM_VERDICT_SIMILARITY = 0.85
 
 SYNTHESIS_ITEM_MAX_LENGTH = 300
 BIGGEST_DISAGREEMENT_MAX_LENGTH = 400
@@ -63,6 +68,19 @@ class RecommendedExperiment(BaseModel):
     questions: list[str] = Field(min_length=3, max_length=5)
     effort_minutes: int = Field(ge=15, le=2880)
 
+    @field_validator("title", "audience", "hypothesis", mode="before")
+    @classmethod
+    def coerce_text_length(cls, value, info):
+        limits = {
+            "title": EXPERIMENT_TITLE_MAX_LENGTH,
+            "audience": EXPERIMENT_AUDIENCE_MAX_LENGTH,
+            "hypothesis": EXPERIMENT_HYPOTHESIS_MAX_LENGTH,
+        }
+        limit = limits[info.field_name]
+        if isinstance(value, str) and len(value) > limit:
+            return value[: limit - 3].rstrip() + "..."
+        return value
+
     @field_validator("questions", mode="before")
     @classmethod
     def trim_questions(cls, value):
@@ -106,7 +124,7 @@ class Synthesis(BaseModel):
     )
     recommended_experiment: RecommendedExperiment | None = None
     confidence_dimensions: list[ConfidenceDimensionScore] = Field(
-        default_factory=list,
+        min_length=4,
         max_length=4,
         description="Per-dimension confidence gauges grounded in judge debate.",
     )
@@ -134,6 +152,72 @@ class Synthesis(BaseModel):
     @classmethod
     def reject_meta_problems(cls, items: list[str]) -> list[str]:
         return [item for item in items if not is_meta_summary_text(item)]
+
+    @field_validator("confidence_dimensions")
+    @classmethod
+    def must_include_all_confidence_dimensions(
+        cls, dimensions: list[ConfidenceDimensionScore]
+    ) -> list[ConfidenceDimensionScore]:
+        expected = set(CONFIDENCE_DIMENSIONS)
+        actual = {item.dimension.value for item in dimensions}
+        missing = expected - actual
+        extra = actual - expected
+        if missing or extra or len(dimensions) != len(expected):
+            raise ValueError(
+                "confidence_dimensions must include exactly one entry each for "
+                f"demand, pricing, competition, and moat "
+                f"(missing={missing}, extra={extra}, count={len(dimensions)})"
+            )
+        return dimensions
+
+
+class SynthesisGuardrailError(ValueError):
+    """Structured synthesis failed a content-quality check."""
+
+
+def _verdict_problem_phrases(verdicts: list[Verdict]) -> list[str]:
+    phrases: list[str] = []
+    for verdict in verdicts:
+        for field_name in ("key_concern", "recommended_fix"):
+            value = getattr(verdict, field_name, None)
+            if isinstance(value, str) and value.strip():
+                phrases.append(value.strip())
+    return phrases
+
+
+def verify_synthesis_invariants(
+    synthesis: Synthesis,
+    verdicts: list[Verdict],
+) -> VerificationResult:
+    """Reject synthesis that recycles judge verdict text as founder problems."""
+    checks: list[Check] = []
+    verdict_phrases = _verdict_problem_phrases(verdicts)
+    for index, problem in enumerate(synthesis.top_problems):
+        normalized_problem = normalize_sentence(problem)
+        for phrase in verdict_phrases:
+            if normalized_problem == normalize_sentence(phrase):
+                checks.append(
+                    Check(
+                        code="top_problem_recycles_verdict",
+                        message=(
+                            f"top_problems[{index}] must not repeat a judge key_concern "
+                            "or recommended_fix verbatim"
+                        ),
+                    )
+                )
+                break
+            if sentence_similarity(problem, phrase) >= TOP_PROBLEM_VERDICT_SIMILARITY:
+                checks.append(
+                    Check(
+                        code="top_problem_recycles_verdict",
+                        message=(
+                            f"top_problems[{index}] is too similar to a judge "
+                            "key_concern or recommended_fix"
+                        ),
+                    )
+                )
+                break
+    return VerificationResult(checks=checks)
 
 
 def parse_structured_synthesis(debate_result: dict[str, Any] | None) -> Synthesis | None:

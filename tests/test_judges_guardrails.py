@@ -125,6 +125,22 @@ class GuardrailsTest(unittest.TestCase):
         self.assertIsNone(legacy.evidence_to_change_verdict)
         validate_verdict_guardrails(legacy)
 
+    def test_recommended_fixed_alias_normalizes_to_recommended_fix(self):
+        verdict = Verdict.model_validate(
+            {
+                "judge": "engineer",
+                "verdict": "CONDITIONAL",
+                "roast": "The hardware stack is ambitious for a first release and needs a narrower wedge.",
+                "score": 5,
+                "key_concern": "Custom optics add cost before demand is proven.",
+                "recommended_fixed": "Ship a smartphone-based MVP before custom optical hardware.",
+            }
+        )
+        self.assertEqual(
+            verdict.recommended_fix,
+            "Ship a smartphone-based MVP before custom optical hardware.",
+        )
+
 
 class WrapUserIdeaTest(unittest.TestCase):
     def test_wrap_user_idea_escapes_interior_close_tag(self):
@@ -254,6 +270,25 @@ class InvokeJudgeGuardrailTest(unittest.TestCase):
         self.assertEqual(model.structured_model.calls, 2)
         self.assertEqual(len(model.structured_model.messages[1]), 3)
         self.assertIn("rejected", model.structured_model.messages[1][-1].content)
+
+    def test_invoke_judge_retries_generic_evidence(self):
+        model = FakeModel(
+            [
+                self._valid_verdict_dict(
+                    evidence_to_change_verdict="Do more research on the buyer.",
+                ),
+                self._valid_verdict_dict(),
+            ]
+        )
+
+        verdict = invoke_judge(
+            model=model,
+            judge="vc",
+            startup_idea="AI pothole detection",
+        )
+
+        self.assertEqual(verdict.verdict, VerdictLabel.FAIL)
+        self.assertEqual(model.structured_model.calls, 2)
 
 
 class PromptInjectionDefenseTest(unittest.TestCase):

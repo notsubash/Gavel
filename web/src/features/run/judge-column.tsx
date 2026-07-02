@@ -188,6 +188,13 @@ function CompactJudgeColumnBody({
         {verdict.key_concern}
       </p>
 
+      {verdict.recommended_fix && (
+        <p className="mt-2 font-sans text-sm text-ink-muted">
+          <span className="font-semibold text-ink">Recommended fix:</span>{" "}
+          {verdict.recommended_fix}
+        </p>
+      )}
+
       {showScoreChangeReason && (
         <p className="mt-2 font-sans text-sm text-ink-muted">
           <span className="font-semibold text-ink">Why it moved:</span> {scoreChangeReasonTrimmed}

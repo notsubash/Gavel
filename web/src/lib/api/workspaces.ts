@@ -9,16 +9,111 @@ export type WorkspaceLifecycle =
   | "judged"
   | "iterating";
 
+export type AssumptionStatus =
+  | "untested"
+  | "testing"
+  | "supported"
+  | "contradicted"
+  | "retired";
+
 export type Assumption = {
   id: string;
   workspace_id: string;
   statement: string;
   type: string;
-  status: string;
+  status: AssumptionStatus;
   confidence: number;
   disconfirming_criteria: string | null;
   worksheet_version_id: string | null;
   sort_order: number;
+};
+
+export type Experiment = {
+  id: string;
+  workspace_id: string;
+  title: string;
+  hypothesis: string;
+  assumption_id: string | null;
+  method: string | null;
+  target: string | null;
+  pass_fail_threshold: string | null;
+  start_date: string | null;
+  due_date: string | null;
+  result: string | null;
+  decision: string;
+  status: "planned" | "active" | "completed";
+};
+
+export type Evidence = {
+  id: string;
+  workspace_id: string;
+  type: string;
+  strength: "weak" | "moderate" | "strong";
+  source: string | null;
+  content: string;
+  occurred_at: string | null;
+  assumption_ids: string[];
+  experiment_id: string | null;
+  worksheet_version_id: string | null;
+};
+
+export type InterviewNote = {
+  id: string;
+  workspace_id: string;
+  person_label: string;
+  segment: string | null;
+  occurred_at: string | null;
+  context: string | null;
+  notes: string;
+  quotes: string[];
+  workaround: string | null;
+  pain_cost: string | null;
+  objections: string | null;
+  assumption_ids: string[];
+  ai_summary: string | null;
+};
+
+export type ValidationStage =
+  | "problem_clarity"
+  | "problem_evidence"
+  | "solution_evidence"
+  | "willingness_to_pay"
+  | "channel"
+  | "competition_moat";
+
+export type ChecklistItem = {
+  stage: ValidationStage;
+  label: string;
+  completed: boolean;
+  completed_at: string | null;
+  auto_completed: boolean;
+};
+
+export type ConfidenceChip = {
+  dimension: "demand" | "pricing" | "competition" | "moat";
+  label: string;
+  drivers: string[];
+};
+
+export type ValidationOverview = {
+  checklist: {
+    items: ChecklistItem[];
+    next_action: string;
+    next_stage: ValidationStage | null;
+  };
+  confidence: { chips: ConfidenceChip[] };
+  readiness: {
+    level: "too_vague" | "speculative" | "ready";
+    checks: { name: string; passed: boolean; detail: string | null }[];
+    can_run_judges: boolean;
+  };
+  active_experiment: Experiment | null;
+  top_assumptions: Assumption[];
+};
+
+export type InterviewQuestion = {
+  question: string;
+  rationale: string;
 };
 
 export type Workspace = {
@@ -80,6 +175,14 @@ export function workspaceQueryKey(workspaceId: string) {
   return ["workspace", workspaceId] as const;
 }
 
+export function validationOverviewQueryKey(workspaceId: string) {
+  return ["workspace-overview", workspaceId] as const;
+}
+
+export function validationDataQueryKey(workspaceId: string) {
+  return ["validation-data", workspaceId] as const;
+}
+
 export async function listWorkspaces(params?: {
   limit?: number;
   offset?: number;
@@ -95,12 +198,157 @@ export async function getWorkspace(workspaceId: string): Promise<WorkspaceDetail
   return apiClient<WorkspaceDetailResponse>(`/api/workspaces/${workspaceId}`);
 }
 
+export async function getValidationOverview(workspaceId: string): Promise<ValidationOverview> {
+  return apiClient<ValidationOverview>(`/api/workspaces/${workspaceId}/overview`);
+}
+
 export async function createWorkspace(body: {
   worksheet: WorksheetValues;
 }): Promise<WorkspaceDetailResponse> {
   return apiClient<WorkspaceDetailResponse>("/api/workspaces", {
     method: "POST",
     body: JSON.stringify(body),
+  });
+}
+
+export async function persistAssumptions(
+  workspaceId: string,
+  assumptions: Assumption[],
+): Promise<{ assumptions: Assumption[] }> {
+  return apiClient(`/api/workspaces/${workspaceId}/assumptions/bulk`, {
+    method: "POST",
+    body: JSON.stringify({ assumptions }),
+  });
+}
+
+export async function listAssumptions(workspaceId: string): Promise<Assumption[]> {
+  return apiClient<Assumption[]>(`/api/workspaces/${workspaceId}/assumptions`);
+}
+
+export async function createAssumption(
+  workspaceId: string,
+  body: { statement: string; type?: string; disconfirming_criteria?: string | null },
+): Promise<Assumption> {
+  return apiClient<Assumption>(`/api/workspaces/${workspaceId}/assumptions`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateAssumption(
+  workspaceId: string,
+  assumptionId: string,
+  body: Partial<Pick<Assumption, "statement" | "type" | "status" | "confidence">>,
+): Promise<Assumption> {
+  return apiClient<Assumption>(`/api/workspaces/${workspaceId}/assumptions/${assumptionId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function listExperiments(workspaceId: string): Promise<Experiment[]> {
+  return apiClient<Experiment[]>(`/api/workspaces/${workspaceId}/experiments`);
+}
+
+export async function createExperiment(
+  workspaceId: string,
+  body: Omit<Experiment, "id" | "workspace_id" | "result" | "decision">,
+): Promise<Experiment> {
+  return apiClient<Experiment>(`/api/workspaces/${workspaceId}/experiments`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateExperiment(
+  workspaceId: string,
+  experimentId: string,
+  body: Partial<Experiment>,
+): Promise<Experiment> {
+  return apiClient<Experiment>(`/api/workspaces/${workspaceId}/experiments/${experimentId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function listEvidence(workspaceId: string): Promise<Evidence[]> {
+  return apiClient<Evidence[]>(`/api/workspaces/${workspaceId}/evidence`);
+}
+
+export async function createEvidence(
+  workspaceId: string,
+  body: Omit<Evidence, "id" | "workspace_id" | "worksheet_version_id">,
+): Promise<Evidence> {
+  return apiClient<Evidence>(`/api/workspaces/${workspaceId}/evidence`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function listInterviews(workspaceId: string): Promise<InterviewNote[]> {
+  return apiClient<InterviewNote[]>(`/api/workspaces/${workspaceId}/interviews`);
+}
+
+export async function createInterview(
+  workspaceId: string,
+  body: Omit<InterviewNote, "id" | "workspace_id">,
+): Promise<InterviewNote> {
+  return apiClient<InterviewNote>(`/api/workspaces/${workspaceId}/interviews`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function suggestInterviewQuestions(
+  workspaceId: string,
+  assumptionId?: string,
+): Promise<{ questions: InterviewQuestion[] }> {
+  return apiClient(`/api/workspaces/${workspaceId}/assist/suggest-interview-questions`, {
+    method: "POST",
+    body: JSON.stringify({ assumption_id: assumptionId ?? null }),
+  });
+}
+
+export async function suggestExperiment(
+  workspaceId: string,
+  body?: { assumption_id?: string; checklist_stage?: ValidationStage },
+): Promise<{ experiment: Omit<Experiment, "id" | "workspace_id" | "result" | "decision"> }> {
+  return apiClient(`/api/workspaces/${workspaceId}/assist/suggest-experiment`, {
+    method: "POST",
+    body: JSON.stringify(body ?? {}),
+  });
+}
+
+export async function summarizeInterview(
+  workspaceId: string,
+  body: { notes: string; person_label?: string; segment?: string },
+): Promise<{
+  summary: string;
+  extracted_quotes: string[];
+  suggested_assumption_ids: string[];
+}> {
+  return apiClient(`/api/workspaces/${workspaceId}/assist/summarize-interview`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function mapEvidence(
+  workspaceId: string,
+  body: { content: string; type: string; assumption_ids?: string[] },
+): Promise<{ suggested_assumption_ids: string[]; rationale: string | null }> {
+  return apiClient(`/api/workspaces/${workspaceId}/assist/map-evidence`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function validationCoach(
+  workspaceId: string,
+): Promise<{ narrative: string; suggested_actions: string[]; focus_stage: ValidationStage | null }> {
+  return apiClient(`/api/workspaces/${workspaceId}/assist/validation-coach`, {
+    method: "POST",
+    body: JSON.stringify({}),
   });
 }
 
@@ -121,3 +369,24 @@ export async function clarifyField(body: {
     body: JSON.stringify(body),
   });
 }
+
+export const CONFIDENCE_DISPLAY: Record<string, string> = {
+  unknown: "Unknown",
+  weak: "Weak",
+  some_signal: "Some signal",
+  strong: "Strong",
+  interest: "Interest",
+  commitment: "Commitment",
+  mapped: "Mapped",
+  switching_clear: "Switching clear",
+  claimed: "Claimed",
+  evidence_backed: "Evidence-backed",
+};
+
+export const ASSUMPTION_COLUMNS: AssumptionStatus[] = [
+  "untested",
+  "testing",
+  "supported",
+  "contradicted",
+  "retired",
+];

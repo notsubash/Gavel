@@ -1,9 +1,23 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Loader2, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 
-import { getWorkspace, workspaceQueryKey } from "@/lib/api/workspaces";
+import {
+  CONFIDENCE_DISPLAY,
+  getValidationOverview,
+  getWorkspace,
+  suggestInterviewQuestions,
+  validationCoach,
+  validationOverviewQueryKey,
+  workspaceQueryKey,
+} from "@/lib/api/workspaces";
+import { ApiError } from "@/lib/api/client";
+import { parseApiDetail } from "@/lib/api/types-helpers";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Card } from "@/ui/card";
@@ -18,10 +32,57 @@ const LIFECYCLE_LABEL: Record<string, string> = {
   iterating: "Iterating",
 };
 
+const READINESS_LABEL: Record<string, string> = {
+  too_vague: "Too vague",
+  speculative: "Speculative",
+  ready: "Ready for judges",
+};
+
 export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+  const [planInterviewOpen, setPlanInterviewOpen] = useState(false);
+  const [interviewQuestions, setInterviewQuestions] = useState<
+    { question: string; rationale: string }[]
+  >([]);
+  const [coachNarrative, setCoachNarrative] = useState<string | null>(null);
+
   const { data, isLoading, isError } = useQuery({
     queryKey: workspaceQueryKey(workspaceId),
     queryFn: () => getWorkspace(workspaceId),
+  });
+
+  const overviewQuery = useQuery({
+    queryKey: validationOverviewQueryKey(workspaceId),
+    queryFn: () => getValidationOverview(workspaceId),
+  });
+
+  useEffect(() => {
+    if (searchParams.get("plan_interview") === "1") {
+      setPlanInterviewOpen(true);
+    }
+  }, [searchParams]);
+
+  const questionsMutation = useMutation({
+    mutationFn: () => suggestInterviewQuestions(workspaceId),
+    onSuccess: (res) => {
+      setInterviewQuestions(res.questions);
+      toast.success("Interview questions ready");
+    },
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? parseApiDetail(err.body) : "Could not load questions");
+    },
+  });
+
+  const coachMutation = useMutation({
+    mutationFn: () => validationCoach(workspaceId),
+    onSuccess: (res) => {
+      setCoachNarrative(res.narrative);
+      void queryClient.invalidateQueries({ queryKey: validationOverviewQueryKey(workspaceId) });
+    },
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? parseApiDetail(err.body) : "Coach unavailable");
+    },
   });
 
   if (isLoading) {
@@ -43,6 +104,7 @@ export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
 
   const { workspace, current_version, assumptions } = data;
   const ws = current_version.worksheet;
+  const overview = overviewQuery.data;
 
   return (
     <div className="space-y-8">
@@ -54,20 +116,181 @@ export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
           <span className="font-sans text-meta text-ink-muted">
             Version {current_version.version}
           </span>
+          {overview && (
+            <Badge
+              variant={
+                overview.readiness.level === "ready"
+                  ? "pass"
+                  : overview.readiness.level === "speculative"
+                    ? "conditional"
+                    : "fail"
+              }
+            >
+              {READINESS_LABEL[overview.readiness.level] ?? overview.readiness.level}
+            </Badge>
+          )}
         </div>
+
+        {overviewQuery.isLoading && (
+          <div className="flex flex-wrap gap-2">
+            <Skeleton className="h-6 w-24" />
+            <Skeleton className="h-6 w-24" />
+          </div>
+        )}
+        {overviewQuery.isError && (
+          <p className="font-sans text-sm text-ink-muted" role="status">
+            Validation status unavailable.
+          </p>
+        )}
+        {overview && (
+          <div className="flex flex-wrap gap-2">
+            {overview.confidence.chips.map((chip) => (
+              <Badge key={chip.dimension} variant="default" title={chip.drivers.join("; ")}>
+                {chip.dimension}: {CONFIDENCE_DISPLAY[chip.label] ?? chip.label}
+              </Badge>
+            ))}
+          </div>
+        )}
+
         <h1 className="font-sans text-display-home font-semibold tracking-tight text-ink md:text-display-md">
           {ws.working_name}
         </h1>
         <p className="max-w-prose font-sans text-body text-ink-muted">{ws.audience}</p>
         <div className="flex flex-wrap gap-3">
+          <Button asChild>
+            <Link href={`/workspaces/${workspaceId}/validation`}>Validation</Link>
+          </Button>
           <Button asChild variant="outline">
             <Link href={`/workspaces/${workspaceId}/worksheet`}>Edit worksheet</Link>
           </Button>
-          <Button asChild variant="outline">
-            <Link href={`/workspaces/${workspaceId}/validation`}>Validation</Link>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => coachMutation.mutate()}
+            disabled={coachMutation.isPending}
+          >
+            {coachMutation.isPending ? (
+              <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+            ) : (
+              <Sparkles className="mr-2 size-4" aria-hidden />
+            )}
+            Coach
           </Button>
         </div>
       </header>
+
+      {overview && (
+        <section aria-labelledby="next-step-heading">
+          <h2 id="next-step-heading" className="font-sans text-section font-semibold text-ink">
+            Next validation step
+          </h2>
+          <Card className="mt-3 p-5">
+            <p className="font-sans text-body text-ink">{overview.checklist.next_action}</p>
+            {coachNarrative && (
+              <p className="mt-3 border-t border-rule-soft pt-3 font-sans text-sm text-ink-muted">
+                <Badge variant="heat" className="mb-2">
+                  AI coach
+                </Badge>
+                <span className="block">{coachNarrative}</span>
+              </p>
+            )}
+            <div className="mt-4 flex flex-wrap gap-2">
+              {overview.checklist.items.map((item) => (
+                <Badge
+                  key={item.stage}
+                  variant={item.completed ? "pass" : "default"}
+                  title={item.label}
+                >
+                  {item.completed ? "✓" : "○"} {item.stage.replace(/_/g, " ")}
+                </Badge>
+              ))}
+            </div>
+          </Card>
+        </section>
+      )}
+
+      {overview?.active_experiment && (
+        <section aria-labelledby="active-experiment-heading">
+          <h2
+            id="active-experiment-heading"
+            className="font-sans text-section font-semibold text-ink"
+          >
+            Active experiment
+          </h2>
+          <Card className="mt-3 p-5">
+            <p className="font-sans text-body font-medium text-ink">
+              {overview.active_experiment.title}
+            </p>
+            <p className="mt-1 font-sans text-sm text-ink-muted">
+              {overview.active_experiment.hypothesis}
+            </p>
+          </Card>
+        </section>
+      )}
+
+      {(overview?.top_assumptions.length ?? assumptions.length) > 0 && (
+        <section aria-labelledby="top-assumptions-heading">
+          <h2
+            id="top-assumptions-heading"
+            className="font-sans text-section font-semibold text-ink"
+          >
+            Top risky assumptions
+          </h2>
+          <ul className="mt-3 space-y-2">
+            {(overview?.top_assumptions ?? assumptions.slice(0, 3)).map((a) => (
+              <li key={a.id}>
+                <Card className="p-4">
+                  <p className="font-sans text-body text-ink">{a.statement}</p>
+                  <p className="mt-1 font-sans text-meta text-ink-muted">
+                    {a.type} · {a.status}
+                  </p>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {planInterviewOpen && (
+        <Card className="space-y-4 border-cta/30 p-5">
+          <h2 className="font-sans text-section font-semibold text-ink">Plan first interview</h2>
+          <p className="font-sans text-body text-ink-muted">
+            Customer discovery starts here. Use Mom Test questions about past behavior, not
+            hypotheticals.
+          </p>
+          {interviewQuestions.length === 0 ? (
+            <Button
+              type="button"
+              onClick={() => questionsMutation.mutate()}
+              disabled={questionsMutation.isPending}
+            >
+              {questionsMutation.isPending ? (
+                <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+              ) : (
+                <Sparkles className="mr-2 size-4" aria-hidden />
+              )}
+              Suggest interview questions
+            </Button>
+          ) : (
+            <ul className="space-y-2 font-sans text-sm text-ink">
+              {interviewQuestions.map((q) => (
+                <li key={q.question} className="rounded-ui border border-rule-soft p-3">
+                  <span className="font-medium">{q.question}</span>
+                  <span className="mt-1 block text-ink-muted">{q.rationale}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="flex flex-wrap gap-3">
+            <Button asChild>
+              <Link href={`/workspaces/${workspaceId}/validation`}>Go to validation</Link>
+            </Button>
+            <Button type="button" variant="ghost" onClick={() => setPlanInterviewOpen(false)}>
+              Dismiss
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <section aria-labelledby="worksheet-summary-heading">
         <h2
@@ -90,43 +313,8 @@ export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
               </dt>
               <dd className="mt-1 text-ink">{ws.solution_statement}</dd>
             </div>
-            <div>
-              <dt className="text-meta font-semibold uppercase tracking-wide text-ink-subtle">
-                Top risky assumption
-              </dt>
-              <dd className="mt-1 text-ink">{ws.top_risky_assumption}</dd>
-            </div>
           </dl>
         </Card>
-      </section>
-
-      {assumptions.length > 0 && (
-        <section aria-labelledby="assumptions-heading">
-          <h2 id="assumptions-heading" className="font-sans text-section font-semibold text-ink">
-            Assumptions
-          </h2>
-          <ul className="mt-3 space-y-2">
-            {assumptions.map((a) => (
-              <li key={a.id}>
-                <Card className="p-4">
-                  <p className="font-sans text-body text-ink">{a.statement}</p>
-                  <p className="mt-1 font-sans text-meta text-ink-muted">
-                    {a.type} · {a.status}
-                  </p>
-                </Card>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <section aria-labelledby="preview-heading">
-        <h2 id="preview-heading" className="font-sans text-section font-semibold text-ink">
-          Generated document
-        </h2>
-        <pre className="mt-3 whitespace-pre-wrap rounded-ui border border-rule-soft bg-paper-2 p-4 font-mono text-sm leading-relaxed text-ink">
-          {current_version.generated_document}
-        </pre>
       </section>
     </div>
   );

@@ -134,6 +134,82 @@ class WorkspaceApiTest(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 422)
 
+    def test_validation_crud_and_checklist(self):
+        create = self.client.post("/api/workspaces", json={"worksheet": SAMPLE.model_dump()})
+        self.assertEqual(create.status_code, 201)
+        ws_id = create.json()["workspace"]["id"]
+
+        checklist = self.client.get(f"/api/workspaces/{ws_id}/checklist")
+        self.assertEqual(checklist.status_code, 200)
+        items = checklist.json()["items"]
+        self.assertEqual(len(items), 6)
+        self.assertTrue(items[0]["completed"])
+
+        interview = self.client.post(
+            f"/api/workspaces/{ws_id}/interviews",
+            json={
+                "person_label": "Sam",
+                "notes": "Long interview about validation pain and current workarounds used daily.",
+            },
+        )
+        self.assertEqual(interview.status_code, 201)
+
+        checklist2 = self.client.get(f"/api/workspaces/{ws_id}/checklist")
+        problem_ev = next(i for i in checklist2.json()["items"] if i["stage"] == "problem_evidence")
+        self.assertTrue(problem_ev["completed"])
+
+        readiness = self.client.get(f"/api/workspaces/{ws_id}/readiness")
+        self.assertEqual(readiness.status_code, 200)
+        self.assertIn(readiness.json()["level"], ("speculative", "ready"))
+
+        overview = self.client.get(f"/api/workspaces/{ws_id}/overview")
+        self.assertEqual(overview.status_code, 200)
+        self.assertIn("next_action", overview.json()["checklist"])
+
+    def test_bulk_assumptions_and_delete(self):
+        create = self.client.post("/api/workspaces", json={"worksheet": SAMPLE.model_dump()})
+        ws_id = create.json()["workspace"]["id"]
+        bulk = self.client.post(
+            f"/api/workspaces/{ws_id}/assumptions/bulk",
+            json={
+                "assumptions": [
+                    {
+                        "id": "",
+                        "workspace_id": ws_id,
+                        "statement": "Founders will pay for validation tooling monthly.",
+                        "type": "pricing",
+                        "status": "untested",
+                        "confidence": 0,
+                        "disconfirming_criteria": None,
+                        "worksheet_version_id": None,
+                        "sort_order": 0,
+                    }
+                ]
+            },
+        )
+        self.assertEqual(bulk.status_code, 200)
+        self.assertEqual(len(bulk.json()["assumptions"]), 1)
+        assumption_id = bulk.json()["assumptions"][0]["id"]
+
+        deleted = self.client.delete(f"/api/workspaces/{ws_id}/assumptions/{assumption_id}")
+        self.assertEqual(deleted.status_code, 204)
+
+        missing = self.client.delete(f"/api/workspaces/{ws_id}/assumptions/{assumption_id}")
+        self.assertEqual(missing.status_code, 404)
+
+    def test_invalid_assumption_reference_returns_422(self):
+        create = self.client.post("/api/workspaces", json={"worksheet": SAMPLE.model_dump()})
+        ws_id = create.json()["workspace"]["id"]
+        resp = self.client.post(
+            f"/api/workspaces/{ws_id}/evidence",
+            json={
+                "type": "founder_note",
+                "content": "A note about customer pain.",
+                "assumption_ids": ["does-not-exist"],
+            },
+        )
+        self.assertEqual(resp.status_code, 422)
+
 
 class ValidationPromptsTest(unittest.TestCase):
     def test_prompt_templates_render(self):

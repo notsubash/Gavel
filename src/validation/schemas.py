@@ -189,6 +189,7 @@ class Experiment(BaseModel):
     result: str | None = Field(default=None, max_length=4000)
     decision: ExperimentDecision = "pending"
     status: ExperimentStatus = "planned"
+    worksheet_version_id: str | None = None
 
 
 class Evidence(BaseModel):
@@ -428,3 +429,63 @@ class ValidationCoachResponse(BaseModel):
     narrative: str
     suggested_actions: list[str] = Field(default_factory=list)
     focus_stage: ValidationStage | None = None
+
+
+PatchableFieldName = Literal[
+    "audience",
+    "problem_statement",
+    "current_workaround",
+    "solution_statement",
+    "secret_sauce",
+    "pricing_hypothesis",
+    "existing_evidence",
+    "top_risky_assumption",
+    "disconfirming_evidence",
+]
+
+
+class WorksheetFieldChange(BaseModel):
+    field: str
+    label: str
+    before: str
+    after: str
+    is_core: bool = False
+
+
+class WorksheetVersionDiffResponse(BaseModel):
+    from_version_id: str
+    to_version_id: str
+    changes: list[WorksheetFieldChange]
+    change_summary: str | None = None
+
+
+class CreateWorksheetVersionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    worksheet: IdeaWorksheet
+    minor_edit: bool = False
+    change_summary: str | None = Field(default=None, max_length=500)
+    base_version_id: str | None = None
+
+
+class CreateWorksheetVersionResponse(BaseModel):
+    version: WorksheetVersion
+    created: bool
+    diff: list[WorksheetFieldChange] = Field(default_factory=list)
+
+
+class WorksheetFieldPatch(BaseModel):
+    field_name: PatchableFieldName
+    suggested_value: str = Field(min_length=1, max_length=4000)
+    rationale: str = Field(min_length=10, max_length=1000)
+
+
+class ReviseFromEvidenceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    experiment_id: str | None = None
+
+
+class ReviseFromEvidenceResponse(BaseModel):
+    patches: list[WorksheetFieldPatch] = Field(default_factory=list)
+    summary: str

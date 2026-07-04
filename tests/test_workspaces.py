@@ -210,6 +210,65 @@ class WorkspaceApiTest(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 422)
 
+    def test_worksheet_version_api(self):
+        create = self.client.post("/api/workspaces", json={"worksheet": SAMPLE.model_dump()})
+        ws_id = create.json()["workspace"]["id"]
+        v1_id = create.json()["current_version"]["id"]
+
+        updated = SAMPLE.model_copy(
+            update={"problem_statement": "struggle to connect experiments to worksheet revisions."}
+        )
+        save = self.client.post(
+            f"/api/workspaces/{ws_id}/versions",
+            json={"worksheet": updated.model_dump(), "minor_edit": False},
+        )
+        self.assertEqual(save.status_code, 200)
+        body = save.json()
+        self.assertTrue(body["created"])
+        self.assertEqual(body["version"]["version"], 2)
+        self.assertEqual(body["version"]["parent_version_id"], v1_id)
+
+        listed = self.client.get(f"/api/workspaces/{ws_id}/versions")
+        self.assertEqual(len(listed.json()), 2)
+
+        diff = self.client.get(f"/api/workspaces/{ws_id}/versions/{body['version']['id']}/diff")
+        self.assertEqual(diff.status_code, 200)
+        self.assertEqual(len(diff.json()["changes"]), 1)
+
+    def test_version_conflict_returns_409(self):
+        create = self.client.post("/api/workspaces", json={"worksheet": SAMPLE.model_dump()})
+        ws_id = create.json()["workspace"]["id"]
+        stale_id = create.json()["current_version"]["id"]
+
+        updated = SAMPLE.model_copy(
+            update={"problem_statement": "struggle to name the problem clearly enough."}
+        )
+        self.client.post(
+            f"/api/workspaces/{ws_id}/versions",
+            json={"worksheet": updated.model_dump()},
+        )
+
+        conflict = self.client.post(
+            f"/api/workspaces/{ws_id}/versions",
+            json={
+                "worksheet": SAMPLE.model_dump(),
+                "base_version_id": stale_id,
+            },
+        )
+        self.assertEqual(conflict.status_code, 409)
+
+    def test_minor_edit_rejected_for_large_core_change(self):
+        create = self.client.post("/api/workspaces", json={"worksheet": SAMPLE.model_dump()})
+        ws_id = create.json()["workspace"]["id"]
+        rewritten = SAMPLE.model_copy(
+            update={"problem_statement": "An entirely different problem statement here."}
+        )
+        resp = self.client.post(
+            f"/api/workspaces/{ws_id}/versions",
+            json={"worksheet": rewritten.model_dump(), "minor_edit": True},
+        )
+        self.assertEqual(resp.status_code, 422)
+
 
 class ValidationPromptsTest(unittest.TestCase):
     def test_prompt_templates_render(self):

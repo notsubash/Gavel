@@ -89,6 +89,7 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
   const [completingExperimentId, setCompletingExperimentId] = useState<string | null>(null);
   const [experimentResult, setExperimentResult] = useState("");
   const [experimentDecision, setExperimentDecision] = useState("continue");
+  const [revisePromptExperimentId, setRevisePromptExperimentId] = useState<string | null>(null);
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: validationDataQueryKey(workspaceId) });
@@ -253,10 +254,13 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
       result?: string;
       decision?: string;
     }) => updateExperiment(workspaceId, id, { status, result, decision }),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       setCompletingExperimentId(null);
       setExperimentResult("");
       setExperimentDecision("continue");
+      if (variables.decision === "revise" || variables.decision === "pivot") {
+        setRevisePromptExperimentId(variables.id);
+      }
       invalidate();
     },
   });
@@ -616,6 +620,31 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
         <h2 id="experiments-heading" className="font-sans text-section font-semibold text-ink">
           Experiments
         </h2>
+        {revisePromptExperimentId && (
+          <Card className="mb-4 border-cta/30 p-4">
+            <p className="font-sans text-body text-ink">
+              This experiment suggests revising your worksheet. Apply evidence-backed field updates
+              before your next roast.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button asChild size="sm">
+                <Link
+                  href={`/workspaces/${workspaceId}/worksheet?revise=1&revise_experiment=${revisePromptExperimentId}`}
+                >
+                  Revise from evidence
+                </Link>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setRevisePromptExperimentId(null)}
+              >
+                Dismiss
+              </Button>
+            </div>
+          </Card>
+        )}
         <ul className="mt-3 space-y-3">
           {experiments.map((ex) => (
             <li key={ex.id}>

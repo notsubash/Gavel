@@ -42,6 +42,7 @@ export type Experiment = {
   result: string | null;
   decision: string;
   status: "planned" | "active" | "completed";
+  worksheet_version_id: string | null;
 };
 
 export type Evidence = {
@@ -55,6 +56,33 @@ export type Evidence = {
   assumption_ids: string[];
   experiment_id: string | null;
   worksheet_version_id: string | null;
+};
+
+export type WorksheetFieldChange = {
+  field: string;
+  label: string;
+  before: string;
+  after: string;
+  is_core: boolean;
+};
+
+export type WorksheetFieldPatch = {
+  field_name: string;
+  suggested_value: string;
+  rationale: string;
+};
+
+export type CreateWorksheetVersionResponse = {
+  version: WorksheetVersion;
+  created: boolean;
+  diff: WorksheetFieldChange[];
+};
+
+export type WorksheetVersionDiffResponse = {
+  from_version_id: string;
+  to_version_id: string;
+  changes: WorksheetFieldChange[];
+  change_summary: string | null;
 };
 
 export type InterviewNote = {
@@ -175,6 +203,10 @@ export function workspaceQueryKey(workspaceId: string) {
   return ["workspace", workspaceId] as const;
 }
 
+export function worksheetVersionsQueryKey(workspaceId: string) {
+  return ["worksheet-versions", workspaceId] as const;
+}
+
 export function validationOverviewQueryKey(workspaceId: string) {
   return ["workspace-overview", workspaceId] as const;
 }
@@ -252,7 +284,7 @@ export async function listExperiments(workspaceId: string): Promise<Experiment[]
 
 export async function createExperiment(
   workspaceId: string,
-  body: Omit<Experiment, "id" | "workspace_id" | "result" | "decision">,
+  body: Omit<Experiment, "id" | "workspace_id" | "result" | "decision" | "worksheet_version_id">,
 ): Promise<Experiment> {
   return apiClient<Experiment>(`/api/workspaces/${workspaceId}/experiments`, {
     method: "POST",
@@ -312,7 +344,7 @@ export async function suggestInterviewQuestions(
 export async function suggestExperiment(
   workspaceId: string,
   body?: { assumption_id?: string; checklist_stage?: ValidationStage },
-): Promise<{ experiment: Omit<Experiment, "id" | "workspace_id" | "result" | "decision"> }> {
+): Promise<{ experiment: Omit<Experiment, "id" | "workspace_id" | "result" | "decision" | "worksheet_version_id"> }> {
   return apiClient(`/api/workspaces/${workspaceId}/assist/suggest-experiment`, {
     method: "POST",
     body: JSON.stringify(body ?? {}),
@@ -349,6 +381,53 @@ export async function validationCoach(
   return apiClient(`/api/workspaces/${workspaceId}/assist/validation-coach`, {
     method: "POST",
     body: JSON.stringify({}),
+  });
+}
+
+export async function listWorksheetVersions(workspaceId: string): Promise<WorksheetVersion[]> {
+  return apiClient<WorksheetVersion[]>(`/api/workspaces/${workspaceId}/versions`);
+}
+
+export async function getWorksheetVersion(
+  workspaceId: string,
+  versionId: string,
+): Promise<WorksheetVersion> {
+  return apiClient<WorksheetVersion>(`/api/workspaces/${workspaceId}/versions/${versionId}`);
+}
+
+export async function getWorksheetVersionDiff(
+  workspaceId: string,
+  versionId: string,
+  compareTo?: string,
+): Promise<WorksheetVersionDiffResponse> {
+  const qs = compareTo ? `?compare_to=${encodeURIComponent(compareTo)}` : "";
+  return apiClient<WorksheetVersionDiffResponse>(
+    `/api/workspaces/${workspaceId}/versions/${versionId}/diff${qs}`,
+  );
+}
+
+export async function saveWorksheetVersion(
+  workspaceId: string,
+  body: {
+    worksheet: WorksheetValues;
+    minor_edit?: boolean;
+    change_summary?: string | null;
+    base_version_id?: string | null;
+  },
+): Promise<CreateWorksheetVersionResponse> {
+  return apiClient<CreateWorksheetVersionResponse>(`/api/workspaces/${workspaceId}/versions`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function reviseFromEvidence(
+  workspaceId: string,
+  experimentId?: string,
+): Promise<{ patches: WorksheetFieldPatch[]; summary: string }> {
+  return apiClient(`/api/workspaces/${workspaceId}/assist/revise-from-evidence`, {
+    method: "POST",
+    body: JSON.stringify({ experiment_id: experimentId ?? null }),
   });
 }
 

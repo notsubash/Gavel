@@ -18,6 +18,7 @@ from validation.llm.draft import draft_from_notes
 from validation.llm.evidence_map import map_evidence_to_assumptions
 from validation.llm.experiments import suggest_experiment
 from validation.llm.interviews import suggest_interview_questions
+from validation.llm.revise import revise_from_evidence
 from validation.llm.summarize import summarize_interview
 from validation.readiness import evaluate_readiness
 from validation.schemas import (
@@ -30,6 +31,8 @@ from validation.schemas import (
     CreateEvidenceRequest,
     CreateExperimentRequest,
     CreateInterviewRequest,
+    CreateWorksheetVersionRequest,
+    CreateWorksheetVersionResponse,
     CreateWorkspaceRequest,
     DraftFromNotesRequest,
     DraftFromNotesResponse,
@@ -41,6 +44,8 @@ from validation.schemas import (
     MapEvidenceResponse,
     PersistAssumptionsRequest,
     ReadinessResponse,
+    ReviseFromEvidenceRequest,
+    ReviseFromEvidenceResponse,
     SuggestExperimentRequest,
     SuggestExperimentResponse,
     SuggestInterviewQuestionsRequest,
@@ -54,7 +59,9 @@ from validation.schemas import (
     UpdateWorkspaceRequest,
     ValidationCoachResponse,
     ValidationOverviewResponse,
+    WorksheetFieldChange,
     WorksheetVersion,
+    WorksheetVersionDiffResponse,
     WorkspaceDetailResponse,
     WorkspaceListResponse,
 )
@@ -170,10 +177,85 @@ def list_versions(
     workspace_id: str,
     store: Annotated[WorkspaceStore, Depends(get_workspace_store)],
 ) -> list[WorksheetVersion]:
-    """Phase 1 stub: returns current version only. Full history ships in Phase 3."""
     _require_workspace(store, workspace_id)
-    version = store.get_current_version(workspace_id)
-    return [version] if version else []
+    return store.list_versions(workspace_id)
+
+
+@router.get("/{workspace_id}/versions/{version_id}", response_model=WorksheetVersion)
+def get_version(
+    workspace_id: str,
+    version_id: str,
+    store: Annotated[WorkspaceStore, Depends(get_workspace_store)],
+) -> WorksheetVersion:
+    _require_workspace(store, workspace_id)
+    version = store.get_version(version_id)
+    if version is None or version.workspace_id != workspace_id:
+        raise HTTPException(status_code=404, detail="worksheet version not found")
+    return version
+
+
+@router.get(
+    "/{workspace_id}/versions/{version_id}/diff",
+    response_model=WorksheetVersionDiffResponse,
+)
+def get_version_diff(
+    workspace_id: str,
+    version_id: str,
+    store: Annotated[WorkspaceStore, Depends(get_workspace_store)],
+    compare_to: str | None = None,
+) -> WorksheetVersionDiffResponse:
+    _require_workspace(store, workspace_id)
+    to_version = store.get_version(version_id)
+    if to_version is None or to_version.workspace_id != workspace_id:
+        raise HTTPException(status_code=404, detail="worksheet version not found")
+
+    from_id = compare_to or to_version.parent_version_id
+    if from_id is None:
+        return WorksheetVersionDiffResponse(
+            from_version_id=version_id,
+            to_version_id=version_id,
+            changes=[],
+            change_summary=to_version.change_summary,
+        )
+
+    from_version = store.get_version(from_id)
+    if from_version is None or from_version.workspace_id != workspace_id:
+        raise HTTPException(status_code=404, detail="compare version not found")
+
+    raw_diff = store.version_diff(workspace_id, from_id, version_id) or []
+    changes = [WorksheetFieldChange.model_validate(item) for item in raw_diff]
+    return WorksheetVersionDiffResponse(
+        from_version_id=from_id,
+        to_version_id=version_id,
+        changes=changes,
+        change_summary=to_version.change_summary,
+    )
+
+
+@router.post(
+    "/{workspace_id}/versions",
+    response_model=CreateWorksheetVersionResponse,
+)
+def create_worksheet_version(
+    workspace_id: str,
+    body: CreateWorksheetVersionRequest,
+    store: Annotated[WorkspaceStore, Depends(get_workspace_store)],
+) -> CreateWorksheetVersionResponse:
+    _require_workspace(store, workspace_id)
+    try:
+        version, created, diff = store.save_worksheet(
+            workspace_id,
+            body.worksheet,
+            minor_edit=body.minor_edit,
+            change_summary=body.change_summary,
+            base_version_id=body.base_version_id,
+        )
+    except WorkspaceStore.VersionConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    changes = [WorksheetFieldChange.model_validate(item) for item in diff]
+    return CreateWorksheetVersionResponse(version=version, created=created, diff=changes)
 
 
 @router.get("/{workspace_id}/checklist", response_model=ChecklistResponse)
@@ -637,3 +719,35 @@ def assist_validation_coach(
     except Exception as exc:
         logger.exception("validation-coach failed")
         raise HTTPException(status_code=503, detail="AI coach unavailable") from exc
+
+
+@router.post(
+    "/{workspace_id}/assist/revise-from-evidence",
+    response_model=ReviseFromEvidenceResponse,
+)
+def assist_revise_from_evidence(
+    workspace_id: str,
+    body: ReviseFromEvidenceRequest,
+    store: Annotated[WorkspaceStore, Depends(get_workspace_store)],
+) -> ReviseFromEvidenceResponse:
+    version, _, evidence, experiments, _ = _validation_state(store, workspace_id)
+    focus = None
+    if body.experiment_id:
+        focus = store.get_experiment(workspace_id, body.experiment_id)
+        if focus is None:
+            raise HTTPException(status_code=404, detail="experiment not found")
+        if focus.status != "completed":
+            raise HTTPException(
+                status_code=422,
+                detail="focus experiment must be completed before revising worksheet",
+            )
+    try:
+        return revise_from_evidence(
+            version.worksheet,
+            experiments,
+            evidence,
+            focus_experiment=focus,
+        )
+    except Exception as exc:
+        logger.exception("revise-from-evidence failed")
+        raise HTTPException(status_code=503, detail="AI revise unavailable") from exc

@@ -31,6 +31,12 @@ from validation.schemas import (
     WorkspaceLifecycle,
     WorkspaceListItem,
 )
+from validation.versioning import (
+    build_change_summary,
+    compute_worksheet_diff,
+    should_create_version,
+    validate_minor_edit,
+)
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS workspaces (
@@ -91,7 +97,8 @@ CREATE TABLE IF NOT EXISTS experiments (
     due_date TEXT,
     result TEXT,
     decision TEXT NOT NULL DEFAULT 'pending',
-    status TEXT NOT NULL DEFAULT 'planned'
+    status TEXT NOT NULL DEFAULT 'planned',
+    worksheet_version_id TEXT
 );
 
 CREATE TABLE IF NOT EXISTS evidence (
@@ -133,6 +140,11 @@ CREATE INDEX IF NOT EXISTS idx_interview_notes_workspace
 
 
 class WorkspaceStore:
+    class VersionConflictError(ValueError):
+        """Raised when base_version_id does not match current worksheet version."""
+
+        pass
+
     def __init__(self, db_path=None) -> None:
         self.db_path = db_path or PROJECT_ROOT / "data" / "workspaces.db"
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -140,7 +152,14 @@ class WorkspaceStore:
         self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(_SCHEMA)
+        self._migrate_experiments_version_column()
         self._conn.commit()
+
+    def _migrate_experiments_version_column(self) -> None:
+        try:
+            self._conn.execute("ALTER TABLE experiments ADD COLUMN worksheet_version_id TEXT")
+        except sqlite3.OperationalError:
+            pass
 
     def create_workspace(
         self, worksheet: IdeaWorksheet
@@ -292,6 +311,159 @@ class WorkspaceStore:
         if workspace is None or workspace.current_version_id is None:
             return None
         return self.get_version(workspace.current_version_id)
+
+    def list_versions(self, workspace_id: str) -> list[WorksheetVersion]:
+        with self._lock:
+            rows = self._conn.execute(
+                """
+                SELECT id, workspace_id, version, worksheet_json, generated_document,
+                       change_summary, parent_version_id, created_at
+                FROM worksheet_versions
+                WHERE workspace_id = ?
+                ORDER BY version DESC
+                """,
+                (workspace_id,),
+            ).fetchall()
+        return [self._row_to_version(row) for row in rows]
+
+    def save_worksheet(
+        self,
+        workspace_id: str,
+        worksheet: IdeaWorksheet,
+        *,
+        minor_edit: bool = False,
+        change_summary: str | None = None,
+        base_version_id: str | None = None,
+    ) -> tuple[WorksheetVersion, bool, list[dict]]:
+        with self._lock:
+            ws_row = self._conn.execute(
+                "SELECT id FROM workspaces WHERE id = ?", (workspace_id,)
+            ).fetchone()
+            if ws_row is None:
+                raise ValueError("workspace not found")
+
+            current = self._get_current_version_locked(workspace_id)
+            if current is None:
+                raise ValueError("workspace not found")
+
+            if base_version_id is not None and current.id != base_version_id:
+                raise self.VersionConflictError(
+                    "worksheet was updated elsewhere; refresh and retry"
+                )
+
+            diff = compute_worksheet_diff(current.worksheet, worksheet)
+            if not diff:
+                return current, False, []
+
+            if minor_edit:
+                validate_minor_edit(diff)
+
+            create_new = should_create_version(diff, minor_edit=minor_edit)
+            summary = change_summary or build_change_summary(diff)
+            generated = compose_generated_document(worksheet)
+            now = datetime.now(UTC)
+
+            if create_new:
+                new_version_id = str(uuid4())
+                next_num = current.version + 1
+                try:
+                    self._conn.execute(
+                        """
+                        INSERT INTO worksheet_versions
+                            (id, workspace_id, version, parent_version_id, worksheet_json,
+                             generated_document, change_summary, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            new_version_id,
+                            workspace_id,
+                            next_num,
+                            current.id,
+                            worksheet.model_dump_json(),
+                            generated,
+                            summary,
+                            now.isoformat(),
+                        ),
+                    )
+                    self._conn.execute(
+                        """
+                        UPDATE workspaces
+                        SET current_version_id = ?, updated_at = ?
+                        WHERE id = ?
+                        """,
+                        (new_version_id, now.isoformat(), workspace_id),
+                    )
+                    self._conn.commit()
+                except sqlite3.IntegrityError as exc:
+                    self._conn.rollback()
+                    raise self.VersionConflictError("version conflict; refresh and retry") from exc
+                version = WorksheetVersion(
+                    id=new_version_id,
+                    workspace_id=workspace_id,
+                    version=next_num,
+                    worksheet=worksheet,
+                    generated_document=generated,
+                    change_summary=summary,
+                    parent_version_id=current.id,
+                    created_at=now,
+                )
+            else:
+                self._conn.execute(
+                    """
+                    UPDATE worksheet_versions
+                    SET worksheet_json = ?, generated_document = ?
+                    WHERE id = ?
+                    """,
+                    (worksheet.model_dump_json(), generated, current.id),
+                )
+                self._conn.execute(
+                    "UPDATE workspaces SET updated_at = ? WHERE id = ?",
+                    (now.isoformat(), workspace_id),
+                )
+                self._conn.commit()
+                version = WorksheetVersion(
+                    id=current.id,
+                    workspace_id=workspace_id,
+                    version=current.version,
+                    worksheet=worksheet,
+                    generated_document=generated,
+                    change_summary=current.change_summary,
+                    parent_version_id=current.parent_version_id,
+                    created_at=current.created_at,
+                )
+
+        self.sync_lifecycle(workspace_id)
+        return version, create_new, diff
+
+    def _get_current_version_locked(self, workspace_id: str) -> WorksheetVersion | None:
+        row = self._conn.execute(
+            "SELECT current_version_id FROM workspaces WHERE id = ?", (workspace_id,)
+        ).fetchone()
+        if row is None or row[0] is None:
+            return None
+        vrow = self._conn.execute(
+            """
+            SELECT id, workspace_id, version, worksheet_json, generated_document,
+                   change_summary, parent_version_id, created_at
+            FROM worksheet_versions WHERE id = ?
+            """,
+            (row[0],),
+        ).fetchone()
+        return self._row_to_version(vrow) if vrow else None
+
+    def version_diff(
+        self, workspace_id: str, from_version_id: str, to_version_id: str
+    ) -> list[dict] | None:
+        from_v = self.get_version(from_version_id)
+        to_v = self.get_version(to_version_id)
+        if (
+            from_v is None
+            or to_v is None
+            or from_v.workspace_id != workspace_id
+            or to_v.workspace_id != workspace_id
+        ):
+            return None
+        return compute_worksheet_diff(from_v.worksheet, to_v.worksheet)
 
     def list_assumptions(self, workspace_id: str) -> list[Assumption]:
         with self._lock:
@@ -530,7 +702,8 @@ class WorkspaceStore:
             rows = self._conn.execute(
                 """
                 SELECT id, workspace_id, title, hypothesis, assumption_id, method, target,
-                       pass_fail_threshold, start_date, due_date, result, decision, status
+                       pass_fail_threshold, start_date, due_date, result, decision, status,
+                       worksheet_version_id
                 FROM experiments WHERE workspace_id = ?
                 ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'planned' THEN 1 ELSE 2 END,
                          title
@@ -544,23 +717,52 @@ class WorkspaceStore:
             row = self._conn.execute(
                 """
                 SELECT id, workspace_id, title, hypothesis, assumption_id, method, target,
-                       pass_fail_threshold, start_date, due_date, result, decision, status
+                       pass_fail_threshold, start_date, due_date, result, decision, status,
+                       worksheet_version_id
                 FROM experiments WHERE id = ? AND workspace_id = ?
                 """,
                 (experiment_id, workspace_id),
             ).fetchone()
         return self._row_to_experiment(row) if row else None
 
+    @staticmethod
+    def _assumption_status_for_decision(decision: str) -> str | None:
+        return {
+            "continue": "supported",
+            "revise": "testing",
+            "pivot": "testing",
+            "kill": "contradicted",
+            "retest": "testing",
+        }.get(decision)
+
+    def _sync_assumption_from_experiment(self, workspace_id: str, experiment: Experiment) -> None:
+        if experiment.assumption_id is None or experiment.status != "completed":
+            return
+        new_status = self._assumption_status_for_decision(experiment.decision)
+        if new_status is None:
+            return
+        assumption = self.get_assumption(workspace_id, experiment.assumption_id)
+        if assumption is None or assumption.status == new_status:
+            return
+        self.update_assumption(
+            workspace_id,
+            experiment.assumption_id,
+            UpdateAssumptionRequest(status=new_status),  # type: ignore[arg-type]
+        )
+
     def create_experiment(self, workspace_id: str, body: CreateExperimentRequest) -> Experiment:
         assumption_id = self._require_assumption_id(workspace_id, body.assumption_id)
         experiment_id = str(uuid4())
+        version = self.get_current_version(workspace_id)
+        version_id = version.id if version else None
         with self._lock:
             self._conn.execute(
                 """
                 INSERT INTO experiments
                     (id, workspace_id, title, hypothesis, assumption_id, method, target,
-                     pass_fail_threshold, start_date, due_date, result, decision, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 'pending', ?)
+                     pass_fail_threshold, start_date, due_date, result, decision, status,
+                     worksheet_version_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 'pending', ?, ?)
                 """,
                 (
                     experiment_id,
@@ -574,6 +776,7 @@ class WorkspaceStore:
                     body.start_date,
                     body.due_date,
                     body.status,
+                    version_id,
                 ),
             )
             self._conn.commit()
@@ -591,6 +794,7 @@ class WorkspaceStore:
             start_date=body.start_date,
             due_date=body.due_date,
             status=body.status,
+            worksheet_version_id=version_id,
         )
 
     def update_experiment(
@@ -631,6 +835,7 @@ class WorkspaceStore:
                 ),
             )
             self._conn.commit()
+        self._sync_assumption_from_experiment(workspace_id, updated)
         self.touch_workspace(workspace_id)
         self.sync_lifecycle(workspace_id)
         return updated
@@ -963,6 +1168,7 @@ class WorkspaceStore:
             result=row[10],
             decision=row[11],
             status=row[12],
+            worksheet_version_id=row[13] if len(row) > 13 else None,
         )
 
     @staticmethod

@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.deps import get_cors_origins
 from api.rate_limit import add_rate_limit_middleware
 from api.routes.runs import router as runs_router
+from api.routes.workspaces import router as workspaces_router
 from api.run_manager import RunManager, get_run_manager
 from config import get_settings
 from version import get_version
@@ -28,6 +29,7 @@ def create_app(*, manager: RunManager | None = None) -> FastAPI:
     add_rate_limit_middleware(app, settings=get_settings())
 
     app.include_router(runs_router, prefix="/api")
+    app.include_router(workspaces_router, prefix="/api")
 
     @app.get("/health")
     def health() -> dict[str, str]:

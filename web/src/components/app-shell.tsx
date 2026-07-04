@@ -21,12 +21,18 @@ export function AppHeader() {
     <header className="border-b border-rule-soft bg-card">
       <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-4 md:px-6">
         <Link
-          href="/"
+          href="/workspaces"
           className="font-sans text-lg font-semibold tracking-tight text-primary md:text-xl"
         >
           Roast My Startup
         </Link>
         <nav className="flex flex-wrap items-center gap-2 sm:gap-3" aria-label="Main">
+          <Link
+            href="/workspaces"
+            className="font-sans text-sm font-medium text-ink-muted underline-offset-4 transition-colors duration-200 hover:text-ink hover:underline"
+          >
+            Workspaces
+          </Link>
           <Link
             href="/history"
             className="font-sans text-sm font-medium text-ink-muted underline-offset-4 transition-colors duration-200 hover:text-ink hover:underline"
@@ -39,9 +45,9 @@ export function AppHeader() {
           >
             Settings
           </Link>
-          <Link href="/" className={`${heatCtaClass} px-3 sm:px-4`}>
-            <span className="sm:hidden">Review</span>
-            <span className="hidden sm:inline">Review an idea</span>
+          <Link href="/workspaces/new" className={`${heatCtaClass} px-3 sm:px-4`}>
+            <span className="sm:hidden">New</span>
+            <span className="hidden sm:inline">New workspace</span>
           </Link>
         </nav>
       </div>

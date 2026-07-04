@@ -23,10 +23,10 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   {
-    href: "/",
-    label: "Home",
+    href: "/workspaces",
+    label: "Workspaces",
     icon: Home,
-    match: (pathname) => pathname === "/",
+    match: (pathname) => pathname === "/workspaces" || pathname.startsWith("/workspaces/"),
   },
   {
     href: "/history",
@@ -114,13 +114,13 @@ export function AppSidebar({ className }: { className?: string }) {
     >
       <div className="border-b border-rule-soft px-4 py-4">
         <Link
-          href="/"
+          href="/workspaces"
           className="font-sans text-base font-semibold tracking-tight text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta"
         >
           Roast My Startup
         </Link>
         <p className="mt-1 font-sans text-meta tracking-[var(--shell-nav-meta-tracking)] text-ink-subtle">
-          Iteration review
+          Idea validation
         </p>
       </div>
 
@@ -132,8 +132,8 @@ export function AppSidebar({ className }: { className?: string }) {
       </nav>
 
       <div className="mt-auto space-y-3 border-t border-rule-soft p-4">
-        <Link href="/" className={cn(heatCtaClass, "w-full justify-center shadow-none")}>
-          Review an idea
+        <Link href="/workspaces/new" className={cn(heatCtaClass, "w-full justify-center shadow-none")}>
+          New workspace
         </Link>
         <HealthStatus />
       </div>

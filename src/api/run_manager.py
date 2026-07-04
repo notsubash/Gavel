@@ -16,6 +16,7 @@ import threading
 import time
 from uuid import uuid4
 
+from api import workspace_store
 from api.deps import (
     RunRecord,
     build_idea_preview,
@@ -49,6 +50,7 @@ from observability.metrics import log_run_metrics
 from pipeline import stream_pipeline
 from research.service import format_research_context
 from run_control import RunAbort
+from validation.legacy import legacy_request_to_worksheet
 
 logger = logging.getLogger(__name__)
 
@@ -193,8 +195,25 @@ class RunManager:
         run_id = str(uuid4())
         record = RunRecord(run_id=run_id, request=request)
         self._store.insert_run(record)
+        self._link_legacy_workspace(run_id, request, parent_run_id)
         self._runs[run_id] = _RunState(record, store=self._store)
         return record
+
+    def _link_legacy_workspace(
+        self,
+        run_id: str,
+        request: CreateRunRequest,
+        parent_run_id: str | None,
+    ) -> None:
+        ws_store = workspace_store.get_workspace_store()
+        if parent_run_id:
+            link = ws_store.get_run_link(parent_run_id)
+            if link:
+                ws_store.link_run(run_id, link[0], link[1])
+                return
+        worksheet = legacy_request_to_worksheet(request)
+        workspace, version, _ = ws_store.create_workspace(worksheet)
+        ws_store.link_run(run_id, workspace.id, version.id)
 
     def get_effective_panel(self, run_id: str) -> dict | None:
         record = self.get(run_id)

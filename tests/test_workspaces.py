@@ -1,0 +1,171 @@
+from pathlib import Path
+import sys
+import tempfile
+import unittest
+
+from fastapi.testclient import TestClient
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from api.app import create_app
+from api.run_manager import RunManager
+from api.workspace_store import WorkspaceStore
+import tests  # noqa: F401
+from validation.compose import compose_generated_document
+from validation.schemas import IdeaWorksheet
+
+SAMPLE = IdeaWorksheet(
+    working_name="Validation OS",
+    audience="Solo technical founders building paid SaaS before they have revenue.",
+    problem_statement="have trouble proving buyer demand before they build.",
+    current_workaround="They use Notion docs, ChatGPT, and spreadsheets.",
+    solution_statement=(
+        "I am developing a local-first founder workbench to help solo founders "
+        "turn startup ideas into validation experiments."
+    ),
+    secret_sauce="Five harsh AI judges plus a persistent evidence ledger.",
+    pricing_hypothesis="$19 to $49 one-time self-hosted license.",
+    existing_evidence="Three founders asked for a validation template.",
+    competitors=["ChatGPT", "Notion templates", "Doing nothing"],
+    top_risky_assumption="Solo founders will return weekly to update validation evidence.",
+    disconfirming_evidence="Five founders say ChatGPT plus Notion is enough.",
+)
+
+
+class ComposeGeneratedDocumentTest(unittest.TestCase):
+    def test_template_includes_core_sections(self):
+        doc = compose_generated_document(SAMPLE)
+        self.assertIn("Working name: Validation OS", doc)
+        self.assertIn("Problem: I believe that", doc)
+        self.assertIn("Top risky assumption:", doc)
+        self.assertIn("- ChatGPT", doc)
+
+
+class WorkspaceStoreTest(unittest.TestCase):
+    def setUp(self):
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.store = WorkspaceStore(db_path=Path(self._tmpdir.name) / "workspaces.db")
+
+    def tearDown(self):
+        self.store.close()
+        self._tmpdir.cleanup()
+
+    def test_create_workspace_seeds_assumption_and_persists(self):
+        workspace, version, assumption = self.store.create_workspace(SAMPLE)
+        self.assertEqual(workspace.lifecycle, "draft")
+        self.assertEqual(version.version, 1)
+        self.assertEqual(assumption.statement, SAMPLE.top_risky_assumption)
+
+        reloaded = self.store.get_workspace(workspace.id)
+        assert reloaded is not None
+        self.assertEqual(reloaded.current_version_id, version.id)
+
+        current = self.store.get_current_version(workspace.id)
+        assert current is not None
+        self.assertEqual(current.generated_document, compose_generated_document(SAMPLE))
+
+        assumptions = self.store.list_assumptions(workspace.id)
+        self.assertEqual(len(assumptions), 1)
+
+        items, total = self.store.list_workspaces()
+        self.assertEqual(total, 1)
+        self.assertEqual(items[0].working_name, "Validation OS")
+
+    def test_link_run(self):
+        workspace, version, _ = self.store.create_workspace(SAMPLE)
+        self.store.link_run("run-1", workspace.id, version.id)
+        link = self.store.get_run_link("run-1")
+        self.assertEqual(link, (workspace.id, version.id))
+
+
+class WorkspaceApiTest(unittest.TestCase):
+    def setUp(self):
+        self._tmpdir = tempfile.TemporaryDirectory()
+        base = Path(self._tmpdir.name)
+        self.ws_store = WorkspaceStore(db_path=base / "workspaces.db")
+        self.manager = RunManager(db_path=base / "runs.db", recover_on_init=False)
+        import api.workspace_store as ws_mod
+
+        self._orig_store = ws_mod._store
+        ws_mod._store = self.ws_store
+        self.client = TestClient(create_app(manager=self.manager))
+
+    def tearDown(self):
+        import api.workspace_store as ws_mod
+
+        ws_mod._store = self._orig_store
+        self.manager.close()
+        self.ws_store.close()
+        self._tmpdir.cleanup()
+
+    def test_create_and_list_workspace_via_api(self):
+        resp = self.client.post(
+            "/api/workspaces",
+            json={"worksheet": SAMPLE.model_dump()},
+        )
+        self.assertEqual(resp.status_code, 201)
+        body = resp.json()
+        self.assertEqual(body["workspace"]["lifecycle"], "draft")
+        self.assertEqual(len(body["assumptions"]), 1)
+        self.assertIn("generated_document", body["current_version"])
+
+        listed = self.client.get("/api/workspaces")
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(listed.json()["total"], 1)
+
+    def test_legacy_run_creates_workspace_link(self):
+        resp = self.client.post(
+            "/api/runs",
+            json={
+                "idea": "An AI journal for startup founders with daily reflection prompts.",
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        run_id = resp.json()["run_id"]
+        link = self.ws_store.get_run_link(run_id)
+        self.assertIsNotNone(link)
+        workspace_id, _version_id = link
+        detail = self.client.get(f"/api/workspaces/{workspace_id}")
+        self.assertEqual(detail.status_code, 200)
+
+    def test_clarify_field_rejects_unknown_field(self):
+        resp = self.client.post(
+            "/api/workspaces/clarify-field",
+            json={"field_name": "not_a_field", "current_value": "some text here"},
+        )
+        self.assertEqual(resp.status_code, 422)
+
+
+class ValidationPromptsTest(unittest.TestCase):
+    def test_prompt_templates_render(self):
+        from idea_context import wrap_untrusted
+        from validation.llm.prompts import render_validation_prompt
+
+        system = render_validation_prompt("validation_draft_system.jinja2")
+        self.assertIn("validation worksheet", system)
+        user = render_validation_prompt(
+            "validation_draft_user.jinja2",
+            founder_notes=wrap_untrusted("test notes", "founder_notes"),
+        )
+        self.assertIn("<founder_notes>", user)
+
+
+class ValidationLlmMockTest(unittest.TestCase):
+    def test_draft_from_notes_mocked(self):
+        from unittest.mock import MagicMock, patch
+
+        from validation.llm.draft import _DraftResult, draft_from_notes
+
+        mock_result = _DraftResult(worksheet=SAMPLE, ai_drafted_fields=["audience"])
+        mock_model = MagicMock()
+        mock_structured = MagicMock()
+        mock_structured.invoke.return_value = mock_result
+        mock_model.with_structured_output.return_value = mock_structured
+
+        with patch("validation.llm.draft.build_assist_model", return_value=mock_model):
+            worksheet, fields = draft_from_notes("Some founder notes about a SaaS idea.")
+        self.assertEqual(worksheet.working_name, SAMPLE.working_name)
+        self.assertEqual(fields, ["audience"])
+
+
+if __name__ == "__main__":
+    unittest.main()

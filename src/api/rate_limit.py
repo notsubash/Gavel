@@ -14,6 +14,7 @@ from config import Settings, get_settings
 
 RUN_RATE_LIMIT_MESSAGE = "Too many run requests. Please try again shortly."
 APPEAL_RATE_LIMIT_MESSAGE = "Too many appeal requests. Please try again shortly."
+ASSIST_RATE_LIMIT_MESSAGE = "Too many AI assist requests. Please try again shortly."
 
 
 class TokenBucketLimiter:
@@ -67,6 +68,12 @@ def build_rate_limiters(settings: Settings) -> dict[str, TokenBucketLimiter]:
             settings.rate_limit_appeal_burst,
             settings.rate_limit_appeal_window_seconds,
         ),
+        # ponytail: reuse appeal limits for LLM assist; split env vars if abuse patterns differ
+        "assist": _build_limiter(
+            settings.rate_limit_appeal_requests,
+            settings.rate_limit_appeal_burst,
+            settings.rate_limit_appeal_window_seconds,
+        ),
     }
 
 
@@ -77,6 +84,10 @@ def _rate_limit_kind(path: str, method: str) -> str | None:
         return "run"
     if path.startswith("/api/runs/") and path.endswith("/appeal"):
         return "appeal"
+    if path.startswith("/api/workspaces") and (
+        path.endswith("/draft-from-notes") or path.endswith("/clarify-field") or "/assist/" in path
+    ):
+        return "assist"
     return None
 
 
@@ -100,7 +111,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if limiter is None:
             return await call_next(request)
         if not limiter.allow(_client_ip(request, trust_proxy=self._trust_proxy)):
-            message = APPEAL_RATE_LIMIT_MESSAGE if kind == "appeal" else RUN_RATE_LIMIT_MESSAGE
+            if kind == "appeal":
+                message = APPEAL_RATE_LIMIT_MESSAGE
+            elif kind == "assist":
+                message = ASSIST_RATE_LIMIT_MESSAGE
+            else:
+                message = RUN_RATE_LIMIT_MESSAGE
             return JSONResponse(status_code=429, content={"detail": message})
         return await call_next(request)
 

@@ -91,20 +91,6 @@ export const HISTORY_COPY = {
     `${count} older version${count === 1 ? "" : "s"}`,
 } as const;
 
-/** Rollback copy when NEXT_PUBLIC_WORKSPACE_HISTORY=false. */
-export const HISTORY_COPY_LEGACY = {
-  eyebrow: "Archive",
-  title: "Idea timeline",
-  description: "Version chains grouped by idea lineage.",
-  emptyTitle: "No reviews yet",
-  emptyDescription: "Submit your first idea — it will show up here when the review finishes.",
-  versionCount: (count: number) => `${count} ${count === 1 ? "version" : "versions"}`,
-  currentScore: "Current score",
-  latestDelta: "Latest delta",
-  olderVersions: (count: number) =>
-    `${count} older version${count === 1 ? "" : "s"}`,
-} as const;
-
 export const VERSION_COPY = {
   comparisonTitle: "What changed since last version",
   comparisonLead: (version: number, chainNote: string) =>

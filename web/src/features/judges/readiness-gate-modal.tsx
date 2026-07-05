@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/ui/dialog";
+import { Skeleton } from "@/ui/skeleton";
 
 const LEVEL_LABEL: Record<string, string> = {
   too_vague: "Too vague",
@@ -24,6 +25,9 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   readiness: ReadinessResponse | null;
+  readinessLoading: boolean;
+  readinessError: boolean;
+  onRetryReadiness: () => void;
   briefing: string | null;
   briefingLoading: boolean;
   onFetchBriefing: () => void;
@@ -31,10 +35,18 @@ type Props = {
   launching: boolean;
 };
 
+function checkAriaLabel(check: ReadinessResponse["checks"][number]): string {
+  const detail = check.detail ?? check.name;
+  return check.passed ? `Passed: ${detail}` : `Failed: ${detail}`;
+}
+
 export function ReadinessGateModal({
   open,
   onOpenChange,
   readiness,
+  readinessLoading,
+  readinessError,
+  onRetryReadiness,
   briefing,
   briefingLoading,
   onFetchBriefing,
@@ -44,9 +56,16 @@ export function ReadinessGateModal({
   const [overrideAck, setOverrideAck] = useState(false);
 
   const blocked = readiness != null && !readiness.can_run_judges;
+  const needsOverride = blocked || readinessError;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) setOverrideAck(false);
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Readiness gate</DialogTitle>
@@ -56,15 +75,34 @@ export function ReadinessGateModal({
           </DialogDescription>
         </DialogHeader>
 
-        {readiness ? (
+        {readinessLoading ? (
+          <div
+            className="space-y-3"
+            aria-busy="true"
+            aria-label="Loading readiness checks"
+          >
+            <Skeleton className="h-5 w-36" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+            <Skeleton className="h-4 w-2/3" />
+          </div>
+        ) : readinessError ? (
+          <div className="space-y-3" role="alert">
+            <p className="font-sans text-sm text-fail">Could not load readiness checks.</p>
+            <Button type="button" variant="outline" size="sm" onClick={onRetryReadiness}>
+              Try again
+            </Button>
+          </div>
+        ) : readiness ? (
           <div className="space-y-4">
             <p className="font-sans text-sm font-semibold text-ink">
               Status: {LEVEL_LABEL[readiness.level] ?? readiness.level}
             </p>
             <ul className="space-y-1 font-sans text-sm text-ink-muted">
               {readiness.checks.map((check) => (
-                <li key={check.name}>
-                  {check.passed ? "✓" : "✗"} {check.detail ?? check.name}
+                <li key={check.name} aria-label={checkAriaLabel(check)}>
+                  <span aria-hidden>{check.passed ? "✓" : "✗"}</span>{" "}
+                  {check.detail ?? check.name}
                 </li>
               ))}
             </ul>
@@ -80,15 +118,17 @@ export function ReadinessGateModal({
           </Button>
         )}
 
-        {blocked ? (
+        {needsOverride ? (
           <label className="flex items-start gap-2 font-sans text-sm text-ink-muted">
             <input
               type="checkbox"
               checked={overrideAck}
               onChange={(event) => setOverrideAck(event.target.checked)}
-              className="mt-1"
+              className="mt-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta"
             />
-            Run judges anyway (override readiness gate)
+            {readinessError
+              ? "Launch without readiness check"
+              : "Run judges anyway (override readiness gate)"}
           </label>
         ) : null}
 
@@ -98,8 +138,13 @@ export function ReadinessGateModal({
           </Button>
           <Button
             type="button"
-            disabled={launching || (blocked && !overrideAck)}
-            onClick={() => onLaunch(blocked && overrideAck)}
+            disabled={
+              launching ||
+              readinessLoading ||
+              (!readiness && !readinessError) ||
+              (needsOverride && !overrideAck)
+            }
+            onClick={() => onLaunch(needsOverride && overrideAck)}
           >
             {launching ? <Loader2 className="size-4 animate-spin" /> : null}
             Launch roast

@@ -47,7 +47,7 @@ export function WorkflowBrief({
   if (!hasContent) return null;
 
   return (
-    <div className={cn("mt-5 space-y-3", className)}>
+    <div id="next-actions-strip" className={cn("mt-5 scroll-mt-6 space-y-3", className)}>
       {problems.length > 0 && (
         <section className={cardClass} aria-labelledby="top-problems-heading">
           <header className="border-b border-rule-soft px-4 py-2.5">

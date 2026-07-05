@@ -34,7 +34,7 @@ function VersionRow({ item, active }: { item: RunListItem; active: boolean }) {
       href={`/run/${item.run_id}`}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center justify-between gap-3 py-2 pl-4 font-sans text-sm text-ink-muted",
+        "flex min-h-11 items-center justify-between gap-3 py-2 pl-4 font-sans text-sm text-ink-muted",
         "border-l-2 border-rule-soft hover:bg-paper-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta",
         active && "border-l-cta bg-paper-2 text-ink",
       )}
@@ -93,7 +93,7 @@ function WorkspaceNextActionLink({
       aria-live={panelPending ? "polite" : undefined}
     >
       {panelPending ? (
-        <Skeleton className="h-9 w-44" aria-label="Loading next action" />
+        <Skeleton className="h-11 w-44" aria-label="Loading next action" />
       ) : (
         <Link
           href={action.href}
@@ -102,11 +102,11 @@ function WorkspaceNextActionLink({
             action.detail ? `${action.label}: ${action.detail}` : action.label
           }
           className={cn(
-            "flex min-h-9 min-w-0 items-center gap-1.5 font-sans text-sm font-semibold text-cta sm:justify-end",
+            "flex min-h-11 min-w-0 items-center gap-1.5 font-sans text-sm font-semibold text-cta sm:justify-end",
             "hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta",
           )}
         >
-          <span className="truncate">{action.label}</span>
+          <span className="min-w-0 break-words">{action.label}</span>
           <ArrowRight className="size-3.5 shrink-0" aria-hidden />
         </Link>
       )}
@@ -203,7 +203,7 @@ export function WorkspaceHistoryRow({ workspace }: { workspace: StartupWorkspace
           {hidden.length > 0 && (
             <button
               type="button"
-              className="inline-flex min-h-9 items-center gap-2 font-sans text-xs font-semibold text-ink-muted hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta"
+              className="inline-flex min-h-11 items-center gap-2 font-sans text-xs font-semibold text-ink-muted hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta"
               aria-expanded={expanded}
               aria-controls={olderVersionsId}
               onClick={() => setExpanded((open) => !open)}

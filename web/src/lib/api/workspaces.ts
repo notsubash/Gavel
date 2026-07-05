@@ -525,9 +525,19 @@ export type WeeklyReviewResponse = {
   evidence_count: number;
 };
 
+export type CompetitorIntelItem = {
+  competitor: string;
+  positioning: string;
+  gap_vs_us: string | null;
+  source_url: string | null;
+  source_title: string | null;
+  signal_strength: "strong" | "weak" | "none";
+};
+
 export type CompetitorScanResponse = {
   query: string | null;
   findings: Array<{ title: string; url: string; snippet: string }>;
+  intel: CompetitorIntelItem[];
   suggested_evidence: string;
   available: boolean;
 };

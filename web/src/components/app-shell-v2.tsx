@@ -66,7 +66,7 @@ function NavLink({
       className={cn(
         "flex items-center gap-3 rounded-ui font-sans text-sm font-medium transition-colors duration-200",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta",
-        compact ? "min-h-11 flex-col justify-center gap-1 px-2 py-2 text-meta" : "min-h-10 px-3 py-2",
+        compact ? "min-h-11 flex-col justify-center gap-1 px-2 py-2 text-meta" : "min-h-11 px-3 py-2",
         active
           ? "bg-paper-2 text-ink shadow-[inset_3px_0_0_0_var(--cta)]"
           : "text-ink-muted hover:bg-paper-2 hover:text-ink",
@@ -89,7 +89,7 @@ function ActiveRunLink({ runId, compact = false }: { runId: string; compact?: bo
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta",
         compact
           ? "min-h-11 min-w-0 flex-1 flex-col justify-center gap-1 px-2 py-2 text-meta"
-          : "mt-1 min-h-10 px-3 py-2",
+          : "mt-1 min-h-11 px-3 py-2",
       )}
     >
       <PlayCircle className={cn("shrink-0 text-cta", compact ? "size-5" : "size-4")} aria-hidden />

@@ -19,14 +19,18 @@ export function useAnimatedNumber(
 
   useEffect(() => {
     if (target == null) {
-      setDisplay(null);
-      fromRef.current = null;
+      queueMicrotask(() => {
+        setDisplay(null);
+        fromRef.current = null;
+      });
       return;
     }
 
     if (prefersReducedMotion()) {
-      setDisplay(target);
-      fromRef.current = target;
+      queueMicrotask(() => {
+        setDisplay(target);
+        fromRef.current = target;
+      });
       return;
     }
 

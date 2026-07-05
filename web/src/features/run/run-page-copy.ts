@@ -49,6 +49,11 @@ export const RUN_PAGE_COPY = {
   stopReviewDescription: "The judges will halt between turns. You can always submit a new idea.",
   contextSummary: "Related reviews, sources, metrics",
   latestImprovement: "Latest improvement",
+  appealPlaceholder:
+    "Present evidence to see progress here. Complete your experiment above, then share what you learned.",
+  sseReconnecting: "Connection interrupted — reconnecting to the live review…",
+  sseReconnected: "Live connection restored.",
+  metricsTableScrollHint: "Scroll horizontally for the full metrics table.",
 } as const;
 
 export const HOME_COPY = {
@@ -82,20 +87,6 @@ export const HISTORY_COPY = {
   nextActionOpenReview: "Open review",
   nextActionViewFailed: "View failed review",
   nextActionViewCancelled: "View cancelled review",
-  olderVersions: (count: number) =>
-    `${count} older version${count === 1 ? "" : "s"}`,
-} as const;
-
-/** Rollback copy when NEXT_PUBLIC_WORKSPACE_HISTORY=false. */
-export const HISTORY_COPY_LEGACY = {
-  eyebrow: "Archive",
-  title: "Idea timeline",
-  description: "Version chains grouped by idea lineage.",
-  emptyTitle: "No reviews yet",
-  emptyDescription: "Submit your first idea — it will show up here when the review finishes.",
-  versionCount: (count: number) => `${count} ${count === 1 ? "version" : "versions"}`,
-  currentScore: "Current score",
-  latestDelta: "Latest delta",
   olderVersions: (count: number) =>
     `${count} older version${count === 1 ? "" : "s"}`,
 } as const;

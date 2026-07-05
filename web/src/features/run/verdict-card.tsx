@@ -55,7 +55,7 @@ export function VerdictCard({
     if (!synthesisProse) {
       return (
         <p className={cn("font-sans text-sm text-ink-subtle", className)}>
-          The moderator&apos;s verdict will land here after the debate.
+          The moderator&apos;s decision will land here after the debate.
         </p>
       );
     }
@@ -73,12 +73,15 @@ export function VerdictCard({
 
   return (
     <article
-      className={cn("surface-flat", className)}
+      className={cn(
+        "surface-flat overflow-hidden ring-1 ring-cta/15",
+        className,
+      )}
       aria-labelledby="decision-verdict-heading"
     >
       {quality.lowConfidence && <LowConfidenceBanner reasons={quality.reasons} />}
 
-      <header className="border-b border-rule-soft border-l-4 border-l-cta bg-paper-2 px-5 py-5">
+      <header className="border-b border-rule-soft border-l-[6px] border-l-cta bg-paper-2 px-5 py-5">
         <p className="font-sans text-meta font-semibold uppercase tracking-widest text-ink-muted">
           Recommendation
         </p>
@@ -148,7 +151,7 @@ function LowConfidenceBanner({
     <div className="flex items-start gap-3 border-b-2 border-conditional bg-paper-2 px-6 py-4">
       <AlertTriangle className="mt-0.5 size-5 shrink-0 text-conditional" aria-hidden />
       <div>
-        <p className="font-sans text-sm font-semibold text-ink">Low-confidence verdict</p>
+        <p className="font-sans text-sm font-semibold text-ink">Low-confidence decision</p>
         <p className="mt-1 font-sans text-sm text-ink-muted">
           {proseFallback
             ? "Treat this synthesis as directional. "

@@ -32,6 +32,15 @@ export const worksheetDefaults: WorksheetValues = {
   trigger_event: null,
 };
 
+/** Coerce API/partial payloads into valid form values (e.g. missing competitors). */
+export function normalizeWorksheetValues(raw: Partial<WorksheetValues>): WorksheetValues {
+  return {
+    ...worksheetDefaults,
+    ...raw,
+    competitors: Array.isArray(raw.competitors) ? raw.competitors : [],
+  };
+}
+
 export type WorksheetFieldName = keyof WorksheetValues;
 
 export const WORKSHEET_FIELDS: {

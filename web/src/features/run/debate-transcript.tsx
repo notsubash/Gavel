@@ -28,7 +28,7 @@ function DebateTurnCompact({ turn }: { turn: DebateTurnView }) {
         aria-label={`Round ${turn.round}: ${label}`}
       >
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 pr-6">
-          <span className="font-mono text-[11px] text-ink-subtle">R{turn.round}</span>
+          <span className="font-mono text-meta text-ink-subtle">R{turn.round}</span>
           <span className={cn("font-sans text-sm font-semibold", accentText)}>{label}</span>
           {turn.thinking && (
             <span className="font-sans text-xs text-ink-muted">Thinking…</span>
@@ -60,37 +60,7 @@ function DebateTurnCompact({ turn }: { turn: DebateTurnView }) {
 }
 
 export function DebateTurn({ turn }: { turn: DebateTurnView }) {
-  if (true) {
-    return <DebateTurnCompact turn={turn} />;
-  }
-
-  const meta = speakerMeta(turn.speaker);
-  const accentText = meta.accentClass.split(" ")[0];
-
-  return (
-    <article
-      className="border-l-2 border-primary py-3 pl-4"
-      aria-label={`${meta.name}, round ${turn.round}`}
-    >
-      <header className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <span className={cn("font-sans text-sm font-bold", accentText)}>{meta.name}</span>
-        <span className="font-mono text-xs text-ink-subtle">Round {turn.round}</span>
-        {turn.thinking && (
-          <span className="font-sans text-xs text-ink-muted">Thinking…</span>
-        )}
-      </header>
-      {turn.content ? (
-        <p className="mt-2 whitespace-pre-wrap font-mono text-sm leading-relaxed text-ink">
-          {turn.content}
-          {turn.streaming && (
-            <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-cta" aria-hidden />
-          )}
-        </p>
-      ) : turn.thinking ? (
-        <p className="mt-2 animate-pulse font-sans text-sm text-ink-muted">Preparing response…</p>
-      ) : null}
-    </article>
-  );
+  return <DebateTurnCompact turn={turn} />;
 }
 
 export function DebateTranscript({
@@ -124,7 +94,7 @@ export function DebateTranscript({
           <section
             key={round}
             aria-labelledby={`debate-round-${round}`}
-            className={compact ? "py-3" : "animate-round-enter"}
+            className="py-3"
           >
             <h3
               id={`debate-round-${round}`}

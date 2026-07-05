@@ -26,7 +26,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Roast My Startup",
   description:
-    "Five AI judges roast your startup idea, debate it, and hand down a verdict.",
+    "Five AI judges review your startup idea, debate it, and deliver a decision.",
 };
 
 export default function RootLayout({
@@ -39,7 +39,7 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${plusJakarta.variable} ${jetbrainsMono.variable} h-full`}
-      {...(true ? { "data-ui-shell-v2": "" } : {})}
+      data-ui-shell-v2=""
     >
       <body className="flex min-h-full flex-col antialiased">
         <SkipLink />

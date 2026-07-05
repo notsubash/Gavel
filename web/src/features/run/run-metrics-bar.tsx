@@ -10,7 +10,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ChevronDown } from "lucide-react";
 
 import {
   formatModelRuntimeLabel,
@@ -19,6 +18,9 @@ import {
 import type { CallMetric, RunMetrics, RunStatus } from "@/lib/sse/types";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/ui/badge";
+import { DisclosureChevron } from "@/ui/disclosure-chevron";
+
+import { RUN_PAGE_COPY } from "./run-page-copy";
 
 function allCalls(metrics: RunMetrics): CallMetric[] {
   return [
@@ -90,7 +92,7 @@ export function RunMetricsBar({
         ? "Run metrics unavailable."
         : isTerminal
           ? "Run metrics were not recorded for this run."
-          : "Run metrics will appear when the roast finishes.";
+          : "Run metrics will appear when the review finishes.";
 
     return (
       <footer
@@ -124,10 +126,7 @@ export function RunMetricsBar({
             className="flex cursor-pointer list-none items-center gap-2 font-sans text-sm font-semibold text-ink hover:text-cta [&::-webkit-details-marker]:hidden"
             aria-controls={detailsId}
           >
-            <ChevronDown
-              className="size-4 transition-transform group-open:rotate-180"
-              aria-hidden
-            />
+            <DisclosureChevron className="size-4" />
             Per-call breakdown
           </summary>
           <div id={detailsId} className="mt-4 space-y-6">
@@ -166,6 +165,9 @@ export function RunMetricsBar({
             </div>
 
             <div className="overflow-x-auto border border-rule-soft bg-paper-2">
+              <p className="px-3 py-2 font-sans text-xs text-ink-muted md:hidden">
+                {RUN_PAGE_COPY.metricsTableScrollHint}
+              </p>
               <table className="w-full min-w-[480px] border-collapse font-sans text-sm">
                 <caption className="sr-only">Per-call metrics</caption>
                 <thead>

@@ -34,7 +34,7 @@ export function PanelQualityDebugBadge({
         "mt-4 max-w-prose rounded-md border px-4 py-3 font-sans text-sm",
         passed
           ? "border-pass/40 bg-pass/5 text-ink-muted"
-          : "border-amber-300 bg-amber-50 text-amber-950",
+          : "border-conditional/40 bg-conditional/5 text-ink",
         className,
       )}
       aria-label="Maintainer lens quality debug"
@@ -43,7 +43,7 @@ export function PanelQualityDebugBadge({
         {passed ? (
           <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-pass" aria-hidden />
         ) : (
-          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-700" aria-hidden />
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-conditional" aria-hidden />
         )}
         <div>
           <p className="font-semibold text-ink">
@@ -61,7 +61,7 @@ export function PanelQualityDebugBadge({
           ) : (
             <p className="mt-1 text-xs">All five lenses have distinct proof bars.</p>
           )}
-          <p className="mt-2 font-mono text-[10px] text-ink-subtle">
+          <p className="mt-2 font-mono text-xs text-ink-subtle">
             generic_rate={quality.genericEvidenceRate}
           </p>
         </div>

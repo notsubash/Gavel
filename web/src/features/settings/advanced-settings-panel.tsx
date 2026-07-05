@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import {
   DEFAULT_RUN_FOLD_VARIANT,
@@ -47,26 +47,12 @@ function SettingsSection({
 }
 
 export function AdvancedSettingsPanel() {
-  const [settings, setSettings] = useState<AdvancedSettings>(DEFAULT_ADVANCED_SETTINGS);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    setSettings(loadAdvancedSettings());
-    setReady(true);
-  }, []);
+  const [settings, setSettings] = useState<AdvancedSettings>(() => loadAdvancedSettings());
 
   const patch = (partial: Partial<AdvancedSettings>) => {
     const next = saveAdvancedSettings(partial);
     setSettings(next);
   };
-
-  if (!ready) {
-    return (
-      <p className="font-sans text-sm text-ink-muted" aria-live="polite">
-        Loading settings…
-      </p>
-    );
-  }
 
   const foldOptions = Object.entries(RUN_FOLD_VARIANTS) as [
     RunFoldVariant,
@@ -144,7 +130,7 @@ export function AdvancedSettingsPanel() {
           <div className="space-y-1">
             <Label htmlFor="settings-web-search">Web search</Label>
             <p className="font-sans text-xs text-ink-muted">
-              Let judges pull live research snippets into the roast (extra latency and cost when
+              Let judges pull live research snippets into the review (extra latency and cost when
               using DeepSeek).
             </p>
           </div>

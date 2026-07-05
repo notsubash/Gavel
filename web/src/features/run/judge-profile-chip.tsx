@@ -40,7 +40,7 @@ export function JudgeProfileChip({
         {showStance && verdict && (
           <span
             className={cn(
-              "inline-block border px-2 py-0.5 font-sans text-[10px] font-semibold uppercase tracking-wide",
+              "inline-block border px-2 py-0.5 font-sans text-xs font-semibold uppercase tracking-wide",
               STANCE_CLASS[verdict],
             )}
           >

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -9,10 +9,13 @@ import { Loader2, Sparkles } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
+import { WorksheetFieldRenderer } from "@/features/worksheet/worksheet-field-renderer";
 import { composeWorksheetPreview } from "@/features/worksheet/worksheet-preview";
 import {
   WORKSHEET_FIELDS,
+  worksheetDefaults,
   worksheetSchema,
+  normalizeWorksheetValues,
   type WorksheetFieldName,
   type WorksheetValues,
 } from "@/features/worksheet/worksheet-schema";
@@ -21,7 +24,6 @@ import {
   localWorksheetDiff,
   WorksheetVersionDiff,
 } from "@/features/worksheet/worksheet-version-diff";
-import { CORE_WORKSHEET_FIELDS } from "@/features/worksheet/worksheet-core-fields";
 import { ApiError } from "@/lib/api/client";
 import { parseApiDetail } from "@/lib/api/types-helpers";
 import {
@@ -40,23 +42,13 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Card } from "@/ui/card";
-import { Input } from "@/ui/input";
 import { Label } from "@/ui/label";
 import { Skeleton } from "@/ui/skeleton";
-import { Textarea } from "@/ui/textarea";
-
-function FieldError({ message }: { message?: string }) {
-  if (!message) return null;
-  return (
-    <p className="font-sans text-sm text-fail" role="alert">
-      {message}
-    </p>
-  );
-}
 
 export function WorksheetEditor({ workspaceId }: { workspaceId: string }) {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
+  const saveHintId = useId();
   const reviseExperimentId = searchParams.get("revise_experiment");
 
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
@@ -95,13 +87,13 @@ export function WorksheetEditor({ workspaceId }: { workspaceId: string }) {
     formState: { errors, isSubmitting },
   } = useForm<WorksheetValues>({
     resolver: zodResolver(worksheetSchema),
-    defaultValues: workspaceQuery.data?.current_version.worksheet,
+    defaultValues: worksheetDefaults,
     mode: "onBlur",
   });
 
   useEffect(() => {
     if (currentVersion) {
-      reset(currentVersion.worksheet);
+      reset(normalizeWorksheetValues(currentVersion.worksheet));
       setSelectedVersionId(null);
     }
   }, [currentVersion, reset]);
@@ -180,6 +172,10 @@ export function WorksheetEditor({ workspaceId }: { workspaceId: string }) {
 
   const showRevisePanel =
     searchParams.get("revise") === "1" || Boolean(reviseExperimentId);
+
+  const saveDisabled = isSubmitting || saveMutation.isPending || pendingDiff.length === 0;
+  const saveDisabledReason =
+    pendingDiff.length === 0 ? "No changes to save yet." : undefined;
 
   async function onSharpen(fieldName: WorksheetFieldName) {
     const current = values[fieldName];
@@ -296,6 +292,18 @@ export function WorksheetEditor({ workspaceId }: { workspaceId: string }) {
         <h2 id="version-timeline-heading" className="font-sans text-section font-semibold text-ink">
           Version history
         </h2>
+        {versionsQuery.isError && (
+          <p className="mt-2 font-sans text-sm text-fail" role="alert">
+            Version history unavailable.{" "}
+            <button
+              type="button"
+              className="font-semibold text-cta underline underline-offset-2"
+              onClick={() => void versionsQuery.refetch()}
+            >
+              Retry
+            </button>
+          </p>
+        )}
         <ul className="mt-3 flex flex-wrap gap-2">
           {versions.map((v: WorksheetVersion) => (
             <li key={v.id}>
@@ -319,6 +327,18 @@ export function WorksheetEditor({ workspaceId }: { workspaceId: string }) {
           <Card className="mt-4 p-5">
             <h3 className="font-sans text-body font-semibold text-ink">Changes in this version</h3>
             {diffQuery.isLoading && <Skeleton className="mt-3 h-24 w-full" />}
+            {diffQuery.isError && (
+              <p className="mt-3 font-sans text-sm text-fail" role="alert">
+                Could not load version diff.{" "}
+                <button
+                  type="button"
+                  className="font-semibold text-cta underline underline-offset-2"
+                  onClick={() => void diffQuery.refetch()}
+                >
+                  Retry
+                </button>
+              </p>
+            )}
             {diffQuery.data && (
               <WorksheetVersionDiff
                 className="mt-3"
@@ -330,7 +350,7 @@ export function WorksheetEditor({ workspaceId }: { workspaceId: string }) {
         )}
       </section>
 
-      {(showRevisePanel) && (
+      {showRevisePanel && (
         <Card className="space-y-4 border-cta/30 p-5">
           <h2 className="font-sans text-section font-semibold text-ink">Revise from evidence</h2>
           {reviseSummary && (
@@ -356,36 +376,40 @@ export function WorksheetEditor({ workspaceId }: { workspaceId: string }) {
             </Button>
           ) : (
             <div className="space-y-3">
-              {revisePatches.map((patch) => (
-                <div key={patch.field_name} className="rounded-ui border border-rule-soft p-4">
-                  <label className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      className="mt-1"
-                      checked={acceptedPatches.has(patch.field_name)}
-                      onChange={(e) => {
-                        setAcceptedPatches((prev) => {
-                          const next = new Set(prev);
-                          if (e.target.checked) next.add(patch.field_name);
-                          else next.delete(patch.field_name);
-                          return next;
-                        });
-                      }}
-                    />
-                    <span>
-                      <span className="font-sans text-sm font-semibold text-ink">
-                        {patch.field_name.replace(/_/g, " ")}
-                      </span>
-                      <span className="mt-1 block font-sans text-sm text-ink-muted">
-                        {patch.rationale}
-                      </span>
-                      <span className="mt-2 block font-sans text-sm text-ink">
-                        {patch.suggested_value}
-                      </span>
-                    </span>
-                  </label>
-                </div>
-              ))}
+              {revisePatches.map((patch) => {
+                const checkboxId = `revise-patch-${patch.field_name}`;
+                return (
+                  <div key={patch.field_name} className="rounded-ui border border-rule-soft p-4">
+                    <div className="flex items-start gap-3">
+                      <input
+                        id={checkboxId}
+                        type="checkbox"
+                        className="mt-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta"
+                        checked={acceptedPatches.has(patch.field_name)}
+                        onChange={(e) => {
+                          setAcceptedPatches((prev) => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(patch.field_name);
+                            else next.delete(patch.field_name);
+                            return next;
+                          });
+                        }}
+                      />
+                      <label htmlFor={checkboxId} className="cursor-pointer">
+                        <span className="font-sans text-sm font-semibold text-ink">
+                          {patch.field_name.replace(/_/g, " ")}
+                        </span>
+                        <span className="mt-1 block font-sans text-sm text-ink-muted">
+                          {patch.rationale}
+                        </span>
+                        <span className="mt-2 block font-sans text-sm text-ink">
+                          {patch.suggested_value}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                );
+              })}
               <Button type="button" onClick={applyAcceptedPatches}>
                 Apply selected to form
               </Button>
@@ -438,84 +462,43 @@ export function WorksheetEditor({ workspaceId }: { workspaceId: string }) {
 
           {WORKSHEET_FIELDS.map((field) => {
             const error = errors[field.name]?.message as string | undefined;
-            const isCore = CORE_WORKSHEET_FIELDS.has(field.name);
-
-            if (field.name === "competitors") {
-              return (
-                <div key={field.name} className="space-y-2">
-                  <Label htmlFor={field.name}>
-                    {field.label}
-                    {isCore && (
-                      <span className="ml-2 font-sans text-xs text-cta">versioned</span>
-                    )}
-                  </Label>
-                  <Textarea
-                    id={field.name}
-                    className="min-h-20"
-                    value={values.competitors.join("\n")}
-                    onChange={(e) =>
-                      setValue(
-                        "competitors",
-                        e.target.value
-                          .split(/[\n,]+/)
-                          .map((s) => s.trim())
-                          .filter(Boolean),
-                      )
-                    }
-                  />
-                  <FieldError message={error} />
-                </div>
-              );
-            }
-
-            const InputComponent = field.multiline ? Textarea : Input;
             return (
-              <div key={field.name} className="space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <Label htmlFor={field.name}>
-                    {field.label}
-                    {isCore && (
-                      <span className="ml-2 font-sans text-xs text-cta">versioned</span>
-                    )}
-                  </Label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={sharpening === field.name}
-                    onClick={() => onSharpen(field.name)}
-                  >
-                    {sharpening === field.name ? (
-                      <Loader2 className="size-3 animate-spin" aria-hidden />
-                    ) : (
-                      <Sparkles className="size-3 text-ai-processing" aria-hidden />
-                    )}
-                    Sharpen
-                  </Button>
-                </div>
-                <InputComponent
-                  id={field.name}
-                  className={field.multiline ? "min-h-24" : undefined}
-                  {...register(field.name)}
-                />
-                <FieldError message={error} />
-              </div>
+              <WorksheetFieldRenderer
+                key={field.name}
+                field={field}
+                values={values}
+                error={error}
+                errorId={`${field.name}-error`}
+                register={register}
+                setValue={setValue}
+                onSharpen={onSharpen}
+                sharpening={sharpening}
+                showVersioned
+              />
             );
           })}
 
-          <Button
-            type="submit"
-            size="lg"
-            disabled={isSubmitting || saveMutation.isPending || pendingDiff.length === 0}
-            className="w-full sm:w-auto"
-          >
-            {(isSubmitting || saveMutation.isPending) && (
-              <Loader2 className="size-4 animate-spin" aria-hidden />
+          <div className="space-y-2">
+            <Button
+              type="submit"
+              size="lg"
+              disabled={saveDisabled}
+              aria-describedby={saveDisabledReason ? saveHintId : undefined}
+              className="w-full sm:w-auto"
+            >
+              {(isSubmitting || saveMutation.isPending) && (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              )}
+              {willBumpVersion
+                ? `Save as version ${currentVersion.version + 1}`
+                : "Save worksheet"}
+            </Button>
+            {saveDisabledReason && (
+              <p id={saveHintId} className="font-sans text-sm text-ink-muted">
+                {saveDisabledReason}
+              </p>
             )}
-            {willBumpVersion
-              ? `Save as version ${currentVersion.version + 1}`
-              : "Save worksheet"}
-          </Button>
+          </div>
         </div>
 
         <div className="lg:sticky lg:top-8 lg:self-start">

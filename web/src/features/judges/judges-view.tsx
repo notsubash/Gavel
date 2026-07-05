@@ -26,12 +26,6 @@ import { Button } from "@/ui/button";
 import { Card } from "@/ui/card";
 import { Skeleton } from "@/ui/skeleton";
 
-const READINESS_LABEL: Record<string, string> = {
-  too_vague: "Too vague",
-  speculative: "Speculative",
-  ready: "Ready for judges",
-};
-
 export function JudgesView({ workspaceId }: { workspaceId: string }) {
   const router = useRouter();
   const [gateOpen, setGateOpen] = useState(false);
@@ -99,7 +93,7 @@ export function JudgesView({ workspaceId }: { workspaceId: string }) {
         <p className="font-sans text-meta font-semibold uppercase tracking-widest text-cta">
           Judges
         </p>
-        <h1 className="font-serif text-display text-ink">{workingName}</h1>
+        <h1 className="font-sans text-display-home font-semibold tracking-tight text-ink">{workingName}</h1>
         <p className="max-w-2xl font-sans text-sm text-ink-muted">
           Launch a five-judge roast when your worksheet is ready, then turn their evidence asks into
           validation work.
@@ -123,6 +117,14 @@ export function JudgesView({ workspaceId }: { workspaceId: string }) {
       <section className="space-y-3">
         <h2 className="font-serif text-xl text-ink">Run history</h2>
         {runsQuery.isLoading ? <Skeleton className="h-24 w-full" /> : null}
+        {runsQuery.isError ? (
+          <div className="space-y-3 border border-rule-soft bg-paper-2 p-4" role="alert">
+            <p className="font-sans text-sm text-fail">Could not load run history.</p>
+            <Button type="button" variant="outline" size="sm" onClick={() => void runsQuery.refetch()}>
+              Try again
+            </Button>
+          </div>
+        ) : null}
         {runsQuery.data && runsQuery.data.runs.length === 0 ? (
           <p className="font-sans text-sm text-ink-muted">No roasts yet for this workspace.</p>
         ) : null}
@@ -131,7 +133,7 @@ export function JudgesView({ workspaceId }: { workspaceId: string }) {
             <li key={run.run_id}>
               <Link
                 href={`/run/${run.run_id}`}
-                className="flex flex-wrap items-center justify-between gap-2 border border-line bg-card px-4 py-3 transition-colors hover:border-ink/30"
+                className="flex min-h-11 flex-wrap items-center justify-between gap-2 border border-rule-soft bg-card px-4 py-3 transition-colors hover:border-ink/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta"
               >
                 <div>
                   <p className="font-sans text-sm font-medium text-ink">{run.idea_preview}</p>
@@ -148,6 +150,19 @@ export function JudgesView({ workspaceId }: { workspaceId: string }) {
         </ul>
       </section>
 
+      {handoffQuery.isLoading && latestRunId ? (
+        <Skeleton className="h-32 w-full" aria-label="Loading post-roast handoff" />
+      ) : null}
+
+      {handoffQuery.isError ? (
+        <div className="space-y-3 border border-rule-soft bg-paper-2 p-4" role="alert">
+          <p className="font-sans text-sm text-fail">Could not load post-roast handoff items.</p>
+          <Button type="button" variant="outline" size="sm" onClick={() => void handoffQuery.refetch()}>
+            Try again
+          </Button>
+        </div>
+      ) : null}
+
       {handoffQuery.data && handoffQuery.data.items.length > 0 ? (
         <PostRoastHandoff workspaceId={workspaceId} items={handoffQuery.data.items} />
       ) : null}
@@ -156,6 +171,9 @@ export function JudgesView({ workspaceId }: { workspaceId: string }) {
         open={gateOpen}
         onOpenChange={setGateOpen}
         readiness={readiness}
+        readinessLoading={gateOpen && readinessQuery.isLoading}
+        readinessError={readinessQuery.isError}
+        onRetryReadiness={() => void readinessQuery.refetch()}
         briefing={briefing}
         briefingLoading={briefingMutation.isPending}
         onFetchBriefing={() => briefingMutation.mutate()}

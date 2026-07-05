@@ -1,8 +1,9 @@
 "use client";
 
-import { ClipboardList, Target } from "lucide-react";
+import Link from "next/link";
+import { ClipboardList, Target, ArrowRight } from "lucide-react";
 
-import { heatCtaClass } from "@/lib/cta-classes";
+import { secondaryCtaClass, heatCtaClass } from "@/lib/cta-classes";
 import type { Experiment } from "@/lib/experiment/experiment";
 import type { Verdict } from "@/lib/sse/types";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,7 @@ export function WorkflowBrief({
   evidenceLink,
   evidenceReplayPending = false,
   onCompleteExperiment,
+  runId,
   className,
 }: {
   synthesisProse: string | null;
@@ -32,6 +34,7 @@ export function WorkflowBrief({
   evidenceLink?: { href: string; label: string; useModal?: boolean } | null;
   evidenceReplayPending?: boolean;
   onCompleteExperiment?: () => void;
+  runId?: string;
   className?: string;
 }) {
   const { problems, blocker } = deriveWorkflowBrief(
@@ -44,7 +47,7 @@ export function WorkflowBrief({
   if (!hasContent) return null;
 
   return (
-    <div className={cn("mt-5 space-y-3", className)}>
+    <div id="next-actions-strip" className={cn("mt-5 scroll-mt-6 space-y-3", className)}>
       {problems.length > 0 && (
         <section className={cardClass} aria-labelledby="top-problems-heading">
           <header className="border-b border-rule-soft px-4 py-2.5">
@@ -123,6 +126,29 @@ export function WorkflowBrief({
               {evidenceLink.label}
             </a>
           )}
+        </section>
+      )}
+
+      {completed && runId && (
+        <section
+          className={cn(cardClass, "flex flex-wrap items-center justify-between gap-3 px-4 py-3")}
+          aria-labelledby="refine-heading"
+        >
+          <div>
+            <h3
+              id="refine-heading"
+              className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-muted"
+            >
+              {RUN_PAGE_COPY.todaysGoal}
+            </h3>
+            <p className="mt-1 font-sans text-sm text-ink-muted">
+              Update your pitch after running the experiment above.
+            </p>
+          </div>
+          <Link href={`/?refine=${runId}`} className={secondaryCtaClass}>
+            {RUN_PAGE_COPY.refineIdea}
+            <ArrowRight className="ml-2 size-4" aria-hidden />
+          </Link>
         </section>
       )}
     </div>

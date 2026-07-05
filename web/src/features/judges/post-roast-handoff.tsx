@@ -29,7 +29,7 @@ export function PostRoastHandoff({
   items: RunHandoffItem[];
 }) {
   const mutation = useMutation({
-    mutationFn: async (item: RunHandoffItem) => {
+    mutationFn: async ({ item }: { item: RunHandoffItem; index: number }) => {
       if (item.kind === "assumption") {
         return createAssumption(workspaceId, { statement: item.title });
       }
@@ -56,7 +56,7 @@ export function PostRoastHandoff({
         due_date: null,
       });
     },
-    onSuccess: (_data, item) => {
+    onSuccess: (_data, { item }) => {
       toast.success(`${KIND_LABEL[item.kind]} saved`);
     },
     onError: (error) => {
@@ -77,10 +77,12 @@ export function PostRoastHandoff({
         </p>
       </div>
       <ul className="space-y-3">
-        {items.map((item, index) => (
+        {items.map((item, index) => {
+          const itemPending = mutation.isPending && mutation.variables?.index === index;
+          return (
           <li
             key={`${item.kind}-${index}`}
-            className="flex flex-col gap-3 border border-line p-4 sm:flex-row sm:items-start sm:justify-between"
+            className="flex flex-col gap-3 border border-rule-soft p-4 sm:flex-row sm:items-start sm:justify-between"
           >
             <div>
               <p className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-subtle">
@@ -94,14 +96,16 @@ export function PostRoastHandoff({
             <Button
               type="button"
               variant="secondary"
-              disabled={mutation.isPending}
-              onClick={() => mutation.mutate(item)}
+              disabled={itemPending}
+              aria-busy={itemPending || undefined}
+              onClick={() => mutation.mutate({ item, index })}
             >
-              {mutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
+              {itemPending ? <Loader2 className="size-4 animate-spin" /> : null}
               {KIND_LABEL[item.kind]}
             </Button>
           </li>
-        ))}
+          );
+        })}
       </ul>
     </Card>
   );

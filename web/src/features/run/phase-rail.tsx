@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import type { RunPhase } from "@/lib/sse/types";
 
 const STEPS: { id: RunPhase; label: string }[] = [
-  { id: "roast", label: "Roast" },
+  { id: "roast", label: "Review" },
   { id: "debate", label: "Debate" },
   { id: "synthesis", label: "Synthesis" },
 ];
@@ -34,7 +34,7 @@ export function PhaseRail({
           <div
             key={step.id}
             className={cn(
-              "flex items-center gap-2 rounded-ui border px-3 py-1.5 font-sans text-xs font-semibold uppercase tracking-wide transition-colors duration-200",
+              "flex items-center gap-2 rounded-ui border px-3 py-1.5 font-sans text-xs font-semibold uppercase tracking-wide transition-colors duration-200 motion-reduce:transition-none",
               isActive && "border-cta bg-cta text-cta-fg",
               isDone && "border-rule-soft bg-card text-ink",
               !isActive && !isDone && "border-rule-soft bg-paper-2 text-ink-subtle",
@@ -44,7 +44,7 @@ export function PhaseRail({
             {isDone ? (
               <Check className="size-3.5 shrink-0" aria-hidden />
             ) : (
-              <span className="font-mono text-[10px] opacity-70" aria-hidden>
+              <span className="font-mono text-xs opacity-70" aria-hidden>
                 {idx + 1}
               </span>
             )}

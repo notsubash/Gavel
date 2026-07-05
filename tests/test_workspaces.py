@@ -394,11 +394,56 @@ class WorkspaceApiTest(unittest.TestCase):
         self.assertIn("Judge-ready brief", brief.text)
 
     def test_competitor_scan_without_tavily_key(self):
+        from unittest.mock import patch
+
         create = self.client.post("/api/workspaces", json={"worksheet": SAMPLE.model_dump()})
         ws_id = create.json()["workspace"]["id"]
-        resp = self.client.post(f"/api/workspaces/{ws_id}/assist/competitor-scan")
+        with patch.dict("os.environ", {"TAVILY_API_KEY": ""}, clear=False):
+            resp = self.client.post(f"/api/workspaces/{ws_id}/assist/competitor-scan")
         self.assertEqual(resp.status_code, 200)
         self.assertFalse(resp.json()["available"])
+
+    def test_competitor_scan_structured_intel(self):
+        from unittest.mock import patch
+
+        from research.service import TavilyResearchResult
+        from validation.competitor_scan import _research_input, competitor_scan
+        from validation.schemas import CompetitorIntelItem, CompetitorScanIntel
+
+        research_input = _research_input(SAMPLE)
+        self.assertIn("ChatGPT", research_input)
+        self.assertIn("Validation OS", research_input)
+
+        intel = CompetitorScanIntel(
+            rows=[
+                CompetitorIntelItem(
+                    competitor="ChatGPT",
+                    positioning="Drafts PRDs from prompts.",
+                    gap_vs_us="No validation evidence loop.",
+                    source_url="https://example.com/rival",
+                    source_title="Rival product",
+                    signal_strength="weak",
+                )
+            ],
+            overall_gap="Validation-linked PRDs are still underserved.",
+        )
+        research_result = TavilyResearchResult(
+            content=intel.model_dump(),
+            sources=[{"title": "Rival product", "url": "https://example.com/rival"}],
+        )
+        with patch.dict("os.environ", {"TAVILY_API_KEY": "test-key", "ENABLE_WEB_SEARCH": "true"}):
+            with patch("validation.competitor_scan.get_settings") as settings:
+                settings.return_value.enable_web_search = True
+                with patch(
+                    "validation.competitor_scan.run_tavily_research",
+                    return_value=research_result,
+                ):
+                    result = competitor_scan(SAMPLE)
+        self.assertTrue(result.available)
+        self.assertEqual(len(result.findings), 1)
+        self.assertEqual(len(result.intel), 1)
+        self.assertIn("ChatGPT", result.suggested_evidence)
+        self.assertIn("## Overall gap", result.suggested_evidence)
 
 
 class ValidationPromptsTest(unittest.TestCase):

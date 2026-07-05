@@ -14,6 +14,7 @@ import {
   WORKSHEET_FIELDS,
   worksheetDefaults,
   worksheetSchema,
+  normalizeWorksheetValues,
   type WorksheetFieldName,
   type WorksheetValues,
 } from "@/features/worksheet/worksheet-schema";
@@ -76,7 +77,7 @@ export function WorksheetWizard() {
   const draftMutation = useMutation({
     mutationFn: draftFromNotes,
     onSuccess: (data) => {
-      reset(data.worksheet);
+      reset(normalizeWorksheetValues(data.worksheet));
       setAiFields(new Set(data.ai_drafted_fields));
       setMode("fields");
       toast.success("AI draft applied — review and edit before saving");

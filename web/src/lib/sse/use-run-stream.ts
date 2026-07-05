@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
 import { getApiBaseUrl } from "@/lib/api/client";
 
@@ -17,16 +17,21 @@ function parseEnvelope(raw: string): ApiEventEnvelope | null {
   }
 }
 
+export type RunStreamState = RunState & { sseReconnecting: boolean };
+
 export function useRunStream(
   runId: string,
   options?: { enabled?: boolean; initialStatus?: RunStatus },
-) {
+): RunStreamState {
   const enabled = options?.enabled ?? true;
   const [state, dispatch] = useReducer(
     runReducer,
     initialRunState(options?.initialStatus ?? "connecting"),
   );
+  const [sseReconnecting, setSseReconnecting] = useState(false);
   const sourceRef = useRef<EventSource | null>(null);
+  const statusRef = useRef(state.status);
+  statusRef.current = state.status;
 
   const applyEnvelope = useCallback((envelope: ApiEventEnvelope) => {
     dispatch(envelope);
@@ -45,13 +50,22 @@ export function useRunStream(
     const source = new EventSource(`${getApiBaseUrl()}/api/runs/${runId}/events`);
     sourceRef.current = source;
 
+    source.onopen = () => setSseReconnecting(false);
+
     source.onmessage = (event) => {
+      setSseReconnecting(false);
       const envelope = parseEnvelope(event.data);
       if (envelope) applyEnvelope(envelope);
     };
 
     source.onerror = () => {
-      if (closed) source.close();
+      if (closed) {
+        source.close();
+        return;
+      }
+      if (!TERMINAL.includes(statusRef.current)) {
+        setSseReconnecting(true);
+      }
       // ponytail: EventSource auto-reconnects with Last-Event-ID from id: frames
     };
 
@@ -64,7 +78,7 @@ export function useRunStream(
     };
   }, [runId, enabled, applyEnvelope]);
 
-  return state;
+  return { ...state, sseReconnecting };
 }
 
 export type { RunState };

@@ -49,6 +49,11 @@ export const RUN_PAGE_COPY = {
   stopReviewDescription: "The judges will halt between turns. You can always submit a new idea.",
   contextSummary: "Related reviews, sources, metrics",
   latestImprovement: "Latest improvement",
+  appealPlaceholder:
+    "Present evidence to see progress here. Complete your experiment above, then share what you learned.",
+  sseReconnecting: "Connection interrupted — reconnecting to the live review…",
+  sseReconnected: "Live connection restored.",
+  metricsTableScrollHint: "Scroll horizontally for the full metrics table.",
 } as const;
 
 export const HOME_COPY = {

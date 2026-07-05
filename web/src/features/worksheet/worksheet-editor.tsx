@@ -13,7 +13,9 @@ import { WorksheetFieldRenderer } from "@/features/worksheet/worksheet-field-ren
 import { composeWorksheetPreview } from "@/features/worksheet/worksheet-preview";
 import {
   WORKSHEET_FIELDS,
+  worksheetDefaults,
   worksheetSchema,
+  normalizeWorksheetValues,
   type WorksheetFieldName,
   type WorksheetValues,
 } from "@/features/worksheet/worksheet-schema";
@@ -85,13 +87,13 @@ export function WorksheetEditor({ workspaceId }: { workspaceId: string }) {
     formState: { errors, isSubmitting },
   } = useForm<WorksheetValues>({
     resolver: zodResolver(worksheetSchema),
-    defaultValues: workspaceQuery.data?.current_version.worksheet,
+    defaultValues: worksheetDefaults,
     mode: "onBlur",
   });
 
   useEffect(() => {
     if (currentVersion) {
-      reset(currentVersion.worksheet);
+      reset(normalizeWorksheetValues(currentVersion.worksheet));
       setSelectedVersionId(null);
     }
   }, [currentVersion, reset]);

@@ -20,6 +20,8 @@ import type { CallMetric, RunMetrics, RunStatus } from "@/lib/sse/types";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/ui/badge";
 
+import { RUN_PAGE_COPY } from "./run-page-copy";
+
 function allCalls(metrics: RunMetrics): CallMetric[] {
   return [
     ...metrics.judge_calls,
@@ -166,6 +168,9 @@ export function RunMetricsBar({
             </div>
 
             <div className="overflow-x-auto border border-rule-soft bg-paper-2">
+              <p className="px-3 py-2 font-sans text-xs text-ink-muted md:hidden">
+                {RUN_PAGE_COPY.metricsTableScrollHint}
+              </p>
               <table className="w-full min-w-[480px] border-collapse font-sans text-sm">
                 <caption className="sr-only">Per-call metrics</caption>
                 <thead>

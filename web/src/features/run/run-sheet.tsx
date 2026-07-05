@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
-import { AlertTriangle, CheckCircle2, ChevronDown, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, WifiOff, XCircle } from "lucide-react";
 
 import { EditorialContainer } from "@/components/app-shell";
 import { resolveExportIdea } from "@/lib/format/run-idea";
@@ -32,7 +32,6 @@ import { PhaseRail } from "./phase-rail";
 import { RunControls } from "./run-controls";
 import { collapsibleSummaryClass, RunContextGroup } from "./run-context-group";
 import { LatestImprovement } from "./latest-improvement";
-import { NextActionsStrip } from "./next-actions-strip";
 import { PanelQualityDebugBadge } from "./panel-quality-debug";
 import { RUN_PAGE_COPY } from "./run-page-copy";
 import { deriveWorkflowBrief, parseDecisionVerdictProse, parseStructuredSynthesis } from "./structured-synthesis";
@@ -111,6 +110,27 @@ function TerminalBanner({ state }: { state: RunState }) {
   }
 
   return null;
+}
+
+function SseReconnectBanner({
+  reconnecting,
+  status,
+}: {
+  reconnecting: boolean;
+  status: RunStatus;
+}) {
+  if (!reconnecting || isTerminalStatus(status)) return null;
+
+  return (
+    <div
+      className="mt-4 flex items-start gap-3 border border-conditional/40 bg-conditional/5 p-4"
+      role="status"
+      aria-live="polite"
+    >
+      <WifiOff className="mt-0.5 size-5 shrink-0 text-conditional" aria-hidden />
+      <p className="font-sans text-sm text-ink">{RUN_PAGE_COPY.sseReconnecting}</p>
+    </div>
+  );
 }
 
 function RunSheetContent({
@@ -346,11 +366,7 @@ function RunSheetContent({
                   }
                 : undefined
             }
-          />
-          <ConfidenceBars
-            verdicts={revealedVerdicts}
-            structuredSynthesis={stream.structuredSynthesis}
-            className="mt-6"
+            runId={runId}
           />
           <DebateConsequenceBlock
             structuredSynthesis={stream.structuredSynthesis}
@@ -361,10 +377,10 @@ function RunSheetContent({
             topProblems={workflowBrief.problems}
             className="mt-6"
           />
-          <NextActionsStrip
-            runId={runId}
-            experiment={experiment}
-            completed={status === "completed"}
+          <ConfidenceBars
+            verdicts={revealedVerdicts}
+            structuredSynthesis={stream.structuredSynthesis}
+            className="mt-6"
           />
         </div>
       </section>
@@ -411,13 +427,24 @@ function RunSheetContent({
       </section>
     ),
     version: (
-      <VersionComparison
-        version={version}
-        parentRunId={parentRunId}
-        currentVerdicts={revealedVerdicts}
-        structuredSynthesis={stream.structuredSynthesis}
-        completed={status === "completed"}
-      />
+      <>
+        <VersionComparison
+          version={version}
+          parentRunId={parentRunId}
+          currentVerdicts={revealedVerdicts}
+          structuredSynthesis={stream.structuredSynthesis}
+          completed={status === "completed"}
+        />
+        {showDecisionCard && (
+          <LatestImprovement
+            completed={status === "completed"}
+            version={version}
+            parentRunId={parentRunId}
+            currentVerdicts={revealedVerdicts}
+            className="mt-6"
+          />
+        )}
+      </>
     ),
     appeal: (
       <AppealSection
@@ -511,20 +538,11 @@ function RunSheetContent({
         aria-busy={status === "running" || status === "created"}
       >
         <TerminalBanner state={{ ...stream, status }} />
+        <SseReconnectBanner reconnecting={stream.sseReconnecting} status={status} />
 
         <div className="mt-8">
           <PhaseRail phase={stream.phase} />
         </div>
-
-        {showDecisionCard && (
-          <LatestImprovement
-            completed={status === "completed"}
-            version={version}
-            parentRunId={parentRunId}
-            currentVerdicts={revealedVerdicts}
-            className="mt-8"
-          />
-        )}
 
         {RUN_FOLD_ORDERS[variant].map((section) => {
           const node = foldSections[section];

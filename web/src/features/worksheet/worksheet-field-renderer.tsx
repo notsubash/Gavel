@@ -89,7 +89,7 @@ export function WorksheetFieldRenderer({
           placeholder={field.example}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
-          value={values.competitors.join("\n")}
+          value={(values.competitors ?? []).join("\n")}
           onChange={(e) =>
             setValue(
               "competitors",

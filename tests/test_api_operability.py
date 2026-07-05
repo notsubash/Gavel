@@ -13,13 +13,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from api.app import create_app
 from api.rate_limit import TokenBucketLimiter
 from api.run_manager import RunManager
-from api.schemas import CreateRunRequest
+import api.workspace_store as ws_mod
+from api.workspace_store import WorkspaceStore
 from config import Settings
 from events import PhaseStarted, RoastPanelCompleted
 from judges.schemas import RoastPanel, Verdict
 import tests  # noqa: F401
-
-IDEA = "An AI-powered journal for startup founders with daily reflection prompts."
+from tests.test_api_runs import _post_run, _workspace_request
 
 
 def _verdict(judge: str) -> Verdict:
@@ -47,13 +47,24 @@ def _panel() -> RoastPanel:
 class ApiOperabilityTest(unittest.TestCase):
     def setUp(self):
         self._tmpdir = tempfile.TemporaryDirectory()
-        self.db_path = Path(self._tmpdir.name) / "runs.db"
+        base = Path(self._tmpdir.name)
+        self.db_path = base / "runs.db"
+        self.ws_store = WorkspaceStore(db_path=base / "workspaces.db")
+        self._orig_store = ws_mod._store
+        ws_mod._store = self.ws_store
         self.manager = RunManager(db_path=self.db_path, recover_on_init=False)
         self.client = TestClient(create_app(manager=self.manager))
 
     def tearDown(self):
+        ws_mod._store = self._orig_store
         self.manager.close()
+        self.ws_store.close()
         self._tmpdir.cleanup()
+
+    def _create_run(self, client=None, **extra) -> str:
+        response, _ = _post_run(client or self.client, **extra)
+        self.assertEqual(response.status_code, 200, response.text)
+        return response.json()["run_id"]
 
     @patch("api.run_manager.build_research_context_for_run", return_value=None)
     @patch("api.run_manager.build_model_for_run")
@@ -74,8 +85,7 @@ class ApiOperabilityTest(unittest.TestCase):
 
         stream_pipeline_mock.side_effect = blocked_pipeline
 
-        create_response = self.client.post("/api/runs", json={"idea": IDEA})
-        run_id = create_response.json()["run_id"]
+        run_id = self._create_run()
 
         def consume_events():
             self.client.get(f"/api/runs/{run_id}/events")
@@ -113,8 +123,7 @@ class ApiOperabilityTest(unittest.TestCase):
         _research_mock,
     ):
         build_model_mock.return_value = object()
-        create_response = self.client.post("/api/runs", json={"idea": IDEA})
-        run_id = create_response.json()["run_id"]
+        run_id = self._create_run()
 
         cancel_response = self.client.post(f"/api/runs/{run_id}/cancel")
         self.assertEqual(cancel_response.status_code, 200)
@@ -150,8 +159,7 @@ class ApiOperabilityTest(unittest.TestCase):
                 ),
             ]
         )
-        create_response = self.client.post("/api/runs", json={"idea": IDEA})
-        run_id = create_response.json()["run_id"]
+        run_id = self._create_run()
         self.client.get(f"/api/runs/{run_id}/events")
 
         deadline = time.monotonic() + 5.0
@@ -184,8 +192,7 @@ class ApiOperabilityTest(unittest.TestCase):
 
         stream_pipeline_mock.side_effect = blocked_pipeline
 
-        create_response = self.client.post("/api/runs", json={"idea": IDEA})
-        run_id = create_response.json()["run_id"]
+        run_id = self._create_run()
 
         def consume_events():
             self.client.get(f"/api/runs/{run_id}/events")
@@ -227,8 +234,7 @@ class ApiOperabilityTest(unittest.TestCase):
             ]
         )
 
-        create_response = self.client.post("/api/runs", json={"idea": IDEA})
-        run_id = create_response.json()["run_id"]
+        run_id = self._create_run()
         self.client.get(f"/api/runs/{run_id}/events")
 
         event_types = [envelope.type for envelope in self.manager.list_events(run_id)]
@@ -258,8 +264,8 @@ class ApiOperabilityTest(unittest.TestCase):
         with patch("api.app.get_settings", return_value=limited):
             client = TestClient(create_app(manager=self.manager))
 
-        first = client.post("/api/runs", json={"idea": IDEA})
-        second = client.post("/api/runs", json={"idea": IDEA})
+        first, _ = _post_run(client)
+        second, _ = _post_run(client)
         self.assertEqual(first.status_code, 200)
         self.assertEqual(second.status_code, 429)
 
@@ -327,7 +333,8 @@ class ApiOperabilityTest(unittest.TestCase):
 
         run_ids: list[str] = []
         for _ in range(2):
-            create_response = client.post("/api/runs", json={"idea": IDEA})
+            create_response, _ = _post_run(client)
+            self.assertEqual(create_response.status_code, 200, create_response.text)
             run_id = create_response.json()["run_id"]
             run_ids.append(run_id)
             _fetch_sse_events(client, run_id, manager=self.manager)
@@ -385,9 +392,7 @@ class ApiOperabilityTest(unittest.TestCase):
         )
 
         async def run_budget_scenario():
-            record = self.manager.create(
-                CreateRunRequest.model_validate({"idea": IDEA, "model_runtime": "local"})
-            )
+            record = self.manager.create(_workspace_request(self.ws_store, model_runtime="local"))
             self.manager.ensure_started(record.run_id, settings)
             task = self.manager._runs[record.run_id].task
             assert task is not None

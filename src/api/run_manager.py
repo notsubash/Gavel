@@ -50,7 +50,8 @@ from observability.metrics import log_run_metrics
 from pipeline import stream_pipeline
 from research.service import format_research_context
 from run_control import RunAbort
-from validation.legacy import legacy_request_to_worksheet
+from validation.ingest import build_run_handoff
+from validation.readiness import evaluate_readiness
 
 logger = logging.getLogger(__name__)
 
@@ -184,36 +185,100 @@ class RunManager:
         self._store.close()
 
     def create(self, request: CreateRunRequest) -> RunRecord:
-        version = 1
+        ws_store = workspace_store.get_workspace_store()
+        workspace = ws_store.get_workspace(request.workspace_id)
+        if workspace is None:
+            raise ValueError(f"workspace {request.workspace_id!r} not found")
+
+        version_id = request.worksheet_version_id or workspace.current_version_id
+        if version_id is None:
+            raise ValueError("workspace has no worksheet version")
+        version = ws_store.get_version(version_id)
+        if version is None or version.workspace_id != request.workspace_id:
+            raise ValueError(f"worksheet version {version_id!r} not found")
+
+        if not request.readiness_override:
+            readiness = evaluate_readiness(
+                version.worksheet,
+                ws_store.list_evidence(request.workspace_id),
+                has_prior_run=ws_store.count_runs(request.workspace_id) > 0,
+                worksheet_changed_since_run=ws_store.worksheet_changed_since_last_run(
+                    request.workspace_id
+                ),
+            )
+            if not readiness.can_run_judges:
+                raise ValueError(
+                    f"Readiness gate blocked roast ({readiness.level}). "
+                    "Set readiness_override=true to run anyway."
+                )
+
+        version_num = 1
         parent_run_id = request.parent_run_id
         if parent_run_id:
             parent = self.get(parent_run_id)
             if parent is None:
                 raise ValueError(f"parent run {parent_run_id!r} not found")
-            version = parent.request.version + 1
-        request = request.model_copy(update={"version": version, "parent_run_id": parent_run_id})
+            if parent.request.workspace_id != request.workspace_id:
+                raise ValueError("parent run belongs to a different workspace")
+            version_num = parent.request.version + 1
+
+        request = request.model_copy(
+            update={
+                "version": version_num,
+                "parent_run_id": parent_run_id,
+                "worksheet_version_id": version_id,
+            }
+        )
         run_id = str(uuid4())
         record = RunRecord(run_id=run_id, request=request)
         self._store.insert_run(record)
-        self._link_legacy_workspace(run_id, request, parent_run_id)
+        ws_store.link_run(run_id, request.workspace_id, version_id)
+        ws_store.sync_lifecycle(request.workspace_id)
         self._runs[run_id] = _RunState(record, store=self._store)
         return record
 
-    def _link_legacy_workspace(
-        self,
-        run_id: str,
-        request: CreateRunRequest,
-        parent_run_id: str | None,
-    ) -> None:
+    def _ingest_run_handoff(self, run_id: str) -> None:
+        record = self.get(run_id)
+        if record is None:
+            return
+        completed = self._store.get_latest_event(run_id, "run_completed")
+        if completed is None:
+            return
+        roast_panel_raw = completed.payload.get("roast_panel")
+        if not isinstance(roast_panel_raw, dict):
+            return
+        try:
+            panel = RoastPanel.model_validate(roast_panel_raw)
+        except Exception:
+            logger.exception("Could not parse roast panel for handoff on run %s", run_id)
+            return
+        debate_result = completed.payload.get("debate_result")
+        items = build_run_handoff(
+            roast_panel=panel,
+            debate_result=debate_result if isinstance(debate_result, dict) else None,
+        )
+        if not items:
+            return
         ws_store = workspace_store.get_workspace_store()
-        if parent_run_id:
-            link = ws_store.get_run_link(parent_run_id)
-            if link:
-                ws_store.link_run(run_id, link[0], link[1])
-                return
-        worksheet = legacy_request_to_worksheet(request)
-        workspace, version, _ = ws_store.create_workspace(worksheet)
-        ws_store.link_run(run_id, workspace.id, version.id)
+        ws_store.save_run_handoff(run_id, record.request.workspace_id, items)
+
+    def list_runs_for_workspace(
+        self, workspace_id: str, *, limit: int = 20, offset: int = 0
+    ) -> tuple[list[tuple[RunRecord, VerdictSummary | None]], int]:
+        ws_store = workspace_store.get_workspace_store()
+        run_ids, total = ws_store.list_run_ids(workspace_id, limit=limit, offset=offset)
+        items: list[tuple[RunRecord, VerdictSummary | None]] = []
+        for run_id in run_ids:
+            record = self.get(run_id)
+            if record is None:
+                continue
+            summary = (
+                _summary_for_completed_run(self._store, run_id)
+                if record.status == "completed"
+                else None
+            )
+            items.append((record, summary))
+        return items, total
 
     def get_effective_panel(self, run_id: str) -> dict | None:
         record = self.get(run_id)
@@ -293,7 +358,7 @@ class RunManager:
             raise KeyError(run_id)
 
         store = get_idea_store()
-        query_text = build_startup_idea_context(record.request)
+        query_text = build_startup_idea_context(run_id, record.request)
         candidates = records_for_memory(store, LOCAL_USER, query_text, limit=limit + 1)
         items: list[SimilarRunItem] = []
         for idea in candidates:
@@ -343,7 +408,7 @@ class RunManager:
         )
 
         model = build_model_for_run(record.request, settings)
-        startup_idea = build_startup_idea_context(record.request)
+        startup_idea = build_startup_idea_context(run_id, record.request)
         result = await asyncio.to_thread(
             run_appeal,
             model,
@@ -490,7 +555,7 @@ class RunManager:
                     return "budget_exceeded"
                 return None
 
-            startup_idea = build_startup_idea_context(record.request)
+            startup_idea = build_startup_idea_context(run_id, record.request)
             model = build_model_for_run(record.request, settings)
             research = build_research_context_for_run(record.request, startup_idea, settings, model)
             if research is not None:
@@ -518,6 +583,8 @@ class RunManager:
             if "run_completed" in event_types:
                 record.status = "completed"
                 self._store.update_status(run_id, "completed")
+                self._ingest_run_handoff(run_id)
+                workspace_store.get_workspace_store().sync_lifecycle(record.request.workspace_id)
             elif state._cancel.is_set():
                 record.status = "cancelled"
                 self._store.update_status(run_id, "cancelled")

@@ -1,0 +1,167 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
+
+import { PostRoastHandoff } from "@/features/judges/post-roast-handoff";
+import { ReadinessGateModal } from "@/features/judges/readiness-gate-modal";
+import { WorkspaceNav } from "@/features/workspace/workspace-nav";
+import { ApiError } from "@/lib/api/client";
+import { createRun } from "@/lib/api/runs";
+import { parseApiDetail } from "@/lib/api/types-helpers";
+import {
+  getReadiness,
+  getRunHandoff,
+  getWorkspace,
+  listWorkspaceRuns,
+  readinessBriefing,
+  workspaceQueryKey,
+} from "@/lib/api/workspaces";
+import { Badge } from "@/ui/badge";
+import { Button } from "@/ui/button";
+import { Card } from "@/ui/card";
+import { Skeleton } from "@/ui/skeleton";
+
+const READINESS_LABEL: Record<string, string> = {
+  too_vague: "Too vague",
+  speculative: "Speculative",
+  ready: "Ready for judges",
+};
+
+export function JudgesView({ workspaceId }: { workspaceId: string }) {
+  const router = useRouter();
+  const [gateOpen, setGateOpen] = useState(false);
+  const [briefing, setBriefing] = useState<string | null>(null);
+
+  const workspaceQuery = useQuery({
+    queryKey: workspaceQueryKey(workspaceId),
+    queryFn: () => getWorkspace(workspaceId),
+  });
+
+  const runsQuery = useQuery({
+    queryKey: ["workspace", workspaceId, "runs"],
+    queryFn: () => listWorkspaceRuns(workspaceId),
+  });
+
+  const readinessQuery = useQuery({
+    queryKey: ["workspace", workspaceId, "readiness"],
+    queryFn: () => getReadiness(workspaceId),
+    enabled: gateOpen,
+  });
+
+  const latestRunId = runsQuery.data?.runs[0]?.run_id;
+  const handoffQuery = useQuery({
+    queryKey: ["run", latestRunId, "handoff"],
+    queryFn: () => getRunHandoff(latestRunId!),
+    enabled: Boolean(latestRunId),
+  });
+
+  const briefingMutation = useMutation({
+    mutationFn: () => readinessBriefing(workspaceId),
+    onSuccess: (data) => setBriefing(data.briefing),
+    onError: () => toast.error("Could not load readiness briefing"),
+  });
+
+  const launchMutation = useMutation({
+    mutationFn: (readinessOverride: boolean) =>
+      createRun({ workspace_id: workspaceId, readiness_override: readinessOverride }),
+    onSuccess: (data) => {
+      setGateOpen(false);
+      router.push(`/run/${data.run_id}`);
+    },
+    onError: (error) => {
+      const message =
+        error instanceof ApiError ? parseApiDetail(error.body) : "Could not start roast";
+      toast.error(message ?? "Could not start roast");
+    },
+  });
+
+  const workingName =
+    workspaceQuery.data?.current_version.worksheet.working_name ?? "Workspace";
+
+  if (workspaceQuery.isLoading) {
+    return <Skeleton className="h-48 w-full" />;
+  }
+
+  if (workspaceQuery.isError || !workspaceQuery.data) {
+    return <p className="font-sans text-sm text-fail">Could not load workspace.</p>;
+  }
+
+  const readiness = readinessQuery.data ?? null;
+
+  return (
+    <div className="space-y-8">
+      <header className="space-y-2">
+        <p className="font-sans text-meta font-semibold uppercase tracking-widest text-cta">
+          Judges
+        </p>
+        <h1 className="font-serif text-display text-ink">{workingName}</h1>
+        <p className="max-w-2xl font-sans text-sm text-ink-muted">
+          Launch a five-judge roast when your worksheet is ready, then turn their evidence asks into
+          validation work.
+        </p>
+      </header>
+
+      <WorkspaceNav workspaceId={workspaceId} />
+
+      <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="font-sans text-sm font-semibold text-ink">Ready to roast?</p>
+          <p className="mt-1 font-sans text-sm text-ink-muted">
+            We check worksheet structure and evidence before judges run.
+          </p>
+        </div>
+        <Button type="button" onClick={() => setGateOpen(true)}>
+          Launch roast
+        </Button>
+      </Card>
+
+      <section className="space-y-3">
+        <h2 className="font-serif text-xl text-ink">Run history</h2>
+        {runsQuery.isLoading ? <Skeleton className="h-24 w-full" /> : null}
+        {runsQuery.data && runsQuery.data.runs.length === 0 ? (
+          <p className="font-sans text-sm text-ink-muted">No roasts yet for this workspace.</p>
+        ) : null}
+        <ul className="space-y-2">
+          {(runsQuery.data?.runs ?? []).map((run) => (
+            <li key={run.run_id}>
+              <Link
+                href={`/run/${run.run_id}`}
+                className="flex flex-wrap items-center justify-between gap-2 border border-line bg-card px-4 py-3 transition-colors hover:border-ink/30"
+              >
+                <div>
+                  <p className="font-sans text-sm font-medium text-ink">{run.idea_preview}</p>
+                  <p className="font-mono text-xs text-ink-subtle">
+                    Run {run.run_id.slice(0, 8)} · v{run.version}
+                  </p>
+                </div>
+                <Badge variant={run.status === "completed" ? "pass" : "default"}>
+                  {run.status}
+                </Badge>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {handoffQuery.data && handoffQuery.data.items.length > 0 ? (
+        <PostRoastHandoff workspaceId={workspaceId} items={handoffQuery.data.items} />
+      ) : null}
+
+      <ReadinessGateModal
+        open={gateOpen}
+        onOpenChange={setGateOpen}
+        readiness={readiness}
+        briefing={briefing}
+        briefingLoading={briefingMutation.isPending}
+        onFetchBriefing={() => briefingMutation.mutate()}
+        onLaunch={(override) => launchMutation.mutate(override)}
+        launching={launchMutation.isPending}
+      />
+    </div>
+  );
+}

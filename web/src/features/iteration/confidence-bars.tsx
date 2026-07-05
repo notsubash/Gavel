@@ -10,7 +10,6 @@ import {
   type ConfidenceDimensionScore,
   type ConfidenceSnapshot,
 } from "@/lib/confidence/confidence";
-import { isConfidenceEngineEnabled } from "@/lib/feature-flags";
 import type { Verdict } from "@/lib/sse/types";
 import { cn } from "@/lib/utils";
 
@@ -163,7 +162,7 @@ export function ConfidenceBars({
     [providedSnapshot, structuredSynthesis, verdicts],
   );
 
-  if (!isConfidenceEngineEnabled() || !snapshot) return null;
+  if (!snapshot) return null;
 
   return (
     <section

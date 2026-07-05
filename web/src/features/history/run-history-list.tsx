@@ -6,7 +6,6 @@ import { useQuery } from "@tanstack/react-query";
 import { EditorialContainer } from "@/components/app-shell";
 import { ApiError } from "@/lib/api/client";
 import { listRuns } from "@/lib/api/runs";
-import { isUiShellV2Enabled, isWorkspaceHistoryEnabled } from "@/lib/feature-flags";
 import { heatCtaClass } from "@/lib/cta-classes";
 import { groupByLineage } from "@/lib/lineage/lineage";
 import { deriveStartupWorkspace } from "@/lib/lineage/workspace";
@@ -47,9 +46,7 @@ function HistorySkeleton({ rowBased }: { rowBased: boolean }) {
 }
 
 export function RunHistoryList() {
-  const workspaceHistory = isWorkspaceHistoryEnabled();
-  const shellV2 = isUiShellV2Enabled();
-  const copy = workspaceHistory ? HISTORY_COPY : HISTORY_COPY_LEGACY;
+  const copy = true ? HISTORY_COPY : HISTORY_COPY_LEGACY;
   const query = useQuery({
     queryKey: ["runs", "list"],
     queryFn: () => listRuns(),
@@ -57,7 +54,7 @@ export function RunHistoryList() {
   });
 
   return (
-    <EditorialContainer className={shellV2 ? "py-4 md:py-6" : "py-12 md:py-16 lg:py-24"}>
+    <EditorialContainer className={true ? "py-4 md:py-6" : "py-12 md:py-16 lg:py-24"}>
       <header>
         <p className="font-sans text-meta font-semibold uppercase tracking-widest text-cta">
           {copy.eyebrow}
@@ -65,7 +62,7 @@ export function RunHistoryList() {
         <h1
           className={cn(
             "mt-2 font-sans font-semibold text-ink",
-            shellV2 ? "text-section" : "text-title md:text-display-md",
+            true ? "text-section" : "text-title md:text-display-md",
           )}
         >
           {copy.title}
@@ -75,8 +72,8 @@ export function RunHistoryList() {
         </p>
       </header>
 
-      <div className={shellV2 ? "mt-6" : "mt-10"}>
-        {query.isLoading && <HistorySkeleton rowBased={workspaceHistory} />}
+      <div className={true ? "mt-6" : "mt-10"}>
+        {query.isLoading && <HistorySkeleton rowBased={true} />}
 
         {query.isError && (
           <div className="surface-flat p-6" role="alert">
@@ -95,13 +92,13 @@ export function RunHistoryList() {
             <p className="mt-2 font-sans text-meta text-ink-muted">
               {copy.emptyDescription}
             </p>
-            <Link href="/" className={cn("mt-6 inline-flex", heatCtaClass)}>
+            <Link href="/workspaces/new" className={cn("mt-6 inline-flex", heatCtaClass)}>
               {RUN_PAGE_COPY.submitIdea}
             </Link>
           </div>
         )}
 
-        {query.isSuccess && query.data.runs.length > 0 && workspaceHistory && (
+        {query.isSuccess && query.data.runs.length > 0 && true && (
           <ul className="border border-rule-soft">
             {groupByLineage(query.data.runs).map((lineage) => (
               <WorkspaceHistoryRow
@@ -112,7 +109,7 @@ export function RunHistoryList() {
           </ul>
         )}
 
-        {query.isSuccess && query.data.runs.length > 0 && !workspaceHistory && (
+        {query.isSuccess && query.data.runs.length > 0 && !true && (
           <ul className="space-y-4">
             {groupByLineage(query.data.runs).map((lineage) => (
               <LineageHistoryGroup key={lineage[0]!.run_id} lineage={lineage} />

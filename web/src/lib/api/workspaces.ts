@@ -449,6 +449,74 @@ export async function clarifyField(body: {
   });
 }
 
+export type ReadinessCheck = {
+  name: string;
+  passed: boolean;
+  detail: string | null;
+};
+
+export type ReadinessResponse = {
+  level: "too_vague" | "speculative" | "ready";
+  checks: ReadinessCheck[];
+  can_run_judges: boolean;
+};
+
+export type RunHandoffItem = {
+  kind: "assumption" | "evidence_target" | "experiment";
+  title: string;
+  detail: string;
+  source_judge: string | null;
+};
+
+export type RunHandoffResponse = {
+  run_id: string;
+  workspace_id: string;
+  items: RunHandoffItem[];
+};
+
+export async function getReadiness(workspaceId: string): Promise<ReadinessResponse> {
+  return apiClient<ReadinessResponse>(`/api/workspaces/${workspaceId}/readiness`);
+}
+
+export async function readinessBriefing(
+  workspaceId: string,
+): Promise<{ briefing: string }> {
+  return apiClient(`/api/workspaces/${workspaceId}/assist/readiness-briefing`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function listWorkspaceRuns(
+  workspaceId: string,
+  params?: { limit?: number; offset?: number },
+): Promise<{
+  runs: Array<{
+    run_id: string;
+    status: string;
+    idea_preview: string;
+    created_at: string;
+    workspace_id: string | null;
+    worksheet_version_id: string | null;
+    version: number;
+    parent_run_id: string | null;
+    verdict_summary: Record<string, unknown> | null;
+  }>;
+  total: number;
+  limit: number;
+  offset: number;
+}> {
+  const search = new URLSearchParams();
+  if (params?.limit != null) search.set("limit", String(params.limit));
+  if (params?.offset != null) search.set("offset", String(params.offset));
+  const qs = search.toString();
+  return apiClient(`/api/workspaces/${workspaceId}/runs${qs ? `?${qs}` : ""}`);
+}
+
+export async function getRunHandoff(runId: string): Promise<RunHandoffResponse> {
+  return apiClient<RunHandoffResponse>(`/api/runs/${runId}/handoff`);
+}
+
 export const CONFIDENCE_DISPLAY: Record<string, string> = {
   unknown: "Unknown",
   weak: "Weak",

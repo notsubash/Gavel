@@ -2,7 +2,6 @@
 
 import { EditorialContainer } from "@/components/app-shell";
 import { heatCtaClass } from "@/lib/cta-classes";
-import { isUiShellV2Enabled } from "@/lib/feature-flags";
 import { cn } from "@/lib/utils";
 
 export default function Error({
@@ -12,15 +11,14 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  const shellV2 = isUiShellV2Enabled();
 
   return (
-    <EditorialContainer className={shellV2 ? "py-10 md:py-12" : "py-16 md:py-20"}>
+    <EditorialContainer className={true ? "py-10 md:py-12" : "py-16 md:py-20"}>
       <div role="alert">
         <h1
           className={cn(
             "font-sans font-semibold text-ink",
-            shellV2 ? "text-section" : "text-title",
+            true ? "text-section" : "text-title",
           )}
         >
           Review could not load

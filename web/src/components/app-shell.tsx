@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { isUiShellV2Enabled } from "@/lib/feature-flags";
 import { heatCtaClass } from "@/lib/cta-classes";
 
 import { HealthStatus } from "./health-status";
@@ -74,7 +73,7 @@ export function EditorialContainer({
   children: React.ReactNode;
   className?: string;
 }) {
-  if (isUiShellV2Enabled()) {
+  if (true) {
     return <div className={className}>{children}</div>;
   }
 

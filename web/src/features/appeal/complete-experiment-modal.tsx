@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { Loader2, Paperclip } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -15,10 +15,8 @@ import { parseApiDetail, APPEAL_MAX_LENGTH, APPEAL_MIN_LENGTH } from "@/lib/api/
 import { appealCoachingHint } from "@/lib/appeal/coaching";
 import type { Experiment } from "@/lib/experiment/experiment";
 import {
-  nextExperimentStatus,
   formatEffort,
 } from "@/lib/experiment/experiment";
-import { setStoredExperimentStatus } from "@/lib/experiment/experiment-storage";
 import { JUDGE_META } from "@/lib/sse/judges";
 import type { JudgeId, Verdict } from "@/lib/sse/types";
 import { Button } from "@/ui/button";
@@ -109,12 +107,6 @@ export function CompleteExperimentModal({
     mode: "onBlur",
   });
 
-  useEffect(() => {
-    if (open) {
-      setStoredExperimentStatus(runId, nextExperimentStatus(experiment.status, "start"));
-    }
-  }, [open, runId, experiment.status]);
-
   const length = watch("appeal_text").trim().length;
   const verdictByJudge = useMemo(
     () => new Map(baselineVerdicts.map((verdict) => [verdict.judge, verdict])),
@@ -136,7 +128,6 @@ export function CompleteExperimentModal({
       });
     },
     onSuccess: (result) => {
-      setStoredExperimentStatus(runId, "submitted");
       reset();
       onOpenChange(false);
       onSuccess(result);

@@ -1,6 +1,5 @@
-import { isUiShellV2Enabled } from "@/lib/feature-flags";
 
-const legacyShadow = isUiShellV2Enabled() ? "" : " shadow-soft";
+const legacyShadow = "";
 
 /** Primary CTA — white on sky-700 passes WCAG AA. */
 export const heatCtaClass =

@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { ArrowDown, ArrowUp, Minus } from "lucide-react";
 
 import { deriveDebateConsequence, type DebateConsequence } from "@/lib/debate/debate-consequence";
-import { isJudgeIdentityEnabled } from "@/lib/feature-flags";
 import type { JudgeId, Verdict } from "@/lib/sse/types";
 import { cn } from "@/lib/utils";
 
@@ -52,8 +51,6 @@ export function DebateConsequenceBlock({
   topProblems?: string[];
   className?: string;
 }) {
-  if (!isJudgeIdentityEnabled()) return null;
-
   const consequence = deriveDebateConsequence({
     structuredSynthesis,
     synthesisProse,

@@ -2,7 +2,6 @@
 
 import { AlertCircle } from "lucide-react";
 
-import { isJudgeIdentityEnabled } from "@/lib/feature-flags";
 import { JUDGE_META } from "@/lib/sse/judges";
 import type { JudgeView, JudgeId, Verdict } from "@/lib/sse/types";
 import { cn } from "@/lib/utils";
@@ -32,7 +31,7 @@ export { JudgeLensTag };
 
 export function JudgeColumnSkeleton({ judgeId }: { judgeId?: JudgeId } = {}) {
   const meta = judgeId ? JUDGE_META[judgeId] : null;
-  const compact = isJudgeIdentityEnabled();
+  const compact = true;
 
   return (
     <article
@@ -258,7 +257,7 @@ export function JudgeColumn({
   baselineVerdict?: Verdict;
 }) {
   const meta = JUDGE_META[judgeId];
-  const compact = isJudgeIdentityEnabled();
+  const compact = true;
 
   if (view.status === "failed") {
     return (

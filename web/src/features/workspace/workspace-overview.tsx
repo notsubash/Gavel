@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
+import { WorkspaceNav } from "@/features/workspace/workspace-nav";
 import {
   CONFIDENCE_DISPLAY,
   getValidationOverview,
@@ -155,6 +156,7 @@ export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
         <h1 className="font-sans text-display-home font-semibold tracking-tight text-ink md:text-display-md">
           {ws.working_name}
         </h1>
+        <WorkspaceNav workspaceId={workspaceId} />
         <p className="max-w-prose font-sans text-body text-ink-muted">{ws.audience}</p>
         <div className="flex flex-wrap gap-3">
           <Button asChild>
@@ -162,6 +164,9 @@ export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
           </Button>
           <Button asChild variant="outline">
             <Link href={`/workspaces/${workspaceId}/worksheet`}>Edit worksheet</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href={`/workspaces/${workspaceId}/judges`}>Judges</Link>
           </Button>
           <Button
             type="button"

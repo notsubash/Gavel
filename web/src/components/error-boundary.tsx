@@ -39,7 +39,7 @@ export class ErrorBoundary extends Component<Props, State> {
             <p className="mt-4 max-w-prose text-ink-muted">
               The page hit an unexpected error. Refresh to try again, or head back home.
             </p>
-            <Link href="/" className={`mt-8 ${heatCtaClass} px-6`}>
+            <Link href="/workspaces/new" className={`mt-8 ${heatCtaClass} px-6`}>
               Back home
             </Link>
           </div>

@@ -2,9 +2,11 @@
 import type { WorksheetValues } from "./worksheet-schema";
 
 export function composeWorksheetPreview(worksheet: WorksheetValues): string {
-  const competitors =
-    worksheet.competitors.length > 0
-      ? worksheet.competitors.map((c) => `- ${c}`).join("\n")
+  const competitors = worksheet.competitors ?? [];
+
+  const competitors_text =
+    competitors.length > 0
+      ? competitors.map((c) => `- ${c}`).join("\n")
       : "None listed";
 
   const lines = [
@@ -22,7 +24,7 @@ export function composeWorksheetPreview(worksheet: WorksheetValues): string {
     "",
     `Existing evidence: ${worksheet.existing_evidence || "…"}`,
     "",
-    `Competitors and alternatives:\n${competitors}`,
+    `Competitors and alternatives:\n${competitors_text}`,
     "",
     `Top risky assumption: ${worksheet.top_risky_assumption || "…"}`,
     "",

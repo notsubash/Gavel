@@ -84,6 +84,13 @@ CREATE INDEX IF NOT EXISTS idx_assumptions_workspace
 CREATE INDEX IF NOT EXISTS idx_workspace_runs_workspace
     ON workspace_runs (workspace_id);
 
+CREATE TABLE IF NOT EXISTS run_handoffs (
+    run_id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL,
+    handoff_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS experiments (
     id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL REFERENCES workspaces(id),
@@ -570,16 +577,79 @@ class WorkspaceStore:
             ).fetchone()
         return int(row[0]) if row else 0
 
-    def get_last_run_version_id(self, workspace_id: str) -> str | None:
+    def list_run_ids(
+        self, workspace_id: str, *, limit: int = 20, offset: int = 0
+    ) -> tuple[list[str], int]:
+        with self._lock:
+            total = int(
+                self._conn.execute(
+                    "SELECT COUNT(*) FROM workspace_runs WHERE workspace_id = ?",
+                    (workspace_id,),
+                ).fetchone()[0]
+            )
+            rows = self._conn.execute(
+                """
+                SELECT run_id FROM workspace_runs
+                WHERE workspace_id = ?
+                ORDER BY rowid DESC
+                LIMIT ? OFFSET ?
+                """,
+                (workspace_id, limit, offset),
+            ).fetchall()
+        return [row[0] for row in rows], total
+
+    def save_run_handoff(self, run_id: str, workspace_id: str, items: list) -> None:
+        from api.schemas import RunHandoffItem
+
+        now = datetime.now(UTC).isoformat()
+        payload = [RunHandoffItem.model_validate(item).model_dump() for item in items]
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT OR REPLACE INTO run_handoffs (run_id, workspace_id, handoff_json, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (run_id, workspace_id, json.dumps(payload), now),
+            )
+            self._conn.commit()
+
+    def get_run_handoff(self, run_id: str) -> tuple[str, list] | None:
+        from api.schemas import RunHandoffItem
+
         with self._lock:
             row = self._conn.execute(
-                """
-                SELECT worksheet_version_id FROM workspace_runs
-                WHERE workspace_id = ?
-                ORDER BY rowid DESC LIMIT 1
-                """,
-                (workspace_id,),
+                "SELECT workspace_id, handoff_json FROM run_handoffs WHERE run_id = ?",
+                (run_id,),
             ).fetchone()
+        if row is None:
+            return None
+        workspace_id, handoff_json = row
+        raw = json.loads(handoff_json)
+        items = [RunHandoffItem.model_validate(item) for item in raw]
+        return workspace_id, items
+
+    def get_last_run_version_id(
+        self, workspace_id: str, *, exclude_run_id: str | None = None
+    ) -> str | None:
+        with self._lock:
+            if exclude_run_id:
+                row = self._conn.execute(
+                    """
+                    SELECT worksheet_version_id FROM workspace_runs
+                    WHERE workspace_id = ? AND run_id != ?
+                    ORDER BY rowid DESC LIMIT 1
+                    """,
+                    (workspace_id, exclude_run_id),
+                ).fetchone()
+            else:
+                row = self._conn.execute(
+                    """
+                    SELECT worksheet_version_id FROM workspace_runs
+                    WHERE workspace_id = ?
+                    ORDER BY rowid DESC LIMIT 1
+                    """,
+                    (workspace_id,),
+                ).fetchone()
         return row[0] if row else None
 
     def worksheet_changed_since_last_run(self, workspace_id: str) -> bool:

@@ -257,6 +257,10 @@ class ReadinessResponse(BaseModel):
     can_run_judges: bool
 
 
+class ReadinessBriefingResponse(BaseModel):
+    briefing: str = Field(min_length=20, max_length=2000)
+
+
 class ValidationOverviewResponse(BaseModel):
     checklist: ChecklistResponse
     confidence: ConfidenceResponse

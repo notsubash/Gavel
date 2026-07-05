@@ -4,11 +4,10 @@ import { ClipboardList, Target } from "lucide-react";
 
 import { heatCtaClass } from "@/lib/cta-classes";
 import type { Experiment } from "@/lib/experiment/experiment";
-import { isExperimentEntityEnabled } from "@/lib/feature-flags";
 import type { Verdict } from "@/lib/sse/types";
 import { cn } from "@/lib/utils";
 
-import { ExperimentCard, ExperimentLegacyText } from "./experiment-card";
+import { ExperimentCard } from "./experiment-card";
 import { RUN_PAGE_COPY } from "./run-page-copy";
 import { deriveWorkflowBrief } from "./structured-synthesis";
 
@@ -90,11 +89,7 @@ export function WorkflowBrief({
         </section>
       )}
 
-      {isExperimentEntityEnabled() ? (
-        <ExperimentCard experiment={experiment} />
-      ) : (
-        <ExperimentLegacyText experiment={experiment} />
-      )}
+      <ExperimentCard experiment={experiment} />
 
       {completed && evidenceLink && (
         <section

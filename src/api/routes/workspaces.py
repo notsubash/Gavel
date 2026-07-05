@@ -7,6 +7,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 
+from api.routes.runs import _run_list_item
+from api.run_manager import RunManager, get_run_manager
+from api.schemas import RunListResponse
 from api.workspace_store import WorkspaceStore, get_workspace_store
 from validation.checklist import build_checklist
 from validation.confidence import compute_confidence
@@ -18,6 +21,7 @@ from validation.llm.draft import draft_from_notes
 from validation.llm.evidence_map import map_evidence_to_assumptions
 from validation.llm.experiments import suggest_experiment
 from validation.llm.interviews import suggest_interview_questions
+from validation.llm.readiness import readiness_briefing
 from validation.llm.revise import revise_from_evidence
 from validation.llm.summarize import summarize_interview
 from validation.readiness import evaluate_readiness
@@ -43,6 +47,7 @@ from validation.schemas import (
     MapEvidenceRequest,
     MapEvidenceResponse,
     PersistAssumptionsRequest,
+    ReadinessBriefingResponse,
     ReadinessResponse,
     ReviseFromEvidenceRequest,
     ReviseFromEvidenceResponse,
@@ -297,6 +302,50 @@ def get_readiness(
         evidence,
         has_prior_run=store.count_runs(workspace_id) > 0,
         worksheet_changed_since_run=store.worksheet_changed_since_last_run(workspace_id),
+    )
+
+
+@router.post(
+    "/{workspace_id}/assist/readiness-briefing",
+    response_model=ReadinessBriefingResponse,
+)
+def assist_readiness_briefing(
+    workspace_id: str,
+    store: Annotated[WorkspaceStore, Depends(get_workspace_store)],
+) -> ReadinessBriefingResponse:
+    version, _, evidence, _, _ = _validation_state(store, workspace_id)
+    readiness = evaluate_readiness(
+        version.worksheet,
+        evidence,
+        has_prior_run=store.count_runs(workspace_id) > 0,
+        worksheet_changed_since_run=store.worksheet_changed_since_last_run(workspace_id),
+    )
+    try:
+        return readiness_briefing(version.worksheet, readiness)
+    except Exception as exc:
+        logger.exception("readiness-briefing failed")
+        raise HTTPException(status_code=503, detail="AI briefing unavailable") from exc
+
+
+@router.get("/{workspace_id}/runs", response_model=RunListResponse)
+def list_workspace_runs(
+    workspace_id: str,
+    store: Annotated[WorkspaceStore, Depends(get_workspace_store)],
+    manager: Annotated[RunManager, Depends(get_run_manager)],
+    limit: int = 20,
+    offset: int = 0,
+) -> RunListResponse:
+    _require_workspace(store, workspace_id)
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=422, detail="limit must be between 1 and 100")
+    if offset < 0:
+        raise HTTPException(status_code=422, detail="offset must be >= 0")
+    items, total = manager.list_runs_for_workspace(workspace_id, limit=limit, offset=offset)
+    return RunListResponse(
+        runs=[_run_list_item(record, summary) for record, summary in items],
+        total=total,
+        limit=limit,
+        offset=offset,
     )
 
 

@@ -13,8 +13,36 @@ from api.deps import RunRecord
 from api.events import run_failed_envelope
 from api.schemas import ApiEventEnvelope, CreateRunRequest
 from config import PROJECT_ROOT
+from validation.legacy import parse_stored_run_request
 
 logger = logging.getLogger(__name__)
+
+
+def _load_request(run_id: str, request_json: str) -> CreateRunRequest:
+    from api import workspace_store
+    from validation.legacy import LegacyCreateRunRequest, legacy_request_to_worksheet
+
+    store = workspace_store.get_workspace_store()
+    data = json.loads(request_json)
+    if "workspace_id" in data:
+        return CreateRunRequest.model_validate(data)
+
+    link = store.get_run_link(run_id)
+    if link is None:
+        legacy = LegacyCreateRunRequest.model_validate(data)
+        worksheet = legacy_request_to_worksheet(legacy)
+        workspace, version, _ = store.create_workspace(worksheet)
+        store.link_run(run_id, workspace.id, version.id)
+        link = (workspace.id, version.id)
+        logger.info("Lazy-migrated legacy run %s -> workspace %s", run_id, workspace.id)
+
+    return parse_stored_run_request(
+        run_id,
+        request_json,
+        workspace_id=link[0],
+        worksheet_version_id=link[1],
+    )
+
 
 _INTERRUPTED_MESSAGE = "The roast run was interrupted. Please try again."
 
@@ -90,7 +118,7 @@ class RunStore:
         request_json, status, created_at = row
         return RunRecord(
             run_id=run_id,
-            request=CreateRunRequest.model_validate_json(request_json),
+            request=_load_request(run_id, request_json),
             status=status,
             created_at=datetime.fromisoformat(created_at),
         )
@@ -180,7 +208,7 @@ class RunStore:
         records = [
             RunRecord(
                 run_id=run_id,
-                request=CreateRunRequest.model_validate_json(request_json),
+                request=_load_request(run_id, request_json),
                 status=status,
                 created_at=datetime.fromisoformat(created_at),
             )

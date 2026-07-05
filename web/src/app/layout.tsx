@@ -6,7 +6,6 @@ import { AppLayout } from "@/components/app-layout";
 import { SkipLink } from "@/components/app-shell";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { QueryProvider } from "@/components/query-provider";
-import { isUiShellV2Enabled } from "@/lib/feature-flags";
 
 import "./globals.css";
 
@@ -35,13 +34,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const shellV2 = isUiShellV2Enabled();
 
   return (
     <html
       lang="en"
       className={`${plusJakarta.variable} ${jetbrainsMono.variable} h-full`}
-      {...(shellV2 ? { "data-ui-shell-v2": "" } : {})}
+      {...(true ? { "data-ui-shell-v2": "" } : {})}
     >
       <body className="flex min-h-full flex-col antialiased">
         <SkipLink />

@@ -2,8 +2,37 @@
 
 from __future__ import annotations
 
+import json
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
 from api.schemas import CreateRunRequest
 from validation.schemas import IdeaWorksheet
+
+
+class LegacyCreateRunRequest(BaseModel):
+    """Stored shape for runs created before workspace-first intake."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    idea: str = Field(min_length=10, max_length=8000)
+    target_customer: str | None = None
+    pricing: str | None = None
+    traction: str | None = None
+    competitors: list[str] = Field(default_factory=list)
+    model_runtime: str = "deepseek"
+    execution_flow: str = "deterministic"
+    max_debate_rounds: int = 3
+    enable_web_search: bool = False
+    parent_run_id: str | None = None
+    version: int = 1
+
+    @model_validator(mode="after")
+    def reject_deepagents(self) -> LegacyCreateRunRequest:
+        if self.execution_flow == "deepagents":
+            raise ValueError("execution_flow 'deepagents' is not supported")
+        return self
 
 
 def _clip(text: str | None, fallback: str, min_len: int, max_len: int) -> str:
@@ -13,7 +42,11 @@ def _clip(text: str | None, fallback: str, min_len: int, max_len: int) -> str:
     return raw[:max_len]
 
 
-def legacy_request_to_worksheet(request: CreateRunRequest) -> IdeaWorksheet:
+def legacy_request_to_worksheet(
+    request: LegacyCreateRunRequest | CreateRunRequest,
+) -> IdeaWorksheet:
+    if isinstance(request, CreateRunRequest):
+        raise TypeError("legacy_request_to_worksheet expects legacy flat requests")
     idea = request.idea.strip()
     first_line = idea.split("\n", 1)[0].strip()[:120] or "Untitled Idea"
     audience = _clip(
@@ -60,4 +93,30 @@ def legacy_request_to_worksheet(request: CreateRunRequest) -> IdeaWorksheet:
             10,
             2000,
         ),
+    )
+
+
+def parse_stored_run_request(
+    run_id: str,
+    request_json: str,
+    *,
+    workspace_id: str | None = None,
+    worksheet_version_id: str | None = None,
+) -> CreateRunRequest:
+    data: dict[str, Any] = json.loads(request_json)
+    if "workspace_id" in data:
+        return CreateRunRequest.model_validate(data)
+
+    legacy = LegacyCreateRunRequest.model_validate(data)
+    if workspace_id is None or worksheet_version_id is None:
+        raise ValueError(f"legacy run {run_id!r} missing workspace link")
+    return CreateRunRequest(
+        workspace_id=workspace_id,
+        worksheet_version_id=worksheet_version_id,
+        model_runtime=legacy.model_runtime,  # type: ignore[arg-type]
+        execution_flow="deterministic",
+        max_debate_rounds=legacy.max_debate_rounds,
+        enable_web_search=legacy.enable_web_search,
+        parent_run_id=legacy.parent_run_id,
+        version=legacy.version,
     )

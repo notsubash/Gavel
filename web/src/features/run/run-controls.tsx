@@ -179,7 +179,7 @@ export function RunControls({
       )}
 
       {isTerminal && (
-        <Link href="/" className={secondaryCtaClass}>
+        <Link href="/workspaces/new" className={secondaryCtaClass}>
           {RUN_PAGE_COPY.submitAnother}
         </Link>
       )}

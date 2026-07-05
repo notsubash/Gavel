@@ -23,9 +23,24 @@ export type AppealRequest = components["schemas"]["AppealRequest"] & {
   };
 };
 
-export type CreateRunRequest = components["schemas"]["CreateRunRequest"];
+export type CreateRunRequest = {
+  workspace_id: string;
+  worksheet_version_id?: string | null;
+  model_runtime?: "local" | "deepseek";
+  execution_flow?: "deterministic";
+  max_debate_rounds?: number;
+  enable_web_search?: boolean;
+  parent_run_id?: string | null;
+  readiness_override?: boolean;
+  version?: number;
+};
+
+export type RunStatusResponse = components["schemas"]["RunStatusResponse"] & {
+  workspace_id?: string | null;
+  worksheet_version_id?: string | null;
+  working_name?: string | null;
+};
 export type RunCreatedResponse = components["schemas"]["RunCreatedResponse"];
-export type RunStatusResponse = components["schemas"]["RunStatusResponse"];
 export type RunListResponse = components["schemas"]["RunListResponse"];
 export type RunListItem = components["schemas"]["RunListItem"];
 export type VerdictSummary = components["schemas"]["VerdictSummary"];

@@ -76,6 +76,16 @@ class WorkspaceStoreTest(unittest.TestCase):
         link = self.store.get_run_link("run-1")
         self.assertEqual(link, (workspace.id, version.id))
 
+    def test_get_last_run_version_id_excludes_current_run(self):
+        workspace, v1, _ = self.store.create_workspace(SAMPLE)
+        self.store.link_run("run-a", workspace.id, v1.id)
+        self.store.link_run("run-b", workspace.id, v1.id)
+        self.assertEqual(
+            self.store.get_last_run_version_id(workspace.id, exclude_run_id="run-b"),
+            v1.id,
+        )
+        self.assertEqual(self.store.get_last_run_version_id(workspace.id), v1.id)
+
 
 class WorkspaceApiTest(unittest.TestCase):
     def setUp(self):
@@ -113,19 +123,18 @@ class WorkspaceApiTest(unittest.TestCase):
         self.assertEqual(listed.json()["total"], 1)
 
     def test_legacy_run_creates_workspace_link(self):
+        """Phase 4: legacy flat POST /api/runs is removed; runs require workspace_id."""
+        ws = self.client.post("/api/workspaces", json={"worksheet": SAMPLE.model_dump()})
+        self.assertEqual(ws.status_code, 201)
+        ws_id = ws.json()["workspace"]["id"]
         resp = self.client.post(
             "/api/runs",
-            json={
-                "idea": "An AI journal for startup founders with daily reflection prompts.",
-            },
+            json={"workspace_id": ws_id, "readiness_override": True},
         )
         self.assertEqual(resp.status_code, 200)
         run_id = resp.json()["run_id"]
         link = self.ws_store.get_run_link(run_id)
-        self.assertIsNotNone(link)
-        workspace_id, _version_id = link
-        detail = self.client.get(f"/api/workspaces/{workspace_id}")
-        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(link, (ws_id, ws.json()["current_version"]["id"]))
 
     def test_clarify_field_rejects_unknown_field(self):
         resp = self.client.post(

@@ -8,7 +8,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from api.deps import build_idea_preview, get_app_settings
+from api.deps import build_idea_preview, get_app_settings, load_run_workspace_context
 from api.run_manager import RunManager, get_run_manager
 from api.schemas import (
     ApiEventEnvelope,
@@ -18,6 +18,7 @@ from api.schemas import (
     CreateRunRequest,
     ExperimentContextResponse,
     RunCreatedResponse,
+    RunHandoffResponse,
     RunListItem,
     RunListResponse,
     RunPanelResponse,
@@ -61,12 +62,51 @@ def _format_sse(envelope: ApiEventEnvelope) -> str:
 
 
 def _run_status_response(record) -> RunStatusResponse:
+    try:
+        ctx = load_run_workspace_context(record.run_id, record.request)
+        idea = ctx.idea_text
+        workspace_id = ctx.workspace_id
+        worksheet_version_id = ctx.worksheet_version_id
+        working_name = ctx.working_name
+    except ValueError:
+        idea = ""
+        workspace_id = record.request.workspace_id
+        worksheet_version_id = record.request.worksheet_version_id
+        working_name = None
+
     return RunStatusResponse(
         run_id=record.run_id,
         status=record.status,
-        idea=record.request.idea,
-        idea_preview=build_idea_preview(record.request.idea),
+        idea=idea,
+        idea_preview=build_idea_preview(idea or working_name or "Untitled"),
         created_at=record.created_at,
+        workspace_id=workspace_id,
+        worksheet_version_id=worksheet_version_id,
+        working_name=working_name,
+        parent_run_id=record.request.parent_run_id,
+        version=record.request.version,
+    )
+
+
+def _run_list_item(record, summary) -> RunListItem:
+    try:
+        ctx = load_run_workspace_context(record.run_id, record.request)
+        preview = build_idea_preview(ctx.working_name or ctx.idea_text)
+        workspace_id = ctx.workspace_id
+        worksheet_version_id = ctx.worksheet_version_id
+    except ValueError:
+        preview = "Untitled"
+        workspace_id = record.request.workspace_id
+        worksheet_version_id = record.request.worksheet_version_id
+
+    return RunListItem(
+        run_id=record.run_id,
+        status=record.status,
+        idea_preview=preview,
+        created_at=record.created_at,
+        workspace_id=workspace_id,
+        worksheet_version_id=worksheet_version_id,
+        verdict_summary=summary,
         parent_run_id=record.request.parent_run_id,
         version=record.request.version,
     )
@@ -102,22 +142,32 @@ def list_runs(
 
     items, total = manager.list_runs(limit=resolved_limit, offset=offset)
     return RunListResponse(
-        runs=[
-            RunListItem(
-                run_id=record.run_id,
-                status=record.status,
-                idea_preview=build_idea_preview(record.request.idea),
-                created_at=record.created_at,
-                verdict_summary=summary,
-                parent_run_id=record.request.parent_run_id,
-                version=record.request.version,
-            )
-            for record, summary in items
-        ],
+        runs=[_run_list_item(record, summary) for record, summary in items],
         total=total,
         limit=resolved_limit,
         offset=offset,
     )
+
+
+@router.get("/runs/{run_id}/handoff", response_model=RunHandoffResponse)
+def get_run_handoff(
+    run_id: str,
+    manager: Annotated[RunManager, Depends(get_run_manager)],
+) -> RunHandoffResponse:
+    from api import workspace_store
+
+    record = manager.get(run_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+    stored = workspace_store.get_workspace_store().get_run_handoff(run_id)
+    if stored is None:
+        return RunHandoffResponse(
+            run_id=run_id,
+            workspace_id=record.request.workspace_id,
+            items=[],
+        )
+    workspace_id, items = stored
+    return RunHandoffResponse(run_id=run_id, workspace_id=workspace_id, items=items)
 
 
 @router.get("/runs/{run_id}/similar", response_model=SimilarRunsResponse)
@@ -253,8 +303,6 @@ async def stream_run_events(
     if manager.get(run_id) is None:
         raise HTTPException(status_code=404, detail="Run not found")
 
-    # Subscriber model: the engine runs once into a buffer; every connection
-    # (including reconnects and extra tabs) just replays + tails that buffer.
     manager.ensure_started(run_id, settings)
     after_sequence = _parse_last_event_id(request)
 

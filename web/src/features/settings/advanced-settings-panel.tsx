@@ -144,7 +144,7 @@ export function AdvancedSettingsPanel() {
           <div className="space-y-1">
             <Label htmlFor="settings-web-search">Web search</Label>
             <p className="font-sans text-xs text-ink-muted">
-              Let judges pull live research snippets into the roast (extra latency and cost when
+              Let judges pull live research snippets into the review (extra latency and cost when
               using DeepSeek).
             </p>
           </div>

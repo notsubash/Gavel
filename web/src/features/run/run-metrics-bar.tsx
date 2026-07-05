@@ -90,7 +90,7 @@ export function RunMetricsBar({
         ? "Run metrics unavailable."
         : isTerminal
           ? "Run metrics were not recorded for this run."
-          : "Run metrics will appear when the roast finishes.";
+          : "Run metrics will appear when the review finishes.";
 
     return (
       <footer

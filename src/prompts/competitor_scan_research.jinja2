@@ -1,0 +1,11 @@
+Conduct a competitive analysis for the startup "{{ working_name }}".
+
+Solution: {{ solution_statement }}
+Target audience: {{ audience }}
+{%- if competitors %}
+Named competitors to analyze (return exactly one row per name): {{ competitors | join(', ') }}
+{%- else %}
+Discover direct competitors and alternatives for this idea.
+{%- endif %}
+
+Compare positioning, overlapping features, and differentiation gaps. Only cite real web sources. Do not invent URLs, market share, or traction metrics.

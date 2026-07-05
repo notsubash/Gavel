@@ -99,7 +99,7 @@ export function JudgesView({ workspaceId }: { workspaceId: string }) {
         <p className="font-sans text-meta font-semibold uppercase tracking-widest text-cta">
           Judges
         </p>
-        <h1 className="font-serif text-display text-ink">{workingName}</h1>
+        <h1 className="font-sans text-display-home font-semibold tracking-tight text-ink">{workingName}</h1>
         <p className="max-w-2xl font-sans text-sm text-ink-muted">
           Launch a five-judge roast when your worksheet is ready, then turn their evidence asks into
           validation work.
@@ -131,7 +131,7 @@ export function JudgesView({ workspaceId }: { workspaceId: string }) {
             <li key={run.run_id}>
               <Link
                 href={`/run/${run.run_id}`}
-                className="flex flex-wrap items-center justify-between gap-2 border border-line bg-card px-4 py-3 transition-colors hover:border-ink/30"
+                className="flex flex-wrap items-center justify-between gap-2 border border-rule-soft bg-card px-4 py-3 transition-colors hover:border-ink/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta"
               >
                 <div>
                   <p className="font-sans text-sm font-medium text-ink">{run.idea_preview}</p>

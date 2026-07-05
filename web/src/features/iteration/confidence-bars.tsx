@@ -42,7 +42,7 @@ function ConfidenceBar({
         <span
           className={cn(
             "font-sans font-semibold text-ink",
-            compact ? "text-[11px]" : "text-xs",
+            compact ? "text-meta" : "text-xs",
           )}
         >
           {item.label}
@@ -50,7 +50,7 @@ function ConfidenceBar({
         <span
           className={cn(
             "font-mono tabular-nums text-ink-muted",
-            compact ? "text-[10px]" : "text-xs",
+            "text-xs",
           )}
         >
           {item.value}/100

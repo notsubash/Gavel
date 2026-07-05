@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import type { RunPhase } from "@/lib/sse/types";
 
 const STEPS: { id: RunPhase; label: string }[] = [
-  { id: "roast", label: "Roast" },
+  { id: "roast", label: "Review" },
   { id: "debate", label: "Debate" },
   { id: "synthesis", label: "Synthesis" },
 ];
@@ -44,7 +44,7 @@ export function PhaseRail({
             {isDone ? (
               <Check className="size-3.5 shrink-0" aria-hidden />
             ) : (
-              <span className="font-mono text-[10px] opacity-70" aria-hidden>
+              <span className="font-mono text-xs opacity-70" aria-hidden>
                 {idx + 1}
               </span>
             )}

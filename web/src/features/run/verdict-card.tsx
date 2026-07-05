@@ -55,7 +55,7 @@ export function VerdictCard({
     if (!synthesisProse) {
       return (
         <p className={cn("font-sans text-sm text-ink-subtle", className)}>
-          The moderator&apos;s verdict will land here after the debate.
+          The moderator&apos;s decision will land here after the debate.
         </p>
       );
     }
@@ -148,7 +148,7 @@ function LowConfidenceBanner({
     <div className="flex items-start gap-3 border-b-2 border-conditional bg-paper-2 px-6 py-4">
       <AlertTriangle className="mt-0.5 size-5 shrink-0 text-conditional" aria-hidden />
       <div>
-        <p className="font-sans text-sm font-semibold text-ink">Low-confidence verdict</p>
+        <p className="font-sans text-sm font-semibold text-ink">Low-confidence decision</p>
         <p className="mt-1 font-sans text-sm text-ink-muted">
           {proseFallback
             ? "Treat this synthesis as directional. "

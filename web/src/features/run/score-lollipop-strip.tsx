@@ -22,7 +22,7 @@ export function ScoreLollipopStrip({
 }) {
   return (
     <div className={cn("border border-rule-soft bg-card p-4", className)}>
-      <div className="mb-4 flex justify-between font-mono text-[10px] text-ink-subtle">
+      <div className="mb-4 flex justify-between font-mono text-xs text-ink-subtle">
         {[0, 2, 4, 6, 8, 10].map((tick) => (
           <span key={tick}>{tick}</span>
         ))}
@@ -82,7 +82,7 @@ export function ScoreLollipopStrip({
                 {label && (
                   <span
                     className={cn(
-                      "font-sans text-[10px] font-bold uppercase tracking-wide",
+                      "font-sans text-xs font-bold uppercase tracking-wide",
                       VERDICT_SEGMENT[label].textClass,
                     )}
                   >

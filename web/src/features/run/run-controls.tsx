@@ -75,7 +75,7 @@ export function RunControls({
     const url = window.location.href;
     try {
       await navigator.clipboard.writeText(url);
-      toast.success("Link copied — share the verdict.");
+      toast.success("Link copied — share the review.");
     } catch {
       toast.error("Could not copy the link.");
     }
@@ -83,7 +83,7 @@ export function RunControls({
 
   const copyTranscript = async () => {
     if (!exportInput || !canExportTranscript(exportInput)) {
-      toast.error("Nothing to export yet — wait for at least one verdict.");
+      toast.error("Nothing to export yet — wait for at least one judge decision.");
       return;
     }
     try {
@@ -96,7 +96,7 @@ export function RunControls({
 
   const downloadTranscript = () => {
     if (!exportInput || !canExportTranscript(exportInput)) {
-      toast.error("Nothing to export yet — wait for at least one verdict.");
+      toast.error("Nothing to export yet — wait for at least one judge decision.");
       return;
     }
     const markdown = buildTranscriptMarkdown(exportInput);

@@ -17,7 +17,7 @@ export function WorkspaceNav({ workspaceId }: { workspaceId: string }) {
   const base = `/workspaces/${workspaceId}`;
 
   return (
-    <nav className="mb-8 flex flex-wrap gap-2 border-b border-line pb-3" aria-label="Workspace sections">
+    <nav className="mb-8 flex flex-wrap gap-2 border-b border-rule-soft pb-3" aria-label="Workspace sections">
       {TABS.map((tab) => {
         const href = tab.slug ? `${base}/${tab.slug}` : base;
         const active = tab.slug
@@ -27,11 +27,13 @@ export function WorkspaceNav({ workspaceId }: { workspaceId: string }) {
           <Link
             key={tab.slug || "overview"}
             href={href}
+            aria-current={active ? "page" : undefined}
             className={cn(
-              "rounded-sm px-3 py-1.5 font-sans text-sm font-medium transition-colors",
+              "inline-flex min-h-11 items-center rounded-ui px-3 font-sans text-sm font-medium transition-colors duration-200",
+              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta",
               active
                 ? "bg-ink text-paper"
-                : "text-ink-muted hover:bg-paper-warm hover:text-ink",
+                : "text-ink-muted hover:bg-paper-2 hover:text-ink",
             )}
           >
             {tab.label}

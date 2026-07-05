@@ -65,7 +65,7 @@ export function AppFooter() {
   );
 }
 
-/** Minimal single-column workflow container (legacy layout when ui_shell_v2 is off). */
+/** Page-level vertical spacing wrapper; width is owned by AppContentPane. */
 export function EditorialContainer({
   children,
   className = "",
@@ -73,13 +73,5 @@ export function EditorialContainer({
   children: React.ReactNode;
   className?: string;
 }) {
-  if (true) {
-    return <div className={className}>{children}</div>;
-  }
-
-  return (
-    <div className={`mx-auto w-full max-w-3xl px-4 md:px-6 ${className}`}>
-      {children}
-    </div>
-  );
+  return <div className={className}>{children}</div>;
 }

@@ -509,8 +509,25 @@ class CompetitorFinding(BaseModel):
     snippet: str
 
 
+class CompetitorIntelItem(BaseModel):
+    """Structured competitor row — one per worksheet competitor."""
+
+    competitor: str = Field(min_length=1, max_length=120)
+    positioning: str = Field(min_length=10, max_length=500)
+    gap_vs_us: str | None = Field(default=None, max_length=400)
+    source_url: str | None = Field(default=None, max_length=2000)
+    source_title: str | None = Field(default=None, max_length=300)
+    signal_strength: Literal["strong", "weak", "none"] = "weak"
+
+
+class CompetitorScanIntel(BaseModel):
+    rows: list[CompetitorIntelItem] = Field(min_length=1, max_length=12)
+    overall_gap: str = Field(min_length=10, max_length=800)
+
+
 class CompetitorScanResponse(BaseModel):
     query: str | None = None
     findings: list[CompetitorFinding] = Field(default_factory=list)
+    intel: list[CompetitorIntelItem] = Field(default_factory=list)
     suggested_evidence: str = Field(min_length=1, max_length=8000)
     available: bool = True

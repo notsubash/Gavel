@@ -1,0 +1,24 @@
+## Competitor scan for {{ working_name }}
+
+Review each row before saving. Signal strength reflects source quality, not your idea.
+
+{% for row in intel %}
+### {{ row.competitor }} · {{ row.signal_strength }}
+
+{{ row.positioning }}
+{%- if row.gap_vs_us %}
+
+**Gap vs us:** {{ row.gap_vs_us }}
+{%- endif %}
+{%- if row.source_url %}
+
+**Source:** [{{ row.source_title or row.source_url }}]({{ row.source_url }})
+{%- else %}
+
+**Source:** None matched — verify manually.
+{%- endif %}
+
+{% endfor %}
+## Overall gap
+
+{{ overall_gap }}

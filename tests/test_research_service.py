@@ -8,11 +8,13 @@ from urllib.error import HTTPError
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from research.service import (
     TavilyHttpClient,
+    TavilyResearchResult,
     WebSearchDecision,
     build_research_context,
     decide_web_search_usage,
     format_research_context,
     research_context_payload,
+    run_tavily_research,
 )
 import tests  # noqa: F401
 
@@ -21,7 +23,7 @@ class FakeTavilyClient:
     def __init__(self):
         self.queries = []
 
-    def search(self, query: str, max_results: int) -> list[dict]:
+    def search(self, query: str, max_results: int, **_kwargs) -> list[dict]:
         self.queries.append((query, max_results))
         return [
             {
@@ -165,6 +167,31 @@ class ResearchServiceTest(unittest.TestCase):
                 fp=BytesIO(b""),
             )
             self.assertEqual(client.search("competitors", max_results=3), [])
+
+    def test_run_tavily_research_polls_until_completed(self):
+        client = TavilyHttpClient("test-key")
+        with patch.object(client, "start_research", return_value="task-1") as start:
+            with patch.object(
+                client,
+                "get_research",
+                side_effect=[
+                    (202, {"status": "in_progress", "request_id": "task-1"}),
+                    (
+                        200,
+                        {
+                            "status": "completed",
+                            "content": {"rows": [], "overall_gap": "No clear gap yet."},
+                            "sources": [{"title": "Rival", "url": "https://example.com/rival"}],
+                        },
+                    ),
+                ],
+            ) as get_status:
+                with patch("research.service.time.sleep"):
+                    result = run_tavily_research(client, "competitor scan", model="mini")
+        start.assert_called_once()
+        self.assertEqual(get_status.call_count, 2)
+        self.assertIsInstance(result, TavilyResearchResult)
+        self.assertEqual(result.sources[0]["url"], "https://example.com/rival")
 
 
 if __name__ == "__main__":

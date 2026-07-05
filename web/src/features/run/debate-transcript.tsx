@@ -28,7 +28,7 @@ function DebateTurnCompact({ turn }: { turn: DebateTurnView }) {
         aria-label={`Round ${turn.round}: ${label}`}
       >
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 pr-6">
-          <span className="font-mono text-[11px] text-ink-subtle">R{turn.round}</span>
+          <span className="font-mono text-meta text-ink-subtle">R{turn.round}</span>
           <span className={cn("font-sans text-sm font-semibold", accentText)}>{label}</span>
           {turn.thinking && (
             <span className="font-sans text-xs text-ink-muted">Thinking…</span>

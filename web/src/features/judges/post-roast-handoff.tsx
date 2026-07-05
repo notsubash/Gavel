@@ -80,7 +80,7 @@ export function PostRoastHandoff({
         {items.map((item, index) => (
           <li
             key={`${item.kind}-${index}`}
-            className="flex flex-col gap-3 border border-line p-4 sm:flex-row sm:items-start sm:justify-between"
+            className="flex flex-col gap-3 border border-rule-soft p-4 sm:flex-row sm:items-start sm:justify-between"
           >
             <div>
               <p className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-subtle">

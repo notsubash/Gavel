@@ -17,7 +17,7 @@ function JudgeLensTag({ meta }: { meta: (typeof JUDGE_META)[JudgeId] }) {
   return (
     <span
       className={cn(
-        "mt-2 inline-block border px-2 py-0.5 font-sans text-[10px] font-semibold uppercase tracking-wide",
+        "mt-2 inline-block border px-2 py-0.5 font-sans text-xs font-semibold uppercase tracking-wide",
         meta.accentClass,
       )}
       title={meta.lensTag}

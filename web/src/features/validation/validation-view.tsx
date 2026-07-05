@@ -6,12 +6,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
+import { WorkspaceNav } from "@/features/workspace/workspace-nav";
 import {
   ASSUMPTION_COLUMNS,
   createEvidence,
   createExperiment,
   createInterview,
   competitorScan,
+  type CompetitorIntelItem,
   getValidationOverview,
   listAssumptions,
   listEvidence,
@@ -32,6 +34,13 @@ import {
 } from "@/lib/api/workspaces";
 import { ApiError } from "@/lib/api/client";
 import { parseApiDetail } from "@/lib/api/types-helpers";
+import {
+  EVIDENCE_STRENGTH_LABEL,
+  EVIDENCE_TYPE_LABEL,
+  isCompetitorEvidenceType,
+  parseCompetitorEvidenceContent,
+} from "@/features/validation/competitor-evidence";
+import { CompetitorIntelCards } from "@/features/validation/competitor-intel-cards";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Card } from "@/ui/card";
@@ -56,6 +65,34 @@ async function fetchValidationBundle(workspaceId: string) {
     listInterviews(workspaceId),
   ]);
   return { assumptions, experiments, evidence, interviews };
+}
+
+function ValidationPageChrome({
+  workspaceId,
+  children,
+}: {
+  workspaceId: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-10">
+      <header className="space-y-2">
+        <p className="font-sans text-meta font-semibold uppercase tracking-widest text-cta">
+          Validation
+        </p>
+        <h1 className="font-sans text-display-home font-semibold tracking-tight text-ink md:text-display-md">
+          Validation
+        </h1>
+        <p className="max-w-prose font-sans text-body text-ink-muted">
+          Collect evidence, test assumptions, and decide what to learn next before judges.
+        </p>
+      </header>
+
+      <WorkspaceNav workspaceId={workspaceId} />
+
+      {children}
+    </div>
+  );
 }
 
 export function ValidationView({ workspaceId }: { workspaceId: string }) {
@@ -92,9 +129,11 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
   const [experimentDecision, setExperimentDecision] = useState("continue");
   const [revisePromptExperimentId, setRevisePromptExperimentId] = useState<string | null>(null);
   const [competitorScanResult, setCompetitorScanResult] = useState<string | null>(null);
+  const [competitorIntel, setCompetitorIntel] = useState<CompetitorIntelItem[]>([]);
   const [competitorFindings, setCompetitorFindings] = useState<
     Array<{ title: string; url: string; snippet: string }>
   >([]);
+  const [evidenceEditOpen, setEvidenceEditOpen] = useState(false);
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: validationDataQueryKey(workspaceId) });
@@ -196,7 +235,9 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
       setMappedAssumptionIds([]);
       setMapRationale(null);
       setCompetitorScanResult(null);
+      setCompetitorIntel([]);
       setCompetitorFindings([]);
+      setEvidenceEditOpen(false);
       invalidate();
     },
     onError: (err) => {
@@ -218,16 +259,18 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
   const competitorScanMutation = useMutation({
     mutationFn: () => competitorScan(workspaceId),
     onSuccess: (res) => {
+      if (!res.available) {
+        toast.error(res.suggested_evidence);
+        return;
+      }
       setCompetitorScanResult(res.suggested_evidence);
+      setCompetitorIntel(res.intel);
       setCompetitorFindings(res.findings);
       setEvidenceType("ai_research");
       setEvidenceContent(res.suggested_evidence);
+      setEvidenceEditOpen(false);
       setEvidenceOpen(true);
-      if (!res.available) {
-        toast.message("Web search unavailable — add competitor notes manually");
-      } else {
-        toast.success("Competitor scan ready — review before saving as evidence");
-      }
+      toast.success("Competitor scan ready — review before saving as evidence");
     },
     onError: (err) => {
       toast.error(err instanceof ApiError ? parseApiDetail(err.body) : "Scan failed");
@@ -307,39 +350,29 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-1/2" />
-        <Skeleton className="h-64 w-full" />
-      </div>
+      <ValidationPageChrome workspaceId={workspaceId}>
+        <div className="space-y-4" aria-busy="true">
+          <Skeleton className="h-10 w-1/2" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </ValidationPageChrome>
     );
   }
 
   if (isError || !data) {
     return (
-      <p className="font-sans text-body text-fail" role="alert">
-        Could not load validation data.
-      </p>
+      <ValidationPageChrome workspaceId={workspaceId}>
+        <p className="font-sans text-body text-fail" role="alert">
+          Could not load validation data.
+        </p>
+      </ValidationPageChrome>
     );
   }
 
   const { assumptions, experiments, evidence, interviews } = data;
 
   return (
-    <div className="space-y-10">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="font-sans text-display-home font-semibold tracking-tight text-ink md:text-display-md">
-            Validation
-          </h1>
-          <p className="mt-2 max-w-prose font-sans text-body text-ink-muted">
-            Collect evidence, test assumptions, and decide what to learn next before judges.
-          </p>
-        </div>
-        <Button asChild variant="outline">
-          <Link href={`/workspaces/${workspaceId}`}>Overview</Link>
-        </Button>
-      </header>
-
+    <ValidationPageChrome workspaceId={workspaceId}>
       {overviewQuery.data && (
         <section aria-labelledby="checklist-heading">
           <h2 id="checklist-heading" className="font-sans text-section font-semibold text-ink">
@@ -520,40 +553,65 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
               <option value="ai_research">AI research</option>
             </select>
           </div>
-          {competitorFindings.length > 0 && (
-            <ul className="space-y-2 rounded-ui border border-rule-soft bg-paper-2 p-4 font-sans text-sm">
-              {competitorFindings.map((f) => (
-                <li key={f.url}>
-                  <a
-                    href={f.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-cta hover:underline"
-                  >
-                    {f.title}
-                  </a>
-                  <p className="mt-0.5 text-ink-muted">{f.snippet}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-          {competitorScanResult && (
+          {competitorIntel.length > 0 ? (
+            <CompetitorIntelCards
+              title={`Competitor scan — ${competitorIntel.length} row(s)`}
+              rows={competitorIntel}
+              overallGap={parseCompetitorEvidenceContent(evidenceContent)?.overallGap}
+            />
+          ) : null}
+          {competitorScanResult ? (
             <p className="font-sans text-xs text-ink-muted">
               AI research draft — confirm links and strength before saving.
             </p>
-          )}
+          ) : null}
+          {competitorFindings.length > 0 ? (
+            <details className="rounded-ui border border-rule-soft bg-paper-2 p-4">
+              <summary className="cursor-pointer font-sans text-sm font-medium text-ink">
+                All sources ({competitorFindings.length})
+              </summary>
+              <ul className="mt-3 space-y-2 font-sans text-sm">
+                {competitorFindings.map((f) => (
+                  <li key={f.url}>
+                    <a
+                      href={f.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-cta hover:underline"
+                    >
+                      {f.title}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
           <div className="space-y-2">
-            <Label htmlFor="evidence-content">Content</Label>
-            <Textarea
-              id="evidence-content"
-              rows={4}
-              value={evidenceContent}
-              onChange={(e) => {
-                setEvidenceContent(e.target.value);
-                setMappedAssumptionIds([]);
-                setMapRationale(null);
-              }}
-            />
+            {competitorIntel.length > 0 ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="px-0 text-cta hover:bg-transparent hover:text-cta/80"
+                onClick={() => setEvidenceEditOpen((open) => !open)}
+              >
+                {evidenceEditOpen ? "Hide raw text" : "Edit raw text"}
+              </Button>
+            ) : (
+              <Label htmlFor="evidence-content">Content</Label>
+            )}
+            {(!competitorIntel.length || evidenceEditOpen) && (
+              <Textarea
+                id="evidence-content"
+                rows={competitorIntel.length ? 8 : 4}
+                value={evidenceContent}
+                onChange={(e) => {
+                  setEvidenceContent(e.target.value);
+                  setMappedAssumptionIds([]);
+                  setMapRationale(null);
+                }}
+              />
+            )}
           </div>
           {mappedAssumptionIds.length > 0 && (
             <p className="font-sans text-sm text-ink-muted">
@@ -577,7 +635,17 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
             >
               Save evidence
             </Button>
-            <Button type="button" variant="ghost" onClick={() => setEvidenceOpen(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setEvidenceOpen(false);
+                setCompetitorScanResult(null);
+                setCompetitorIntel([]);
+                setCompetitorFindings([]);
+                setEvidenceEditOpen(false);
+              }}
+            >
               Cancel
             </Button>
           </div>
@@ -686,7 +754,7 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
           <Card className="mb-4 border-cta/30 p-4">
             <p className="font-sans text-body text-ink">
               This experiment suggests revising your worksheet. Apply evidence-backed field updates
-              before your next roast.
+              before your next judge review.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button asChild size="sm">
@@ -813,17 +881,39 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
           Evidence log
         </h2>
         <ul className="mt-3 space-y-2">
-          {evidence.map((ev) => (
-            <li key={ev.id}>
-              <Card className="p-4">
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="default">{ev.type}</Badge>
-                  <Badge variant="default">{ev.strength}</Badge>
-                </div>
-                <p className="mt-2 font-sans text-body text-ink">{ev.content}</p>
-              </Card>
-            </li>
-          ))}
+          {evidence.map((ev) => {
+            const parsedCompetitor =
+              isCompetitorEvidenceType(ev.type) ? parseCompetitorEvidenceContent(ev.content) : null;
+
+            return (
+              <li key={ev.id}>
+                <Card className="p-4">
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="default">
+                      {EVIDENCE_TYPE_LABEL[ev.type] ?? ev.type.replaceAll("_", " ")}
+                    </Badge>
+                    <Badge variant="default">
+                      {EVIDENCE_STRENGTH_LABEL[ev.strength] ?? ev.strength}
+                    </Badge>
+                  </div>
+                  {parsedCompetitor ? (
+                    <div className="mt-3">
+                      <CompetitorIntelCards
+                        title={parsedCompetitor.title}
+                        rows={parsedCompetitor.rows}
+                        overallGap={parsedCompetitor.overallGap}
+                        compact
+                      />
+                    </div>
+                  ) : (
+                    <p className="mt-2 whitespace-pre-wrap font-sans text-body leading-relaxed text-ink">
+                      {ev.content}
+                    </p>
+                  )}
+                </Card>
+              </li>
+            );
+          })}
           {evidence.length === 0 && (
             <p className="font-sans text-body text-ink-muted">No evidence logged yet.</p>
           )}
@@ -845,6 +935,6 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
           ))}
         </ul>
       </section>
-    </div>
+    </ValidationPageChrome>
   );
 }

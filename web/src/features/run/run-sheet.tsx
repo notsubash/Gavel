@@ -577,7 +577,7 @@ function JudgePanelFootnotes({
         </p>
       )}
       {revoteQuality?.lowConfidence && (
-        <p className="mt-3 max-w-prose rounded-md border border-amber-200 bg-amber-50 px-4 py-3 font-sans text-sm text-amber-950">
+        <p className="mt-3 max-w-prose rounded-md border border-conditional/40 bg-conditional/5 px-4 py-3 font-sans text-sm text-ink">
           {revoteQuality.reasons.join(" ")}
         </p>
       )}

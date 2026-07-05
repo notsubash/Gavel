@@ -3,7 +3,7 @@ import { EditorialContainer } from "@/components/app-shell";
 import { DevGallery } from "./dev-gallery";
 
 export const metadata = {
-  title: "Dev gallery — Roast My Startup",
+  title: "Dev gallery — Component states",
 };
 
 export default function DevGalleryPage() {

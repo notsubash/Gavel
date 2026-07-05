@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
-import { AlertTriangle, CheckCircle2, ChevronDown, WifiOff, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 
 import { EditorialContainer } from "@/components/app-shell";
 import { resolveExportIdea } from "@/lib/format/run-idea";
@@ -31,6 +31,8 @@ import { JudgeColumn, JudgeColumnSkeleton } from "./judge-column";
 import { PhaseRail } from "./phase-rail";
 import { RunControls } from "./run-controls";
 import { collapsibleSummaryClass, RunContextGroup } from "./run-context-group";
+import { SseReconnectBanner } from "./sse-reconnect-banner";
+import { DisclosureChevron } from "@/ui/disclosure-chevron";
 import { LatestImprovement } from "./latest-improvement";
 import { PanelQualityDebugBadge } from "./panel-quality-debug";
 import { RUN_PAGE_COPY } from "./run-page-copy";
@@ -112,27 +114,6 @@ function TerminalBanner({ state }: { state: RunState }) {
   return null;
 }
 
-function SseReconnectBanner({
-  reconnecting,
-  status,
-}: {
-  reconnecting: boolean;
-  status: RunStatus;
-}) {
-  if (!reconnecting || isTerminalStatus(status)) return null;
-
-  return (
-    <div
-      className="mt-4 flex items-start gap-3 border border-conditional/40 bg-conditional/5 p-4"
-      role="status"
-      aria-live="polite"
-    >
-      <WifiOff className="mt-0.5 size-5 shrink-0 text-conditional" aria-hidden />
-      <p className="font-sans text-sm text-ink">{RUN_PAGE_COPY.sseReconnecting}</p>
-    </div>
-  );
-}
-
 function RunSheetContent({
   runId,
   ideaPreview,
@@ -188,32 +169,27 @@ function RunSheetContent({
     : null;
   const showDecisionCard = Boolean(stream.synthesis || stream.structuredSynthesis);
   const liveDebate = status === "running" && stream.phase === "debate";
-  const [appealResult, setAppealResult] = useState<AppealResult | null>(stream.appeal);
+  const [localAppeal, setLocalAppeal] = useState<AppealResult | null>(null);
   const [experimentModalOpen, setExperimentModalOpen] = useState(false);
   const [storedExperimentStatus, setStoredExperimentStatus] = useState<ExperimentStatus | null>(
     null,
   );
-  const [postRunReplaySettled, setPostRunReplaySettled] = useState(false);
+  const [settledAtSeq, setSettledAtSeq] = useState<number | null>(null);
   const scrollToAppealOnSubmit = useRef(false);
 
-  const appeal = appealResult ?? stream.appeal;
+  const appeal = stream.appeal ?? localAppeal;
 
+  const replayDelayActive =
+    status === "completed" && Boolean(stream.synthesis) && !appeal;
   useEffect(() => {
-    if (stream.appeal) setAppealResult(stream.appeal);
-  }, [stream.appeal]);
-
-  useEffect(() => {
-    if (status !== "completed" || !stream.synthesis) {
-      setPostRunReplaySettled(false);
-      return;
-    }
-    if (appeal) {
-      setPostRunReplaySettled(true);
-      return;
-    }
-    const timer = window.setTimeout(() => setPostRunReplaySettled(true), 400);
+    if (!replayDelayActive) return;
+    const seq = stream.lastSequence;
+    const timer = window.setTimeout(() => setSettledAtSeq(seq), 400);
     return () => window.clearTimeout(timer);
-  }, [status, stream.synthesis, appeal, stream.lastSequence]);
+  }, [replayDelayActive, stream.lastSequence]);
+  const postRunReplaySettled =
+    (status === "completed" && Boolean(stream.synthesis) && Boolean(appeal)) ||
+    (replayDelayActive && settledAtSeq === stream.lastSequence);
 
   useEffect(() => {
     if (!scrollToAppealOnSubmit.current || !appeal) return;
@@ -314,7 +290,7 @@ function RunSheetContent({
     : "mt-2 font-sans text-title font-semibold text-ink md:text-display-md";
 
   const judgeGrid = (
-    <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="mt-6 grid min-h-[14rem] gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {showJudgeSkeletons
         ? JUDGE_ORDER.map((id) => <JudgeColumnSkeleton key={id} judgeId={id} />)
         : JUDGE_ORDER.map((id) => {
@@ -391,10 +367,7 @@ function RunSheetContent({
         aria-labelledby="judge-panel-heading"
       >
         <summary className={collapsibleSummaryClass}>
-          <ChevronDown
-            className="size-5 shrink-0 transition-transform group-open:rotate-180"
-            aria-hidden
-          />
+          <DisclosureChevron />
           <span id="judge-panel-heading">{RUN_PAGE_COPY.judgePanel}</span>
         </summary>
         <div className="mt-5">
@@ -462,10 +435,7 @@ function RunSheetContent({
         {...(liveDebate ? { open: true } : {})}
       >
         <summary className={collapsibleSummaryClass}>
-          <ChevronDown
-            className="size-5 shrink-0 transition-transform group-open:rotate-180"
-            aria-hidden
-          />
+          <DisclosureChevron />
           <span id="debate-transcript-heading">{RUN_PAGE_COPY.debateTranscript}</span>
           {liveDebate && (
             <span className="font-sans text-sm font-normal text-cta">(live)</span>
@@ -561,7 +531,7 @@ function RunSheetContent({
         onSuccess={(result) => {
           scrollToAppealOnSubmit.current = true;
           setStoredExperimentStatus("submitted");
-          setAppealResult(responseToAppeal(result));
+          setLocalAppeal(responseToAppeal(result));
         }}
       />
     </>

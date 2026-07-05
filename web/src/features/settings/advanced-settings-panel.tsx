@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import {
   DEFAULT_RUN_FOLD_VARIANT,
@@ -47,26 +47,12 @@ function SettingsSection({
 }
 
 export function AdvancedSettingsPanel() {
-  const [settings, setSettings] = useState<AdvancedSettings>(DEFAULT_ADVANCED_SETTINGS);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    setSettings(loadAdvancedSettings());
-    setReady(true);
-  }, []);
+  const [settings, setSettings] = useState<AdvancedSettings>(() => loadAdvancedSettings());
 
   const patch = (partial: Partial<AdvancedSettings>) => {
     const next = saveAdvancedSettings(partial);
     setSettings(next);
   };
-
-  if (!ready) {
-    return (
-      <p className="font-sans text-sm text-ink-muted" aria-live="polite">
-        Loading settings…
-      </p>
-    );
-  }
 
   const foldOptions = Object.entries(RUN_FOLD_VARIANTS) as [
     RunFoldVariant,

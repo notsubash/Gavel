@@ -1,8 +1,7 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
-
 import type { ResearchFindings, RunMetrics, RunStatus } from "@/lib/sse/types";
+import { DisclosureChevron } from "@/ui/disclosure-chevron";
 
 import { RUN_PAGE_COPY } from "./run-page-copy";
 
@@ -35,10 +34,7 @@ export function RunContextGroup({
       aria-labelledby="context-heading"
     >
       <summary className={collapsibleSummaryClass}>
-        <ChevronDown
-          className="size-5 shrink-0 transition-transform group-open:rotate-180"
-          aria-hidden
-        />
+        <DisclosureChevron />
         <h2 id="context-heading" className="m-0">
           Context
         </h2>

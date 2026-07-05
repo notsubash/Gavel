@@ -20,12 +20,13 @@ export function useRunFoldVariant(initialQueryFold?: string | null) {
   const queryFold = searchParams.get("fold") ?? initialQueryFold ?? null;
 
   const [variant, setVariantState] = useState<RunFoldVariant>(() =>
-    resolveRunFoldVariant(initialQueryFold ?? null, null),
+    resolveRunFoldVariant(initialQueryFold ?? null, readStoredFoldVariant()),
   );
 
-  // ponytail: localStorage may reorder sections one frame after mount when no ?fold=; cookie would need server read to fix
+  // ponytail: re-sync when ?fold= changes via browser navigation
   useEffect(() => {
-    setVariantState(resolveRunFoldVariant(queryFold, readStoredFoldVariant()));
+    const next = resolveRunFoldVariant(queryFold, readStoredFoldVariant());
+    queueMicrotask(() => setVariantState(next));
   }, [queryFold]);
 
   const setVariant = useCallback(

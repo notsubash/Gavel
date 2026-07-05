@@ -443,7 +443,7 @@ class WorkspaceApiTest(unittest.TestCase):
         self.assertEqual(len(result.findings), 1)
         self.assertEqual(len(result.intel), 1)
         self.assertIn("ChatGPT", result.suggested_evidence)
-        self.assertIn("Overall gap:", result.suggested_evidence)
+        self.assertIn("## Overall gap", result.suggested_evidence)
 
 
 class ValidationPromptsTest(unittest.TestCase):

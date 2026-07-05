@@ -36,7 +36,7 @@ export function JudgeColumnSkeleton({ judgeId }: { judgeId?: JudgeId } = {}) {
   return (
     <article
       className={cn(
-        "flex flex-col border border-rule-soft p-4",
+        "flex min-h-[14rem] flex-col border border-rule-soft p-4",
         compact ? "bg-paper-2" : "bg-card",
       )}
       aria-busy="true"
@@ -60,10 +60,10 @@ export function JudgeColumnSkeleton({ judgeId }: { judgeId?: JudgeId } = {}) {
           <Skeleton className="mt-2 h-3 w-full" />
         </>
       )}
-      <Skeleton className="mt-6 h-16 w-full" />
-      {!compact && <Skeleton className="mt-4 h-20 w-full" />}
-      <Skeleton className="mt-3 h-12 w-full" />
-      <Skeleton className="mt-4 h-10 w-28" />
+      <Skeleton className="mt-4 h-4 w-full" />
+      <Skeleton className="mt-3 h-4 w-4/5" />
+      <Skeleton className="mt-4 h-10 w-full border-t border-transparent pt-3" />
+      <Skeleton className="mt-4 h-4 w-24" />
     </article>
   );
 }
@@ -262,7 +262,7 @@ export function JudgeColumn({
   if (view.status === "failed") {
     return (
       <article
-        className="flex flex-col border border-rule-soft bg-paper-2 p-4"
+        className="flex min-h-[14rem] flex-col border border-rule-soft bg-paper-2 p-4"
         aria-label={`${meta.name} — ${meta.lensTag} — unavailable`}
       >
         {compact ? (
@@ -288,7 +288,7 @@ export function JudgeColumn({
     return (
       <article
         className={cn(
-          "flex flex-col border border-rule-soft p-4",
+          "flex min-h-[14rem] flex-col border border-rule-soft p-4",
           compact ? "bg-paper-2" : "bg-card",
         )}
         aria-busy={view.status === "thinking"}
@@ -324,7 +324,7 @@ export function JudgeColumn({
   return (
     <article
       className={cn(
-        "flex flex-col border border-rule-soft p-4",
+        "flex min-h-[14rem] flex-col border border-rule-soft p-4",
         compact ? "bg-paper-2" : "bg-card",
       )}
       aria-label={`${meta.name} — ${meta.lensTag} — ${verdict.verdict}`}

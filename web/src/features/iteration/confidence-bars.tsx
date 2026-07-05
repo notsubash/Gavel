@@ -12,6 +12,7 @@ import {
 } from "@/lib/confidence/confidence";
 import type { Verdict } from "@/lib/sse/types";
 import { cn } from "@/lib/utils";
+import { DisclosureChevron } from "@/ui/disclosure-chevron";
 
 import { VERSION_COPY } from "../run/run-page-copy";
 
@@ -89,11 +90,13 @@ function ConfidenceBar({
 function ConfidenceWhy({
   snapshot,
   compact = false,
+  defaultOpen = false,
 }: {
   snapshot: ConfidenceSnapshot;
   compact?: boolean;
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const weakest = snapshot.dimensions.find((item) => item.dimension === snapshot.weakest);
   const supporting = snapshot.dimensions
     .filter((item) => item.driver)
@@ -107,12 +110,15 @@ function ConfidenceWhy({
     <div className={cn(compact ? "mt-2" : "mt-3")}>
       <button
         type="button"
-        className="font-sans text-sm font-semibold text-ink underline decoration-rule-soft underline-offset-4 hover:text-cta"
+        className="inline-flex items-center gap-1.5 font-sans text-sm font-semibold text-ink underline decoration-rule-soft underline-offset-4 hover:text-cta"
         aria-expanded={open}
         aria-controls="confidence-why-panel"
         aria-label="See why confidence scores are what they are"
         onClick={() => setOpen((value) => !value)}
       >
+        <DisclosureChevron
+          className={cn("size-4 transition-transform duration-200 motion-reduce:transition-none", open && "rotate-180")}
+        />
         {VERSION_COPY.confidenceWhy}
       </button>
       {open && (
@@ -142,6 +148,7 @@ export function ConfidenceBars({
   compact = false,
   title = VERSION_COPY.confidenceTitle,
   showWhy = true,
+  defaultWhyOpen = false,
 }: {
   verdicts?: Verdict[];
   structuredSynthesis?: unknown;
@@ -150,6 +157,7 @@ export function ConfidenceBars({
   compact?: boolean;
   title?: string;
   showWhy?: boolean;
+  defaultWhyOpen?: boolean;
 }) {
   const snapshot = useMemo(
     () =>
@@ -177,7 +185,9 @@ export function ConfidenceBars({
           <ConfidenceBar key={item.dimension} item={item} compact={compact} delayMs={index * 60} />
         ))}
       </div>
-      {showWhy && <ConfidenceWhy snapshot={snapshot} compact={compact} />}
+      {showWhy && (
+        <ConfidenceWhy snapshot={snapshot} compact={compact} defaultOpen={defaultWhyOpen} />
+      )}
     </section>
   );
 }

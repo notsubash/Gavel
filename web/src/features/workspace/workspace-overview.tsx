@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -29,7 +29,11 @@ import { useWorkspaceOverviewMutations } from "@/features/workspace/use-workspac
 
 export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
   const searchParams = useSearchParams();
-  const [planInterviewOpen, setPlanInterviewOpen] = useState(false);
+  const interviewOpenToken =
+    searchParams.get("plan_interview") === "1" ? searchParams.toString() : null;
+  const [dismissedInterviewToken, setDismissedInterviewToken] = useState<string | null>(null);
+  const planInterviewOpen =
+    interviewOpenToken !== null && dismissedInterviewToken !== interviewOpenToken;
   const [interviewQuestions, setInterviewQuestions] = useState<
     { question: string; rationale: string }[]
   >([]);
@@ -84,12 +88,6 @@ export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
         onSuccess: (res) => setWeeklyDigest(res),
       }),
   };
-
-  useEffect(() => {
-    if (searchParams.get("plan_interview") === "1") {
-      setPlanInterviewOpen(true);
-    }
-  }, [searchParams]);
 
   if (isLoading) {
     return (
@@ -232,7 +230,7 @@ export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
           workspaceId={workspaceId}
           questions={interviewQuestions}
           questionsMutation={questionsMutation}
-          onDismiss={() => setPlanInterviewOpen(false)}
+          onDismiss={() => setDismissedInterviewToken(interviewOpenToken)}
         />
       )}
 

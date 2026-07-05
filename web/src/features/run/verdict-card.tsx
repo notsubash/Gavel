@@ -73,12 +73,15 @@ export function VerdictCard({
 
   return (
     <article
-      className={cn("surface-flat", className)}
+      className={cn(
+        "surface-flat overflow-hidden ring-1 ring-cta/15",
+        className,
+      )}
       aria-labelledby="decision-verdict-heading"
     >
       {quality.lowConfidence && <LowConfidenceBanner reasons={quality.reasons} />}
 
-      <header className="border-b border-rule-soft border-l-4 border-l-cta bg-paper-2 px-5 py-5">
+      <header className="border-b border-rule-soft border-l-[6px] border-l-cta bg-paper-2 px-5 py-5">
         <p className="font-sans text-meta font-semibold uppercase tracking-widest text-ink-muted">
           Recommendation
         </p>

@@ -17,7 +17,7 @@ import { AnimatedScore } from "@/ui/animated-score";
 
 import { RUN_PAGE_COPY } from "./run-page-copy";
 
-function LatestImprovementCard({
+export function LatestImprovementCard({
   improvement,
   className,
 }: {
@@ -30,7 +30,7 @@ function LatestImprovementCard({
   return (
     <section
       className={cn(
-        "animate-fade-rise border border-rule-soft bg-paper-2 px-4 py-3 sm:px-5 sm:py-4",
+        "border border-rule-soft bg-paper-2 px-4 py-3 sm:px-5 sm:py-4",
         className,
       )}
       aria-labelledby="latest-improvement-heading"

@@ -10,7 +10,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ChevronDown } from "lucide-react";
 
 import {
   formatModelRuntimeLabel,
@@ -19,6 +18,7 @@ import {
 import type { CallMetric, RunMetrics, RunStatus } from "@/lib/sse/types";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/ui/badge";
+import { DisclosureChevron } from "@/ui/disclosure-chevron";
 
 import { RUN_PAGE_COPY } from "./run-page-copy";
 
@@ -126,10 +126,7 @@ export function RunMetricsBar({
             className="flex cursor-pointer list-none items-center gap-2 font-sans text-sm font-semibold text-ink hover:text-cta [&::-webkit-details-marker]:hidden"
             aria-controls={detailsId}
           >
-            <ChevronDown
-              className="size-4 transition-transform group-open:rotate-180"
-              aria-hidden
-            />
+            <DisclosureChevron className="size-4" />
             Per-call breakdown
           </summary>
           <div id={detailsId} className="mt-4 space-y-6">

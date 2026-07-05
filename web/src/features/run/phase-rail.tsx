@@ -34,7 +34,7 @@ export function PhaseRail({
           <div
             key={step.id}
             className={cn(
-              "flex items-center gap-2 rounded-ui border px-3 py-1.5 font-sans text-xs font-semibold uppercase tracking-wide transition-colors duration-200",
+              "flex items-center gap-2 rounded-ui border px-3 py-1.5 font-sans text-xs font-semibold uppercase tracking-wide transition-colors duration-200 motion-reduce:transition-none",
               isActive && "border-cta bg-cta text-cta-fg",
               isDone && "border-rule-soft bg-card text-ink",
               !isActive && !isDone && "border-rule-soft bg-paper-2 text-ink-subtle",

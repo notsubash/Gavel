@@ -70,7 +70,7 @@ export function ReadinessGateModal({
         <DialogHeader>
           <DialogTitle>Readiness gate</DialogTitle>
           <DialogDescription>
-            Judges roast the evidence-backed worksheet. The verdict below is rule-based; AI only
+            Judges review the evidence-backed worksheet. The verdict below is rule-based; AI only
             explains it.
           </DialogDescription>
         </DialogHeader>
@@ -147,7 +147,7 @@ export function ReadinessGateModal({
             onClick={() => onLaunch(needsOverride && overrideAck)}
           >
             {launching ? <Loader2 className="size-4 animate-spin" /> : null}
-            Launch roast
+            Launch judges
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -5,14 +5,10 @@ from datetime import UTC, datetime
 import logging
 import os
 
+from api import workspace_store
 from api.schemas import CreateRunRequest
 from config import Settings, get_settings
-from idea_context import (
-    build_startup_idea_context as _build_startup_idea_context,
-)
-from idea_context import (
-    idea_display_summary,
-)
+from idea_context import idea_display_summary
 from modeling import build_chat_model
 from research.service import (
     ResearchContext,
@@ -20,6 +16,8 @@ from research.service import (
     build_research_context,
     decide_web_search_usage,
 )
+from validation.compose import build_judge_context
+from validation.versioning import build_change_summary, compute_worksheet_diff
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +28,15 @@ class RunRecord:
     request: CreateRunRequest
     status: str = "created"
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass
+class RunWorkspaceContext:
+    workspace_id: str
+    worksheet_version_id: str
+    working_name: str
+    idea_text: str
+    judge_context: str
 
 
 def get_app_settings() -> Settings:
@@ -48,14 +55,55 @@ def build_idea_preview(idea: str, *, max_length: int = 120) -> str:
     return idea_display_summary(idea, max_chars=max_length)
 
 
-def build_startup_idea_context(request: CreateRunRequest) -> str:
-    return _build_startup_idea_context(
-        request.idea,
-        target_customer=request.target_customer,
-        pricing=request.pricing,
-        traction=request.traction,
-        competitors=request.competitors or None,
+def load_run_workspace_context(run_id: str, request: CreateRunRequest) -> RunWorkspaceContext:
+    store = workspace_store.get_workspace_store()
+    version_id = request.worksheet_version_id
+    if version_id is None:
+        link = store.get_run_link(run_id)
+        if link:
+            version_id = link[1]
+        else:
+            workspace = store.get_workspace(request.workspace_id)
+            if workspace is None:
+                raise ValueError(f"workspace {request.workspace_id!r} not found")
+            version_id = workspace.current_version_id
+    if version_id is None:
+        raise ValueError(f"run {run_id!r} has no worksheet version")
+
+    version = store.get_version(version_id)
+    if version is None or version.workspace_id != request.workspace_id:
+        raise ValueError(f"worksheet version {version_id!r} not found for workspace")
+
+    assumptions = store.list_assumptions(request.workspace_id)
+    evidence = store.list_evidence(request.workspace_id)
+
+    changes = "First roast for this workspace."
+    prior_run_version_id = store.get_last_run_version_id(
+        request.workspace_id, exclude_run_id=run_id
     )
+    if prior_run_version_id and prior_run_version_id != version.id:
+        prior = store.get_version(prior_run_version_id)
+        if prior is not None:
+            diff = compute_worksheet_diff(prior.worksheet, version.worksheet)
+            changes = build_change_summary(diff)
+
+    judge_context = build_judge_context(
+        version.worksheet,
+        assumptions,
+        evidence,
+        changes_since_last_run=changes,
+    )
+    return RunWorkspaceContext(
+        workspace_id=request.workspace_id,
+        worksheet_version_id=version.id,
+        working_name=version.worksheet.working_name,
+        idea_text=version.generated_document,
+        judge_context=judge_context,
+    )
+
+
+def build_startup_idea_context(run_id: str, request: CreateRunRequest) -> str:
+    return load_run_workspace_context(run_id, request).judge_context
 
 
 def build_model_for_run(request: CreateRunRequest, settings: Settings):

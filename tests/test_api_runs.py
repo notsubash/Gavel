@@ -15,6 +15,7 @@ from api.app import create_app
 from api.routes.runs import SSE_HEADERS
 from api.run_manager import RunManager
 from api.schemas import CreateRunRequest
+from api.workspace_store import WorkspaceStore
 from config import get_settings
 from events import (
     DebateCompleted,
@@ -29,6 +30,23 @@ from events import (
 )
 from judges.schemas import RoastPanel, Verdict
 import tests  # noqa: F401
+from validation.schemas import IdeaWorksheet
+
+WORKSHEET_RUN = IdeaWorksheet(
+    working_name="Founder Journal",
+    audience="Startup founders who want structured daily reflection.",
+    problem_statement="forget to capture lessons from customer conversations.",
+    current_workaround="They use scattered notes apps and voice memos.",
+    solution_statement=(
+        "An AI-powered journal for startup founders with daily reflection prompts."
+    ),
+    secret_sauce="Prompts tied to validation milestones and prior roast feedback.",
+    pricing_hypothesis="$9/month",
+    existing_evidence="Ten founders asked for reflection templates.",
+    competitors=["Day One", "Notion"],
+    top_risky_assumption="Founders will open the journal at least three times weekly.",
+    disconfirming_evidence="Beta users stop after one week without reminders.",
+)
 
 
 def _revised_verdict(judge: str, *, score: int = 5) -> Verdict:
@@ -53,7 +71,39 @@ def _revised_panel() -> RoastPanel:
     )
 
 
-IDEA = "An AI-powered journal for startup founders with daily reflection prompts."
+IDEA = WORKSHEET_RUN.solution_statement
+
+
+def _workspace_id(client: TestClient) -> str:
+    response = client.post("/api/workspaces", json={"worksheet": WORKSHEET_RUN.model_dump()})
+    assert response.status_code == 201
+    return response.json()["workspace"]["id"]
+
+
+def _workspace_request(ws_store: WorkspaceStore, **extra) -> CreateRunRequest:
+    workspace, version, _ = ws_store.create_workspace(WORKSHEET_RUN)
+    return CreateRunRequest(
+        workspace_id=workspace.id,
+        worksheet_version_id=version.id,
+        **extra,
+    )
+
+
+def _post_run(
+    client: TestClient,
+    *,
+    workspace_id: str | None = None,
+    parent_run_id: str | None = None,
+    readiness_override: bool = False,
+    **extra,
+):
+    ws_id = workspace_id or _workspace_id(client)
+    body: dict = {"workspace_id": ws_id, **extra}
+    if parent_run_id:
+        body["parent_run_id"] = parent_run_id
+    if readiness_override:
+        body["readiness_override"] = True
+    return client.post("/api/runs", json=body), ws_id
 
 
 def _verdict(judge: str) -> Verdict:
@@ -185,12 +235,22 @@ def _fetch_sse_events(
 class ApiRunsTest(unittest.TestCase):
     def setUp(self):
         self._tmpdir = tempfile.TemporaryDirectory()
-        self.db_path = Path(self._tmpdir.name) / "runs.db"
+        base = Path(self._tmpdir.name)
+        self.db_path = base / "runs.db"
+        self.ws_store = WorkspaceStore(db_path=base / "workspaces.db")
         self.manager = RunManager(db_path=self.db_path, recover_on_init=False)
+        import api.workspace_store as ws_mod
+
+        self._orig_store = ws_mod._store
+        ws_mod._store = self.ws_store
         self.client = TestClient(create_app(manager=self.manager))
 
     def tearDown(self):
+        import api.workspace_store as ws_mod
+
+        ws_mod._store = self._orig_store
         self.manager.close()
+        self.ws_store.close()
         self._tmpdir.cleanup()
 
     def test_health_endpoint(self):
@@ -199,17 +259,18 @@ class ApiRunsTest(unittest.TestCase):
         self.assertEqual(response.json(), {"status": "ok"})
 
     def test_create_run_returns_run_id(self):
-        response = self.client.post("/api/runs", json={"idea": IDEA})
+        response = _post_run(self.client)[0]
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["status"], "created")
         self.assertTrue(payload["run_id"])
 
     def test_create_refined_run_links_parent_and_increments_version(self):
-        parent = self.client.post("/api/runs", json={"idea": IDEA})
+        parent, ws_id = _post_run(self.client)
         parent_id = parent.json()["run_id"]
         child = self.client.post(
-            "/api/runs", json={"idea": IDEA + " v2", "parent_run_id": parent_id}
+            "/api/runs",
+            json={"workspace_id": ws_id, "parent_run_id": parent_id, "readiness_override": True},
         )
         self.assertEqual(child.status_code, 200)
         child_id = child.json()["run_id"]
@@ -219,25 +280,46 @@ class ApiRunsTest(unittest.TestCase):
         self.assertEqual(status["version"], 2)
 
     def test_create_run_rejects_missing_parent(self):
-        response = self.client.post(
-            "/api/runs",
-            json={"idea": IDEA, "parent_run_id": "does-not-exist"},
-        )
+        response = _post_run(self.client, parent_run_id="does-not-exist")[0]
         self.assertEqual(response.status_code, 422)
 
-    def test_create_run_rejects_missing_idea(self):
+    def test_create_run_rejects_missing_workspace(self):
         response = self.client.post("/api/runs", json={})
         self.assertEqual(response.status_code, 422)
+
+    def test_lazy_migrate_legacy_run_on_load(self):
+        legacy = {
+            "idea": "An AI journal for startup founders with daily reflection prompts.",
+            "model_runtime": "deepseek",
+            "execution_flow": "deterministic",
+            "max_debate_rounds": 3,
+            "enable_web_search": False,
+            "version": 1,
+        }
+        run_id = "legacy-run-1"
+        self.manager._store._conn.execute(
+            """
+            INSERT INTO runs (run_id, request_json, status, created_at, updated_at)
+            VALUES (?, ?, 'completed', datetime('now'), datetime('now'))
+            """,
+            (run_id, json.dumps(legacy)),
+        )
+        self.manager._store._conn.commit()
+
+        status = self.client.get(f"/api/runs/{run_id}")
+        self.assertEqual(status.status_code, 200)
+        self.assertIsNotNone(self.ws_store.get_run_link(run_id))
+        self.assertIsNotNone(status.json().get("workspace_id"))
 
     def test_create_run_rejects_deepagents_execution_flow(self):
         response = self.client.post(
             "/api/runs",
-            json={"idea": IDEA, "execution_flow": "deepagents"},
+            json={"workspace_id": _workspace_id(self.client), "execution_flow": "deepagents"},
         )
         self.assertEqual(response.status_code, 422)
 
     def test_get_run_status_returns_created_run(self):
-        create_response = self.client.post("/api/runs", json={"idea": IDEA})
+        create_response = _post_run(self.client)[0]
         run_id = create_response.json()["run_id"]
 
         status_response = self.client.get(f"/api/runs/{run_id}")
@@ -245,8 +327,10 @@ class ApiRunsTest(unittest.TestCase):
         payload = status_response.json()
         self.assertEqual(payload["run_id"], run_id)
         self.assertEqual(payload["status"], "created")
-        self.assertEqual(payload["idea"], IDEA)
-        self.assertIn("journal", payload["idea_preview"])
+        self.assertIn("journal", payload["idea"].lower())
+        self.assertIn("journal", payload["idea_preview"].lower())
+        self.assertIsNotNone(payload.get("workspace_id"))
+        self.assertIsNotNone(payload.get("worksheet_version_id"))
         self.assertEqual(payload["version"], 1)
         self.assertIsNone(payload.get("parent_run_id"))
 
@@ -313,7 +397,7 @@ class ApiRunsTest(unittest.TestCase):
             ]
         )
 
-        create_response = self.client.post("/api/runs", json={"idea": IDEA})
+        create_response = _post_run(self.client)[0]
         run_id = create_response.json()["run_id"]
 
         status_code, headers, events = _fetch_sse_events(self.client, run_id, manager=self.manager)
@@ -362,7 +446,7 @@ class ApiRunsTest(unittest.TestCase):
             ]
         )
 
-        create_response = self.client.post("/api/runs", json={"idea": IDEA})
+        create_response = _post_run(self.client)[0]
         run_id = create_response.json()["run_id"]
 
         _status_code, _headers, events = _fetch_sse_events(
@@ -398,7 +482,7 @@ class ApiRunsTest(unittest.TestCase):
         build_model_mock.return_value = object()
         stream_pipeline_mock.side_effect = RuntimeError("boom")
 
-        create_response = self.client.post("/api/runs", json={"idea": IDEA})
+        create_response = _post_run(self.client)[0]
         run_id = create_response.json()["run_id"]
 
         status_code, _, events = _fetch_sse_events(self.client, run_id, manager=self.manager)
@@ -437,7 +521,7 @@ class ApiRunsTest(unittest.TestCase):
             ]
         )
 
-        create_response = self.client.post("/api/runs", json={"idea": IDEA})
+        create_response = _post_run(self.client)[0]
         run_id = create_response.json()["run_id"]
 
         # The engine runs once into the buffer; a second viewer (e.g. a reopened
@@ -484,7 +568,7 @@ class ApiRunsTest(unittest.TestCase):
             ]
         )
 
-        create_response = self.client.post("/api/runs", json={"idea": IDEA})
+        create_response = _post_run(self.client)[0]
         run_id = create_response.json()["run_id"]
 
         _, _, all_events = _fetch_sse_events(self.client, run_id, manager=self.manager)
@@ -527,7 +611,7 @@ class ApiRunsTest(unittest.TestCase):
             ]
         )
 
-        create_response = self.client.post("/api/runs", json={"idea": IDEA})
+        create_response = _post_run(self.client)[0]
         run_id = create_response.json()["run_id"]
 
         _, _, all_events = _fetch_sse_events(self.client, run_id, manager=self.manager)
@@ -565,10 +649,11 @@ class ApiRunsTest(unittest.TestCase):
         )
 
         async def scenario():
+            import api.workspace_store as ws_mod
+
+            ws_mod._store = self.ws_store
             manager = RunManager(db_path=self.db_path, recover_on_init=False)
-            record = manager.create(
-                CreateRunRequest.model_validate({"idea": IDEA, "model_runtime": "local"})
-            )
+            record = manager.create(_workspace_request(self.ws_store, model_runtime="local"))
             manager.ensure_started(record.run_id, get_settings())
             await manager._runs[record.run_id].task
             return manager, record.run_id
@@ -596,7 +681,7 @@ class ApiRunsTest(unittest.TestCase):
             "DEEPSEEK_API_KEY is required for DeepSeek runtime."
         )
 
-        create_response = self.client.post("/api/runs", json={"idea": IDEA})
+        create_response = _post_run(self.client)[0]
         run_id = create_response.json()["run_id"]
 
         status_code, _, events = _fetch_sse_events(self.client, run_id, manager=self.manager)
@@ -624,7 +709,7 @@ class ApiRunsTest(unittest.TestCase):
             ]
         )
 
-        create_response = self.client.post("/api/runs", json={"idea": IDEA})
+        create_response = _post_run(self.client)[0]
         run_id = create_response.json()["run_id"]
         _, _, events = _fetch_sse_events(self.client, run_id, manager=self.manager)
         self.assertEqual(events[-1]["type"], "run_completed")
@@ -660,7 +745,7 @@ class ApiRunsTest(unittest.TestCase):
             ]
         )
 
-        create_response = self.client.post("/api/runs", json={"idea": IDEA})
+        create_response = _post_run(self.client)[0]
         run_id = create_response.json()["run_id"]
         _, _, all_events = _fetch_sse_events(self.client, run_id, manager=self.manager)
 
@@ -686,9 +771,10 @@ class ApiRunsTest(unittest.TestCase):
         self,
         stream_pipeline_mock,
     ):
-        request = CreateRunRequest.model_validate({"idea": IDEA})
+        request = _workspace_request(self.ws_store)
         run_id = "interrupted-run-id"
         recent = datetime.now(UTC) - timedelta(minutes=5)
+        self.ws_store.link_run(run_id, request.workspace_id, request.worksheet_version_id or "")
         self.manager._store._conn.execute(
             """
             INSERT INTO runs (run_id, request_json, status, created_at, updated_at)
@@ -726,6 +812,9 @@ class ApiRunsTest(unittest.TestCase):
             recover_on_init=False,
             stale_minutes=30,
         )
+        import api.workspace_store as ws_mod
+
+        ws_mod._store = self.ws_store
         try:
             client = TestClient(create_app(manager=restarted))
             status_code, _, events = _fetch_sse_events(client, run_id, manager=restarted)
@@ -743,9 +832,10 @@ class ApiRunsTest(unittest.TestCase):
             restarted.close()
 
     def test_stale_running_run_marked_failed_on_startup(self):
-        request = CreateRunRequest.model_validate({"idea": IDEA})
+        request = _workspace_request(self.ws_store)
         run_id = "stale-run-id"
         stale_time = datetime.now(UTC) - timedelta(minutes=60)
+        self.ws_store.link_run(run_id, request.workspace_id, request.worksheet_version_id or "")
         self.manager._store._conn.execute(
             """
             INSERT INTO runs (run_id, request_json, status, created_at, updated_at)
@@ -820,7 +910,7 @@ class ApiRunsTest(unittest.TestCase):
             ]
         )
 
-        create_response = self.client.post("/api/runs", json={"idea": IDEA})
+        create_response = _post_run(self.client)[0]
         run_id = create_response.json()["run_id"]
         _fetch_sse_events(self.client, run_id, manager=self.manager)
 
@@ -831,7 +921,7 @@ class ApiRunsTest(unittest.TestCase):
         item = payload["runs"][0]
         self.assertEqual(item["run_id"], run_id)
         self.assertEqual(item["status"], "completed")
-        self.assertIn("journal", item["idea_preview"])
+        self.assertIn("Founder Journal", item["idea_preview"])
         summary = item["verdict_summary"]
         self.assertEqual(summary["fail"], 5)
         self.assertEqual(summary["pass"], 0)
@@ -870,7 +960,7 @@ class ApiRunsTest(unittest.TestCase):
             revised_synthesis="Revised synthesis after appeal.",
         )
 
-        create_response = self.client.post("/api/runs", json={"idea": IDEA})
+        create_response = _post_run(self.client)[0]
         run_id = create_response.json()["run_id"]
         _fetch_sse_events(self.client, run_id, manager=self.manager)
 
@@ -911,7 +1001,7 @@ class ApiRunsTest(unittest.TestCase):
         build_model_mock.return_value = object()
         stream_pipeline_mock.return_value = iter([PhaseStarted(phase="roast")])
 
-        create_response = self.client.post("/api/runs", json={"idea": IDEA})
+        create_response = _post_run(self.client)[0]
         run_id = create_response.json()["run_id"]
 
         appeal_response = self.client.post(
@@ -949,7 +1039,7 @@ class ApiRunsTest(unittest.TestCase):
             revised_synthesis="Revised synthesis after appeal.",
         )
 
-        create_response = self.client.post("/api/runs", json={"idea": IDEA})
+        create_response = _post_run(self.client)[0]
         run_id = create_response.json()["run_id"]
         _fetch_sse_events(self.client, run_id, manager=self.manager)
 
@@ -999,7 +1089,7 @@ class ApiRunsTest(unittest.TestCase):
             revised_synthesis="Revised synthesis after appeal.",
         )
 
-        create_response = self.client.post("/api/runs", json={"idea": IDEA})
+        create_response = _post_run(self.client)[0]
         run_id = create_response.json()["run_id"]
         _fetch_sse_events(self.client, run_id, manager=self.manager)
 
@@ -1015,7 +1105,7 @@ class ApiRunsTest(unittest.TestCase):
         self.assertEqual(second.status_code, 409)
 
     def test_appeal_rejects_short_text(self):
-        create_response = self.client.post("/api/runs", json={"idea": IDEA})
+        create_response = _post_run(self.client)[0]
         run_id = create_response.json()["run_id"]
 
         response = self.client.post(
@@ -1056,10 +1146,7 @@ class ApiRunsTest(unittest.TestCase):
             ]
         )
 
-        create_response = self.client.post(
-            "/api/runs",
-            json={"idea": IDEA, "enable_web_search": True},
-        )
+        create_response = _post_run(self.client, enable_web_search=True)[0]
         run_id = create_response.json()["run_id"]
         _fetch_sse_events(self.client, run_id, manager=self.manager)
 
@@ -1091,7 +1178,7 @@ class ApiRunsTest(unittest.TestCase):
             )
             store.list_recent.side_effect = lambda _user_id, limit=3: [older]
 
-            create_response = self.client.post("/api/runs", json={"idea": IDEA})
+            create_response = _post_run(self.client)[0]
             run_id = create_response.json()["run_id"]
 
             response = self.client.get(f"/api/runs/{run_id}/similar")
@@ -1112,7 +1199,7 @@ class ApiRunsTest(unittest.TestCase):
             store = store_mock.return_value
             store.semantic_search_enabled = False
 
-            create_response = self.client.post("/api/runs", json={"idea": IDEA})
+            create_response = _post_run(self.client)[0]
             run_id = create_response.json()["run_id"]
 
             current = IdeaRecord(
@@ -1161,7 +1248,7 @@ class ApiRunsTest(unittest.TestCase):
 
         stream_pipeline_mock.side_effect = capture_and_yield
 
-        create_response = self.client.post("/api/runs", json={"idea": IDEA})
+        create_response = _post_run(self.client)[0]
         run_id = create_response.json()["run_id"]
         _fetch_sse_events(self.client, run_id, manager=self.manager)
 

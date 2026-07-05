@@ -1,4 +1,5 @@
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -52,6 +53,10 @@ class Verdict(BaseModel):
         min_length=ACTIONABLE_SENTENCE_MIN_LENGTH,
         max_length=EVIDENCE_MAX_LENGTH,
         description="One specific piece of evidence that would change this judge's score.",
+    )
+    evidence_quality: Literal["weak", "moderate", "strong"] | None = Field(
+        default=None,
+        description="How strong the founder's submitted evidence is from this judge's lens.",
     )
 
     @field_validator("roast", mode="before")

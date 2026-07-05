@@ -10,7 +10,6 @@ import {
   type RunFoldVariant,
 } from "@/features/run/run-fold-layout";
 import { SETTINGS_COPY } from "@/features/run/run-page-copy";
-import { isUiShellV2Enabled } from "@/lib/feature-flags";
 import {
   DEFAULT_ADVANCED_SETTINGS,
   loadAdvancedSettings,
@@ -74,7 +73,6 @@ export function AdvancedSettingsPanel() {
     (typeof RUN_FOLD_VARIANTS)[RunFoldVariant],
   ][];
 
-  const shellV2 = isUiShellV2Enabled();
 
   return (
     <div className="space-y-8">
@@ -82,18 +80,13 @@ export function AdvancedSettingsPanel() {
         <p className="font-sans text-meta font-semibold uppercase tracking-widest text-cta">
           Maintainer
         </p>
-        <h1
-          className={cn(
-            "mt-2 font-sans font-semibold text-ink",
-            shellV2 ? "text-section" : "text-title md:text-display-md",
-          )}
-        >
+        <h1 className="mt-2 font-sans text-section font-semibold text-ink">
           Advanced settings
         </h1>
         <p className="mt-3 max-w-prose font-sans text-body text-ink-muted">
           {SETTINGS_COPY.intro}{" "}
-          <Link href="/" className="font-semibold text-ink underline-offset-4 hover:underline">
-            home
+          <Link href="/workspaces" className="font-semibold text-ink underline-offset-4 hover:underline">
+            workspaces
           </Link>
           .
         </p>

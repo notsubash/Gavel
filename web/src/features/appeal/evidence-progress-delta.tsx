@@ -8,7 +8,6 @@ import {
   type ConfidenceDimension,
   type ConfidenceSnapshot,
 } from "@/lib/confidence/confidence";
-import { isConfidenceEngineEnabled } from "@/lib/feature-flags";
 import { deriveEvidenceProgress as deriveEvidenceProgressBase } from "@/lib/lineage/latest-improvement";
 import type { AppealResult } from "@/lib/sse/types";
 import type { ConfidenceLevel } from "@/features/run/structured-synthesis";
@@ -100,7 +99,6 @@ export function EvidenceProgressDelta({
 }) {
   const progress = deriveEvidenceProgress(appeal, confidenceBefore, confidenceMovement);
   const showDimensionMovement =
-    isConfidenceEngineEnabled() &&
     Boolean(progress.confidenceMovement?.before && progress.confidenceMovement?.after);
 
   return (

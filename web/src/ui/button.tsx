@@ -2,10 +2,9 @@ import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 
-import { isUiShellV2Enabled } from "@/lib/feature-flags";
 import { cn } from "@/lib/utils";
 
-const legacyShadow = isUiShellV2Enabled() ? "" : " shadow-soft";
+const legacyShadow = "";
 
 const buttonVariants = cva(
   "inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-ui border font-sans text-sm font-semibold transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta disabled:pointer-events-none disabled:opacity-50",

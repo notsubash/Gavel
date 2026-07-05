@@ -59,37 +59,37 @@ def _panel() -> RoastPanel:
 
 class ApiSchemaTest(unittest.TestCase):
     def test_create_run_request_defaults_to_deepseek_deterministic(self):
-        request = CreateRunRequest.model_validate(
-            {"idea": "An AI journal for startup founders with daily reflection prompts."}
-        )
+        request = CreateRunRequest.model_validate({"workspace_id": "ws-test-1"})
         self.assertEqual(request.model_runtime, "deepseek")
         self.assertEqual(request.execution_flow, "deterministic")
         self.assertEqual(request.max_debate_rounds, 3)
         self.assertFalse(request.enable_web_search)
 
-    def test_create_run_request_requires_idea(self):
+    def test_create_run_request_requires_workspace_id(self):
         with self.assertRaises(ValidationError):
-            CreateRunRequest.model_validate({"idea": "short"})
+            CreateRunRequest.model_validate({})
 
     def test_create_run_request_rejects_deepagents_execution_flow(self):
         with self.assertRaises(ValidationError):
             CreateRunRequest.model_validate(
                 {
-                    "idea": "An AI journal for startup founders with daily reflection prompts.",
+                    "workspace_id": "ws-test-1",
                     "execution_flow": "deepagents",
                 }
             )
 
-    def test_create_run_request_accepts_optional_metadata(self):
+    def test_create_run_request_accepts_optional_fields(self):
         request = CreateRunRequest.model_validate(
             {
-                "idea": "An AI journal for startup founders with daily reflection prompts.",
-                "target_customer": "Solo founders",
-                "competitors": ["Notion", "Reflect"],
+                "workspace_id": "ws-test-1",
+                "worksheet_version_id": "ver-1",
+                "parent_run_id": "run-parent",
+                "readiness_override": True,
             }
         )
-        self.assertEqual(request.target_customer, "Solo founders")
-        self.assertEqual(request.competitors, ["Notion", "Reflect"])
+        self.assertEqual(request.worksheet_version_id, "ver-1")
+        self.assertEqual(request.parent_run_id, "run-parent")
+        self.assertTrue(request.readiness_override)
 
     def test_run_created_response_shape(self):
         response = RunCreatedResponse(run_id="abc-123")
@@ -462,16 +462,43 @@ class ApiEventSerializationTest(unittest.TestCase):
 
 class ApiDepsTest(unittest.TestCase):
     def test_build_startup_idea_context_includes_metadata(self):
-        request = CreateRunRequest.model_validate(
-            {
-                "idea": "An AI journal for startup founders with daily reflection prompts.",
-                "target_customer": "Solo founders",
-                "competitors": ["Notion"],
-            }
+        import tempfile
+
+        import api.workspace_store as ws_mod
+        from api.workspace_store import WorkspaceStore
+        from validation.schemas import IdeaWorksheet
+
+        worksheet = IdeaWorksheet(
+            working_name="Founder Journal",
+            audience="Solo founders",
+            problem_statement="forget to capture lessons from customer conversations.",
+            current_workaround="They use scattered notes apps and voice memos.",
+            solution_statement=(
+                "An AI journal for startup founders with daily reflection prompts."
+            ),
+            secret_sauce="Prompts tied to validation milestones.",
+            pricing_hypothesis="$9/month",
+            existing_evidence="Ten founders asked for reflection templates.",
+            competitors=["Notion"],
+            top_risky_assumption="Founders will open the journal at least three times weekly.",
+            disconfirming_evidence="Beta users stop after one week without reminders.",
         )
-        context = build_startup_idea_context(request)
-        self.assertIn("Target customer: Solo founders", context)
-        self.assertIn("Competitors: Notion", context)
+        with tempfile.TemporaryDirectory() as tmp:
+            store = WorkspaceStore(db_path=Path(tmp) / "ws.db")
+            orig = ws_mod._store
+            ws_mod._store = store
+            try:
+                ws, version, _ = store.create_workspace(worksheet)
+                request = CreateRunRequest(
+                    workspace_id=ws.id,
+                    worksheet_version_id=version.id,
+                )
+                context = build_startup_idea_context("run-1", request)
+                self.assertIn("<audience>Solo founders</audience>", context)
+                self.assertIn("Notion", context)
+            finally:
+                ws_mod._store = orig
+                store.close()
 
     def test_build_idea_preview_truncates_long_text(self):
         preview = build_idea_preview("x" * 200, max_length=50)

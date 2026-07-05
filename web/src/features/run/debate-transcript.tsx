@@ -1,4 +1,3 @@
-import { isJudgeIdentityEnabled } from "@/lib/feature-flags";
 import { speakerMeta } from "@/lib/sse/judges";
 import type { DebateTurnView } from "@/lib/sse/types";
 import { cn } from "@/lib/utils";
@@ -61,7 +60,7 @@ function DebateTurnCompact({ turn }: { turn: DebateTurnView }) {
 }
 
 export function DebateTurn({ turn }: { turn: DebateTurnView }) {
-  if (isJudgeIdentityEnabled()) {
+  if (true) {
     return <DebateTurnCompact turn={turn} />;
   }
 
@@ -115,7 +114,7 @@ export function DebateTranscript({
     rounds.sort((a, b) => a - b);
   }
 
-  const compact = isJudgeIdentityEnabled();
+  const compact = true;
 
   return (
     <div className={compact ? "divide-y divide-rule-soft rounded border border-rule-soft px-4" : "space-y-8"}>

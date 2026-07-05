@@ -12,20 +12,17 @@ IDEA_MAX_LENGTH = 8000
 class CreateRunRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    idea: str = Field(
-        min_length=10,
-        max_length=IDEA_MAX_LENGTH,
-        description="The startup idea to roast.",
+    workspace_id: str = Field(min_length=1, max_length=64)
+    worksheet_version_id: str | None = Field(
+        default=None,
+        description="Defaults to workspace current version.",
     )
-    target_customer: str | None = None
-    pricing: str | None = None
-    traction: str | None = None
-    competitors: list[str] = Field(default_factory=list)
     model_runtime: Literal["local", "deepseek"] = "deepseek"
     execution_flow: Literal["deterministic", "deepagents"] = "deterministic"
     max_debate_rounds: int = Field(default=3, ge=1, le=5)
     enable_web_search: bool = False
     parent_run_id: str | None = None
+    readiness_override: bool = False
     version: int = Field(default=1, ge=1)
 
     @model_validator(mode="after")
@@ -49,6 +46,9 @@ class RunStatusResponse(BaseModel):
     idea: str
     idea_preview: str
     created_at: datetime
+    workspace_id: str | None = None
+    worksheet_version_id: str | None = None
+    working_name: str | None = None
     parent_run_id: str | None = None
     version: int = 1
 
@@ -165,9 +165,24 @@ class RunListItem(BaseModel):
     status: RunStatus
     idea_preview: str
     created_at: datetime
+    workspace_id: str | None = None
+    worksheet_version_id: str | None = None
     verdict_summary: VerdictSummary | None = None
     parent_run_id: str | None = None
     version: int = 1
+
+
+class RunHandoffItem(BaseModel):
+    kind: Literal["assumption", "evidence_target", "experiment"]
+    title: str
+    detail: str
+    source_judge: str | None = None
+
+
+class RunHandoffResponse(BaseModel):
+    run_id: str
+    workspace_id: str
+    items: list[RunHandoffItem] = Field(default_factory=list)
 
 
 class RunListResponse(BaseModel):

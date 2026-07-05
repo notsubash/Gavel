@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getRunPanel, runPanelQueryKey } from "@/lib/api/runs";
 import { parseConfidenceSnapshot, resolveConfidenceSnapshot } from "@/lib/confidence/confidence";
-import { isConfidenceEngineEnabled } from "@/lib/feature-flags";
 import { useInView } from "@/lib/hooks/use-in-view";
 import { parseVerdict } from "@/lib/lineage/lineage";
 import { cn } from "@/lib/utils";
@@ -22,7 +21,7 @@ export function HistoryConfidencePreview({
   className?: string;
 }) {
   const [ref, inView] = useInView();
-  const shouldFetch = enabled && inView && isConfidenceEngineEnabled();
+  const shouldFetch = enabled && inView;
 
   const panelQuery = useQuery({
     queryKey: runPanelQueryKey(runId),
@@ -32,7 +31,7 @@ export function HistoryConfidencePreview({
     staleTime: 60_000,
   });
 
-  if (!enabled || !isConfidenceEngineEnabled()) return null;
+  if (!enabled) return null;
 
   return (
     <div ref={ref} className={cn(className)}>

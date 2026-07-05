@@ -13,13 +13,7 @@ import { ApiError } from "@/lib/api/client";
 import { getRunStatus } from "@/lib/api/runs";
 import { heatCtaClass } from "@/lib/cta-classes";
 import { parseConfidenceFromStructuredSynthesis } from "@/lib/confidence/confidence";
-import {
-  deriveExperiment,
-  resolveExperimentStatus,
-  type ExperimentStatus,
-} from "@/lib/experiment/experiment";
-import { getStoredExperimentStatus } from "@/lib/experiment/experiment-storage";
-import { isConfidenceEngineEnabled, isJudgeIdentityEnabled, isUiShellV2Enabled } from "@/lib/feature-flags";
+import { deriveExperiment, resolveExperimentStatus, type ExperimentStatus } from "@/lib/experiment/experiment";
 import { JUDGE_ORDER } from "@/lib/sse/types";
 import { useRunStream } from "@/lib/sse/use-run-stream";
 import type { LensUniquenessAssessment } from "@/lib/lens/lens-quality";
@@ -93,7 +87,7 @@ function TerminalBanner({ state }: { state: RunState }) {
             {state.error?.message ?? "Something went wrong during the run."}
           </p>
           {state.error?.recoverable && (
-            <Link href="/" className={`mt-4 inline-flex ${heatCtaClass}`}>
+            <Link href="/workspaces/new" className={`mt-4 inline-flex ${heatCtaClass}`}>
               Try again
             </Link>
           )}
@@ -127,6 +121,8 @@ function RunSheetContent({
   refetchStatus,
   version,
   parentRunId,
+  workspaceId,
+  workingName,
   initialFold,
 }: {
   runId: string;
@@ -136,6 +132,8 @@ function RunSheetContent({
   refetchStatus: () => void;
   version: number;
   parentRunId?: string | null;
+  workspaceId?: string | null;
+  workingName?: string | null;
   initialFold?: string | null;
 }) {
   const { variant } = useRunFoldVariant(initialFold);
@@ -179,10 +177,6 @@ function RunSheetContent({
   const scrollToAppealOnSubmit = useRef(false);
 
   const appeal = appealResult ?? stream.appeal;
-
-  useEffect(() => {
-    setStoredExperimentStatus(getStoredExperimentStatus(runId));
-  }, [runId]);
 
   useEffect(() => {
     if (stream.appeal) setAppealResult(stream.appeal);
@@ -291,7 +285,7 @@ function RunSheetContent({
   }, [status, appeal, appealBaseline.length]);
 
   const collapseJudgeDetail = status === "completed" && !showJudgeSkeletons;
-  const shellV2 = isUiShellV2Enabled();
+  const shellV2 = true;
   const sectionHeadingClass = shellV2
     ? "font-sans text-section font-semibold text-ink"
     : "font-sans text-2xl font-semibold text-ink";
@@ -345,16 +339,19 @@ function RunSheetContent({
             evidenceLink={evidenceLink}
             evidenceReplayPending={evidenceReplayPending}
             onCompleteExperiment={
-              canSubmitEvidence ? () => setExperimentModalOpen(true) : undefined
+              canSubmitEvidence
+                ? () => {
+                    setStoredExperimentStatus("in_progress");
+                    setExperimentModalOpen(true);
+                  }
+                : undefined
             }
           />
-          {isConfidenceEngineEnabled() && (
-            <ConfidenceBars
-              verdicts={revealedVerdicts}
-              structuredSynthesis={stream.structuredSynthesis}
-              className="mt-6"
-            />
-          )}
+          <ConfidenceBars
+            verdicts={revealedVerdicts}
+            structuredSynthesis={stream.structuredSynthesis}
+            className="mt-6"
+          />
           <DebateConsequenceBlock
             structuredSynthesis={stream.structuredSynthesis}
             synthesisProse={stream.synthesis}
@@ -465,6 +462,19 @@ function RunSheetContent({
   return (
     <>
       <header>
+        {workspaceId ? (
+          <nav className="mb-4 font-sans text-sm text-ink-muted" aria-label="Breadcrumb">
+            <Link href={`/workspaces/${workspaceId}`} className="hover:text-ink">
+              {workingName ?? "Workspace"}
+            </Link>
+            <span className="mx-2 text-ink-subtle">/</span>
+            <Link href={`/workspaces/${workspaceId}/judges`} className="hover:text-ink">
+              Judges
+            </Link>
+            <span className="mx-2 text-ink-subtle">/</span>
+            <span className="text-ink">Run</span>
+          </nav>
+        ) : null}
         <p className="font-sans text-meta font-semibold uppercase tracking-widest text-cta">
           {RUN_PAGE_COPY.reviewEyebrow}
         </p>
@@ -571,11 +581,6 @@ function JudgePanelFootnotes({
           {revoteQuality.reasons.join(" ")}
         </p>
       )}
-      {!revoteQuality?.scoresMoved && hasRevote && !isJudgeIdentityEnabled() && (
-        <p className="mt-3 max-w-prose font-sans text-sm text-ink-muted">
-          No judge changed their score after the debate.
-        </p>
-      )}
       {showQualityDebug && (
         <PanelQualityDebugBadge panelQuality={panelQuality} verdicts={verdicts} />
       )}
@@ -601,7 +606,7 @@ export function RunSheet({
 
   if (statusQuery.isLoading) {
     return (
-      <EditorialContainer className={isUiShellV2Enabled() ? "py-6 md:py-8" : "py-12 md:py-16 lg:py-24"}>
+      <EditorialContainer className="py-6 md:py-8">
         <div className="space-y-4">
           <Skeleton className="h-8 w-64" />
           <Skeleton className="h-12 w-full max-w-xl" />
@@ -615,18 +620,15 @@ export function RunSheet({
     const notFound =
       statusQuery.error instanceof ApiError && statusQuery.error.status === 404;
     return (
-      <EditorialContainer className={isUiShellV2Enabled() ? "py-6 md:py-8" : "py-12 md:py-16 lg:py-24"}>
+      <EditorialContainer className="py-6 md:py-8">
         <div className="text-center">
-          <h1 className={cn(
-            "font-sans font-semibold text-ink",
-            isUiShellV2Enabled() ? "text-section" : "text-title",
-          )}>
+          <h1 className="font-sans text-section font-semibold text-ink">
             {notFound ? "Run not found" : "Could not load run"}
           </h1>
           <p className="mt-4 font-sans text-ink-muted">
             {notFound ? RUN_PAGE_COPY.reviewNotFound : "Check your connection and try refreshing."}
           </p>
-          <Link href="/" className={cn("mt-8 inline-flex", heatCtaClass)}>
+          <Link href="/workspaces/new" className={cn("mt-8 inline-flex", heatCtaClass)}>
             {RUN_PAGE_COPY.submitIdea}
           </Link>
         </div>
@@ -638,11 +640,18 @@ export function RunSheet({
     return null;
   }
 
-  const { idea_preview: ideaPreview, idea, status: restStatus, version = 1, parent_run_id: parentRunId } =
-    statusQuery.data;
+  const {
+    idea_preview: ideaPreview,
+    idea,
+    status: restStatus,
+    version = 1,
+    parent_run_id: parentRunId,
+    workspace_id: workspaceId,
+    working_name: workingName,
+  } = statusQuery.data;
 
   return (
-    <EditorialContainer className={isUiShellV2Enabled() ? "py-6 md:py-8" : "py-12 md:py-16 lg:py-24"}>
+    <EditorialContainer className="py-6 md:py-8">
       <RunSheetContent
         key={runId}
         runId={runId}
@@ -652,6 +661,8 @@ export function RunSheet({
         refetchStatus={() => void statusQuery.refetch()}
         version={version}
         parentRunId={parentRunId}
+        workspaceId={workspaceId}
+        workingName={workingName}
         initialFold={initialFold}
       />
     </EditorialContainer>

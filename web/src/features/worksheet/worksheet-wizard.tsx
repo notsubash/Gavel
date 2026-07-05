@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,6 +8,7 @@ import { Loader2, Sparkles } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
+import { WorksheetFieldRenderer } from "@/features/worksheet/worksheet-field-renderer";
 import { composeWorksheetPreview } from "@/features/worksheet/worksheet-preview";
 import {
   WORKSHEET_FIELDS,
@@ -24,26 +25,19 @@ import {
 } from "@/lib/api/workspaces";
 import { parseApiDetail } from "@/lib/api/types-helpers";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Card } from "@/ui/card";
-import { Input } from "@/ui/input";
 import { Label } from "@/ui/label";
 import { Textarea } from "@/ui/textarea";
 
-function FieldError({ message }: { message?: string }) {
-  if (!message) return null;
-  return (
-    <p className="font-sans text-sm text-fail" role="alert">
-      {message}
-    </p>
-  );
-}
+const PASTE_MIN_LENGTH = 20;
 
 export function WorksheetWizard() {
   const router = useRouter();
+  const pasteHintId = useId();
   const [mode, setMode] = useState<"fields" | "paste">("fields");
   const [fieldStep, setFieldStep] = useState(0);
+  const [mobileWizard, setMobileWizard] = useState(false);
   const mobileFieldRef = useRef<HTMLDivElement>(null);
   const [pasteNotes, setPasteNotes] = useState("");
   const [aiFields, setAiFields] = useState<Set<string>>(new Set());
@@ -55,6 +49,7 @@ export function WorksheetWizard() {
     watch,
     setValue,
     reset,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm<WorksheetValues>({
     resolver: zodResolver(worksheetSchema),
@@ -130,77 +125,46 @@ export function WorksheetWizard() {
   }
 
   function renderField(field: (typeof WORKSHEET_FIELDS)[number]) {
-    const isAi = aiFields.has(field.name);
     const error = errors[field.name]?.message as string | undefined;
+    const errorId = `${field.name}-error`;
 
-    if (field.name === "competitors") {
-      return (
-        <div key={field.name} className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Label htmlFor={field.name}>{field.label}</Label>
-            {isAi && <Badge variant="heat">AI draft</Badge>}
-          </div>
-          <p className="font-sans text-meta text-ink-muted">{field.prompt}</p>
-          <Textarea
-            id={field.name}
-            className="min-h-20"
-            placeholder={field.example}
-            value={values.competitors.join("\n")}
-            onChange={(e) =>
-              setValue(
-                "competitors",
-                e.target.value
-                  .split(/[\n,]+/)
-                  .map((s) => s.trim())
-                  .filter(Boolean),
-              )
-            }
-          />
-          <FieldError message={error} />
-        </div>
-      );
-    }
-
-    const InputComponent = field.multiline ? Textarea : Input;
     return (
-      <div key={field.name} className="space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Label htmlFor={field.name}>{field.label}</Label>
-            {isAi && <Badge variant="heat">AI draft</Badge>}
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={sharpening === field.name}
-            onClick={() => onSharpen(field.name)}
-          >
-            {sharpening === field.name ? (
-              <Loader2 className="size-3 animate-spin" aria-hidden />
-            ) : (
-              <Sparkles className="size-3 text-ai-processing" aria-hidden />
-            )}
-            Sharpen
-          </Button>
-        </div>
-        <p className="font-sans text-meta text-ink-muted">{field.prompt}</p>
-        <InputComponent
-          id={field.name}
-          className={field.multiline ? "min-h-24" : undefined}
-          placeholder={field.example}
-          {...register(field.name)}
-        />
-        <FieldError message={error} />
-      </div>
+      <WorksheetFieldRenderer
+        key={field.name}
+        field={field}
+        values={values}
+        error={error}
+        errorId={errorId}
+        register={register}
+        setValue={setValue}
+        onSharpen={onSharpen}
+        sharpening={sharpening}
+        isAiDraft={aiFields.has(field.name)}
+      />
     );
   }
 
   const mobileField = WORKSHEET_FIELDS[fieldStep];
 
+  async function onMobileNext() {
+    const valid = await trigger(mobileField.name);
+    if (valid) {
+      setFieldStep((s) => s + 1);
+    }
+  }
+
   useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const sync = () => setMobileWizard(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileWizard) return;
     mobileFieldRef.current?.querySelector<HTMLElement>("input,textarea")?.focus();
-  }, [fieldStep]);
+  }, [fieldStep, mobileWizard]);
 
   return (
     <div className="space-y-8">
@@ -212,15 +176,17 @@ export function WorksheetWizard() {
           Idea validation worksheet
         </h1>
         <p className="mt-3 max-w-prose font-sans text-body text-ink-muted">
-          Structure your idea before validation. Save a workspace first — roast the judges later.
+          Structure your idea before validation. Save a workspace, then run experiments and
+          evidence before asking judges to review.
         </p>
       </header>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Input mode">
         <Button
           type="button"
           variant={mode === "fields" ? "default" : "outline"}
           size="sm"
+          aria-pressed={mode === "fields"}
           onClick={() => setMode("fields")}
         >
           Structured fields
@@ -229,6 +195,7 @@ export function WorksheetWizard() {
           type="button"
           variant={mode === "paste" ? "default" : "outline"}
           size="sm"
+          aria-pressed={mode === "paste"}
           onClick={() => setMode("paste")}
         >
           Paste notes
@@ -244,12 +211,17 @@ export function WorksheetWizard() {
             placeholder="Dump your idea, problem, audience, competitors, pricing thoughts…"
             value={pasteNotes}
             onChange={(e) => setPasteNotes(e.target.value)}
+            aria-describedby={pasteHintId}
+            aria-invalid={pasteNotes.trim().length > 0 && pasteNotes.trim().length < PASTE_MIN_LENGTH ? true : undefined}
           />
+          <p id={pasteHintId} className="mt-2 font-sans text-meta text-ink-muted">
+            At least {PASTE_MIN_LENGTH} characters so the AI draft has enough context.
+          </p>
           <Button
             type="button"
             variant="secondary"
             className="mt-4"
-            disabled={pasteNotes.trim().length < 20 || draftMutation.isPending}
+            disabled={pasteNotes.trim().length < PASTE_MIN_LENGTH || draftMutation.isPending}
             onClick={() => draftMutation.mutate(pasteNotes)}
           >
             {draftMutation.isPending ? (
@@ -263,51 +235,52 @@ export function WorksheetWizard() {
       ) : (
         <form onSubmit={handleSubmit(onSubmit)} className="grid gap-8 lg:grid-cols-2">
           <div className="space-y-6">
-            <div
-              className="md:hidden"
-              role="group"
-              aria-label={`Worksheet field ${fieldStep + 1} of ${WORKSHEET_FIELDS.length}`}
-              ref={mobileFieldRef}
-            >
-              <p className="font-sans text-meta text-ink-muted" aria-current="step">
-                Field {fieldStep + 1} of {WORKSHEET_FIELDS.length}: {mobileField.label}
-              </p>
-              {renderField(mobileField)}
-              <div className="mt-4 flex justify-between gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={fieldStep === 0}
-                  onClick={() => setFieldStep((s) => Math.max(0, s - 1))}
-                >
-                  Back
-                </Button>
-                {fieldStep < WORKSHEET_FIELDS.length - 1 ? (
-                  <Button type="button" onClick={() => setFieldStep((s) => s + 1)}>
-                    Next
-                  </Button>
-                ) : (
-                  <Button type="submit" disabled={isSubmitting || saveMutation.isPending}>
-                    Save workspace
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            <div className="hidden space-y-6 md:block">
-              {WORKSHEET_FIELDS.map((field) => renderField(field))}
-              <Button
-                type="submit"
-                size="lg"
-                disabled={isSubmitting || saveMutation.isPending}
-                className="w-full sm:w-auto"
+            {mobileWizard ? (
+              <div
+                role="group"
+                aria-label={`Worksheet field ${fieldStep + 1} of ${WORKSHEET_FIELDS.length}`}
+                ref={mobileFieldRef}
               >
-                {(isSubmitting || saveMutation.isPending) && (
-                  <Loader2 className="size-4 animate-spin" aria-hidden />
-                )}
-                Save workspace
-              </Button>
-            </div>
+                <p className="font-sans text-meta text-ink-muted" aria-current="step">
+                  Field {fieldStep + 1} of {WORKSHEET_FIELDS.length}: {mobileField.label}
+                </p>
+                {renderField(mobileField)}
+                <div className="mt-4 flex justify-between gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={fieldStep === 0}
+                    onClick={() => setFieldStep((s) => Math.max(0, s - 1))}
+                  >
+                    Back
+                  </Button>
+                  {fieldStep < WORKSHEET_FIELDS.length - 1 ? (
+                    <Button type="button" onClick={() => void onMobileNext()}>
+                      Next
+                    </Button>
+                  ) : (
+                    <Button type="submit" disabled={isSubmitting || saveMutation.isPending}>
+                      Save workspace
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <>
+                {WORKSHEET_FIELDS.map((field) => renderField(field))}
+                <Button
+                  type="submit"
+                  size="lg"
+                  disabled={isSubmitting || saveMutation.isPending}
+                  className="w-full sm:w-auto"
+                >
+                  {(isSubmitting || saveMutation.isPending) && (
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                  )}
+                  Save workspace
+                </Button>
+              </>
+            )}
           </div>
 
           <div className="lg:sticky lg:top-8 lg:self-start">

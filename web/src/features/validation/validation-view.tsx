@@ -386,8 +386,10 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
               {overviewQuery.data.checklist.items.map((item) => (
                 <Badge
                   key={item.stage}
+                  id={`stage-${item.stage}`}
                   variant={item.completed ? "pass" : "default"}
                   title={item.label}
+                  className="scroll-mt-24"
                 >
                   {item.completed ? "✓" : "○"} {item.stage.replace(/_/g, " ")}
                 </Badge>

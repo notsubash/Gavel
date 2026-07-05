@@ -11,6 +11,7 @@ import {
   createEvidence,
   createExperiment,
   createInterview,
+  competitorScan,
   getValidationOverview,
   listAssumptions,
   listEvidence,
@@ -90,6 +91,10 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
   const [experimentResult, setExperimentResult] = useState("");
   const [experimentDecision, setExperimentDecision] = useState("continue");
   const [revisePromptExperimentId, setRevisePromptExperimentId] = useState<string | null>(null);
+  const [competitorScanResult, setCompetitorScanResult] = useState<string | null>(null);
+  const [competitorFindings, setCompetitorFindings] = useState<
+    Array<{ title: string; url: string; snippet: string }>
+  >([]);
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: validationDataQueryKey(workspaceId) });
@@ -178,7 +183,7 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
       createEvidence(workspaceId, {
         type: evidenceType,
         content: evidenceContent,
-        strength: "weak",
+        strength: evidenceType === "ai_research" ? "weak" : "moderate",
         source: null,
         occurred_at: null,
         assumption_ids: mappedAssumptionIds,
@@ -190,6 +195,8 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
       setEvidenceContent("");
       setMappedAssumptionIds([]);
       setMapRationale(null);
+      setCompetitorScanResult(null);
+      setCompetitorFindings([]);
       invalidate();
     },
     onError: (err) => {
@@ -205,6 +212,25 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
     },
     onError: (err) => {
       toast.error(err instanceof ApiError ? parseApiDetail(err.body) : "Suggest failed");
+    },
+  });
+
+  const competitorScanMutation = useMutation({
+    mutationFn: () => competitorScan(workspaceId),
+    onSuccess: (res) => {
+      setCompetitorScanResult(res.suggested_evidence);
+      setCompetitorFindings(res.findings);
+      setEvidenceType("ai_research");
+      setEvidenceContent(res.suggested_evidence);
+      setEvidenceOpen(true);
+      if (!res.available) {
+        toast.message("Web search unavailable — add competitor notes manually");
+      } else {
+        toast.success("Competitor scan ready — review before saving as evidence");
+      }
+    },
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? parseApiDetail(err.body) : "Scan failed");
     },
   });
 
@@ -374,6 +400,19 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
           )}
           Suggest experiment
         </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => competitorScanMutation.mutate()}
+          disabled={competitorScanMutation.isPending}
+        >
+          {competitorScanMutation.isPending ? (
+            <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+          ) : (
+            <Sparkles className="mr-2 size-4" aria-hidden />
+          )}
+          Scan competitors
+        </Button>
       </section>
 
       {interviewOpen && (
@@ -478,8 +517,31 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
               <option value="payment">Payment</option>
               <option value="founder_note">Founder note</option>
               <option value="competitor_research">Competitor research</option>
+              <option value="ai_research">AI research</option>
             </select>
           </div>
+          {competitorFindings.length > 0 && (
+            <ul className="space-y-2 rounded-ui border border-rule-soft bg-paper-2 p-4 font-sans text-sm">
+              {competitorFindings.map((f) => (
+                <li key={f.url}>
+                  <a
+                    href={f.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-cta hover:underline"
+                  >
+                    {f.title}
+                  </a>
+                  <p className="mt-0.5 text-ink-muted">{f.snippet}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+          {competitorScanResult && (
+            <p className="font-sans text-xs text-ink-muted">
+              AI research draft — confirm links and strength before saving.
+            </p>
+          )}
           <div className="space-y-2">
             <Label htmlFor="evidence-content">Content</Label>
             <Textarea
@@ -578,7 +640,7 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
         >
           Assumption board
         </h2>
-        <div className="mt-4 grid gap-4 md:grid-cols-3 lg:grid-cols-5">
+        <div className="mt-4 grid gap-4 max-md:flex max-md:flex-col md:grid-cols-3 lg:grid-cols-5">
           {ASSUMPTION_COLUMNS.map((col) => (
             <div key={col} className="min-w-0 space-y-2">
               <h3 className="font-sans text-meta font-semibold uppercase tracking-wide text-ink-subtle">

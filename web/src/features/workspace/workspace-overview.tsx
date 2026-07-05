@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Download, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { WorkspaceNav } from "@/features/workspace/workspace-nav";
@@ -12,8 +12,11 @@ import {
   CONFIDENCE_DISPLAY,
   getValidationOverview,
   getWorkspace,
+  exportJudgeBrief,
+  exportWorkspaceMarkdown,
   suggestInterviewQuestions,
   validationCoach,
+  weeklyReview,
   validationOverviewQueryKey,
   workspaceQueryKey,
 } from "@/lib/api/workspaces";
@@ -47,6 +50,12 @@ export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
     { question: string; rationale: string }[]
   >([]);
   const [coachNarrative, setCoachNarrative] = useState<string | null>(null);
+  const [weeklyDigest, setWeeklyDigest] = useState<{
+    summary: string;
+    highlights: string[];
+    open_questions: string[];
+    evidence_count: number;
+  } | null>(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: workspaceQueryKey(workspaceId),
@@ -83,6 +92,38 @@ export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
     },
     onError: (err) => {
       toast.error(err instanceof ApiError ? parseApiDetail(err.body) : "Coach unavailable");
+    },
+  });
+
+  const weeklyMutation = useMutation({
+    mutationFn: () => weeklyReview(workspaceId),
+    onSuccess: (res) => {
+      setWeeklyDigest(res);
+      toast.success("Weekly review ready");
+    },
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? parseApiDetail(err.body) : "Weekly review unavailable");
+    },
+  });
+
+  const exportMarkdownMutation = useMutation({
+    mutationFn: () =>
+      exportWorkspaceMarkdown(
+        workspaceId,
+        data?.current_version.worksheet.working_name ?? "workspace",
+      ),
+    onSuccess: () => toast.success("Markdown export downloaded"),
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? parseApiDetail(err.body) : "Export failed");
+    },
+  });
+
+  const exportBriefMutation = useMutation({
+    mutationFn: () =>
+      exportJudgeBrief(workspaceId, data?.current_version.worksheet.working_name ?? "workspace"),
+    onSuccess: () => toast.success("Judge brief downloaded"),
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? parseApiDetail(err.body) : "Export failed");
     },
   });
 
@@ -181,8 +222,134 @@ export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
             )}
             Coach
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => exportMarkdownMutation.mutate()}
+            disabled={exportMarkdownMutation.isPending}
+          >
+            {exportMarkdownMutation.isPending ? (
+              <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+            ) : (
+              <Download className="mr-2 size-4" aria-hidden />
+            )}
+            Export
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => exportBriefMutation.mutate()}
+            disabled={exportBriefMutation.isPending}
+          >
+            {exportBriefMutation.isPending ? (
+              <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+            ) : (
+              <Download className="mr-2 size-4" aria-hidden />
+            )}
+            Judge brief
+          </Button>
         </div>
       </header>
+
+      {overview && (
+        <section aria-labelledby="progress-heading">
+          <h2 id="progress-heading" className="sr-only">
+            Validation stage progress
+          </h2>
+          {(() => {
+            const done = overview.checklist.items.filter((i) => i.completed).length;
+            const total = overview.checklist.items.length;
+            const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+            return (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between font-sans text-meta text-ink-muted">
+                  <span>Validation progress</span>
+                  <span>
+                    {done}/{total} stages
+                  </span>
+                </div>
+                <div
+                  className="h-2 overflow-hidden rounded-full bg-paper-2"
+                  role="progressbar"
+                  aria-valuenow={pct}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`${pct}% of validation stages complete`}
+                >
+                  <div
+                    className="h-full rounded-full bg-cta transition-all"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {overview.checklist.items.map((item) => (
+                    <span
+                      key={item.stage}
+                      className={`rounded-ui px-2 py-0.5 font-sans text-xs ${
+                        item.completed
+                          ? "bg-pass/15 text-pass"
+                          : "bg-paper-2 text-ink-muted"
+                      }`}
+                      title={item.label}
+                    >
+                      {item.stage.replace(/_/g, " ")}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+        </section>
+      )}
+
+      <section aria-labelledby="weekly-review-heading">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="weekly-review-heading" className="font-sans text-section font-semibold text-ink">
+            Weekly review
+          </h2>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => weeklyMutation.mutate()}
+            disabled={weeklyMutation.isPending}
+          >
+            {weeklyMutation.isPending ? (
+              <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+            ) : (
+              <Sparkles className="mr-2 size-4" aria-hidden />
+            )}
+            Review week
+          </Button>
+        </div>
+        <Card className="mt-3 p-5">
+          {weeklyDigest ? (
+            <div className="space-y-3 font-sans text-body text-ink">
+              <p>{weeklyDigest.summary}</p>
+              {weeklyDigest.highlights.length > 0 && (
+                <ul className="list-disc space-y-1 pl-5 text-sm text-ink-muted">
+                  {weeklyDigest.highlights.map((h, i) => (
+                    <li key={`${i}-${h.slice(0, 32)}`}>{h}</li>
+                  ))}
+                </ul>
+              )}
+              {weeklyDigest.open_questions.length > 0 && (
+                <p className="text-sm text-ink-muted">
+                  <span className="font-medium text-ink">Open questions: </span>
+                  {weeklyDigest.open_questions.join(" · ")}
+                </p>
+              )}
+              <p className="text-meta text-ink-subtle">
+                {weeklyDigest.evidence_count} evidence item(s) in the last 7 days
+              </p>
+            </div>
+          ) : (
+            <p className="font-sans text-body text-ink-muted">
+              Summarize evidence added, assumptions moved, and experiments completed this week.
+            </p>
+          )}
+        </Card>
+      </section>
 
       {overview && (
         <section aria-labelledby="next-step-heading">

@@ -1,4 +1,4 @@
-import { apiClient } from "./client";
+import { apiClient, ApiError, getApiBaseUrl } from "./client";
 import type { WorksheetValues } from "@/features/worksheet/worksheet-schema";
 
 export type WorkspaceLifecycle =
@@ -515,6 +515,83 @@ export async function listWorkspaceRuns(
 
 export async function getRunHandoff(runId: string): Promise<RunHandoffResponse> {
   return apiClient<RunHandoffResponse>(`/api/runs/${runId}/handoff`);
+}
+
+export type WeeklyReviewResponse = {
+  summary: string;
+  highlights: string[];
+  open_questions: string[];
+  period_days: number;
+  evidence_count: number;
+};
+
+export type CompetitorScanResponse = {
+  query: string | null;
+  findings: Array<{ title: string; url: string; snippet: string }>;
+  suggested_evidence: string;
+  available: boolean;
+};
+
+export async function seedSampleWorkspace(): Promise<WorkspaceDetailResponse> {
+  return apiClient<WorkspaceDetailResponse>("/api/workspaces/seed-sample", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function weeklyReview(workspaceId: string): Promise<WeeklyReviewResponse> {
+  return apiClient<WeeklyReviewResponse>(
+    `/api/workspaces/${workspaceId}/assist/weekly-review`,
+    { method: "POST", body: JSON.stringify({}) },
+  );
+}
+
+export async function competitorScan(workspaceId: string): Promise<CompetitorScanResponse> {
+  return apiClient<CompetitorScanResponse>(
+    `/api/workspaces/${workspaceId}/assist/competitor-scan`,
+    { method: "POST", body: JSON.stringify({}) },
+  );
+}
+
+function exportSlug(name: string): string {
+  const slug = name.trim().replace(/[^\w-]+/g, "-").replace(/^-+|-+$/g, "");
+  return (slug || "workspace").slice(0, 80);
+}
+
+async function downloadTextExport(path: string, fallbackName: string): Promise<void> {
+  const base = getApiBaseUrl();
+  const res = await fetch(`${base}${path}`);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new ApiError(res.status, body);
+  }
+  const text = await res.text();
+  const disposition = res.headers.get("content-disposition") ?? "";
+  const match = disposition.match(/filename="([^"]+)"/);
+  const filename = match?.[1] ?? fallbackName;
+  const blob = new Blob([text], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+export function exportWorkspaceMarkdown(workspaceId: string, workingName: string) {
+  const slug = exportSlug(workingName);
+  return downloadTextExport(
+    `/api/workspaces/${workspaceId}/export/markdown`,
+    `${slug}-export.md`,
+  );
+}
+
+export function exportJudgeBrief(workspaceId: string, workingName: string) {
+  const slug = exportSlug(workingName);
+  return downloadTextExport(
+    `/api/workspaces/${workspaceId}/export/judge-brief`,
+    `${slug}-judge-brief.md`,
+  );
 }
 
 export const CONFIDENCE_DISPLAY: Record<string, string> = {

@@ -493,3 +493,24 @@ class ReviseFromEvidenceRequest(BaseModel):
 class ReviseFromEvidenceResponse(BaseModel):
     patches: list[WorksheetFieldPatch] = Field(default_factory=list)
     summary: str
+
+
+class WeeklyReviewResponse(BaseModel):
+    summary: str = Field(min_length=20, max_length=2000)
+    highlights: list[str] = Field(default_factory=list)
+    open_questions: list[str] = Field(default_factory=list)
+    period_days: int = 7
+    evidence_count: int = 0
+
+
+class CompetitorFinding(BaseModel):
+    title: str
+    url: str
+    snippet: str
+
+
+class CompetitorScanResponse(BaseModel):
+    query: str | None = None
+    findings: list[CompetitorFinding] = Field(default_factory=list)
+    suggested_evidence: str = Field(min_length=1, max_length=8000)
+    available: bool = True

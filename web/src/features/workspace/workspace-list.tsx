@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Loader2, Plus, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 
-import { listWorkspaces, workspacesQueryKey } from "@/lib/api/workspaces";
+import { listWorkspaces, seedSampleWorkspace, workspacesQueryKey } from "@/lib/api/workspaces";
+import { ApiError } from "@/lib/api/client";
+import { parseApiDetail } from "@/lib/api/types-helpers";
 import { heatCtaClass } from "@/lib/cta-classes";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/ui/badge";
@@ -30,9 +34,23 @@ function formatDate(iso: string) {
 }
 
 export function WorkspaceList() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const { data, isLoading, isError } = useQuery({
     queryKey: workspacesQueryKey(),
     queryFn: () => listWorkspaces({ limit: 50 }),
+  });
+
+  const seedMutation = useMutation({
+    mutationFn: seedSampleWorkspace,
+    onSuccess: (res) => {
+      void queryClient.invalidateQueries({ queryKey: workspacesQueryKey() });
+      toast.success("Example workspace loaded");
+      router.push(`/workspaces/${res.workspace.id}`);
+    },
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? parseApiDetail(err.body) : "Could not load example");
+    },
   });
 
   if (isLoading) {
@@ -77,11 +95,26 @@ export function WorkspaceList() {
       {workspaces.length === 0 ? (
         <Card className="border-dashed p-8 text-center">
           <p className="font-sans text-body text-ink-muted">
-            No workspaces yet. Start with a structured worksheet.
+            No workspaces yet. Start with a structured worksheet or explore a full example loop.
           </p>
-          <Button asChild className="mt-4">
-            <Link href="/workspaces/new">Create your first workspace</Link>
-          </Button>
+          <div className="mt-4 flex flex-wrap justify-center gap-3">
+            <Button asChild>
+              <Link href="/workspaces/new">Create your first workspace</Link>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={seedMutation.isPending}
+              onClick={() => seedMutation.mutate()}
+            >
+              {seedMutation.isPending ? (
+                <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+              ) : (
+                <Sparkles className="mr-2 size-4" aria-hidden />
+              )}
+              Load example
+            </Button>
+          </div>
         </Card>
       ) : (
         <ul className="space-y-3" aria-label="Workspaces">

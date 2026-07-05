@@ -6,14 +6,18 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi.responses import PlainTextResponse
 
 from api.routes.runs import _run_list_item
 from api.run_manager import RunManager, get_run_manager
 from api.schemas import RunListResponse
 from api.workspace_store import WorkspaceStore, get_workspace_store
 from validation.checklist import build_checklist
+from validation.competitor_scan import competitor_scan
 from validation.confidence import compute_confidence
 from validation.context import build_validation_overview
+from validation.export import export_judge_brief, export_workspace_markdown, sanitize_export_slug
+from validation.fixtures import seed_sample_workspace
 from validation.llm.assumptions import extract_assumptions
 from validation.llm.clarify import clarify_field
 from validation.llm.coach import validation_coach
@@ -24,12 +28,14 @@ from validation.llm.interviews import suggest_interview_questions
 from validation.llm.readiness import readiness_briefing
 from validation.llm.revise import revise_from_evidence
 from validation.llm.summarize import summarize_interview
+from validation.llm.weekly_review import weekly_review
 from validation.readiness import evaluate_readiness
 from validation.schemas import (
     Assumption,
     ChecklistResponse,
     ClarifyFieldRequest,
     ClarifyFieldResponse,
+    CompetitorScanResponse,
     ConfidenceResponse,
     CreateAssumptionRequest,
     CreateEvidenceRequest,
@@ -64,12 +70,14 @@ from validation.schemas import (
     UpdateWorkspaceRequest,
     ValidationCoachResponse,
     ValidationOverviewResponse,
+    WeeklyReviewResponse,
     WorksheetFieldChange,
     WorksheetVersion,
     WorksheetVersionDiffResponse,
     WorkspaceDetailResponse,
     WorkspaceListResponse,
 )
+from validation.versioning import build_change_summary, compute_worksheet_diff
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +132,13 @@ def create_workspace(
         current_version=version,
         assumptions=store.list_assumptions(workspace.id),
     )
+
+
+@router.post("/seed-sample", response_model=WorkspaceDetailResponse, status_code=201)
+def seed_sample(
+    store: Annotated[WorkspaceStore, Depends(get_workspace_store)],
+) -> WorkspaceDetailResponse:
+    return seed_sample_workspace(store)
 
 
 @router.get("", response_model=WorkspaceListResponse)
@@ -800,3 +815,99 @@ def assist_revise_from_evidence(
     except Exception as exc:
         logger.exception("revise-from-evidence failed")
         raise HTTPException(status_code=503, detail="AI revise unavailable") from exc
+
+
+@router.get("/{workspace_id}/export/markdown", response_class=PlainTextResponse)
+def export_markdown(
+    workspace_id: str,
+    store: Annotated[WorkspaceStore, Depends(get_workspace_store)],
+    manager: Annotated[RunManager, Depends(get_run_manager)],
+) -> PlainTextResponse:
+    workspace = store.get_workspace(workspace_id)
+    if workspace is None:
+        raise HTTPException(status_code=404, detail="workspace not found")
+    version, assumptions, evidence, experiments, interviews = _validation_state(store, workspace_id)
+    overview = build_validation_overview(store, workspace_id)
+    run_items, _ = manager.list_runs_for_workspace(workspace_id, limit=20, offset=0)
+    runs = [_run_list_item(record, summary) for record, summary in run_items]
+    body = export_workspace_markdown(
+        workspace,
+        version,
+        assumptions,
+        evidence,
+        experiments,
+        interviews,
+        checklist=overview.checklist if overview else None,
+        readiness=overview.readiness if overview else None,
+        runs=runs,
+    )
+    filename = f"{sanitize_export_slug(version.worksheet.working_name)}-export.md"
+    return PlainTextResponse(
+        content=body,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/{workspace_id}/export/judge-brief", response_class=PlainTextResponse)
+def export_judge_brief_route(
+    workspace_id: str,
+    store: Annotated[WorkspaceStore, Depends(get_workspace_store)],
+) -> PlainTextResponse:
+    workspace = store.get_workspace(workspace_id)
+    if workspace is None:
+        raise HTTPException(status_code=404, detail="workspace not found")
+    version, assumptions, evidence, _, _ = _validation_state(store, workspace_id)
+    readiness = evaluate_readiness(
+        version.worksheet,
+        evidence,
+        has_prior_run=store.count_runs(workspace_id) > 0,
+        worksheet_changed_since_run=store.worksheet_changed_since_last_run(workspace_id),
+    )
+    last_version_id = store.get_last_run_version_id(workspace_id)
+    changes = None
+    if last_version_id and last_version_id != version.id:
+        prior = store.get_version(last_version_id)
+        if prior:
+            diff = compute_worksheet_diff(prior.worksheet, version.worksheet)
+            changes = build_change_summary(diff)
+    body = export_judge_brief(
+        workspace,
+        version,
+        assumptions,
+        evidence,
+        readiness=readiness,
+        changes_since_last_run=changes,
+    )
+    filename = f"{sanitize_export_slug(version.worksheet.working_name)}-judge-brief.md"
+    return PlainTextResponse(
+        content=body,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/{workspace_id}/assist/weekly-review", response_model=WeeklyReviewResponse)
+def assist_weekly_review(
+    workspace_id: str,
+    store: Annotated[WorkspaceStore, Depends(get_workspace_store)],
+) -> WeeklyReviewResponse:
+    version, assumptions, evidence, experiments, _ = _validation_state(store, workspace_id)
+    try:
+        return weekly_review(version.worksheet, assumptions, evidence, experiments)
+    except Exception as exc:
+        logger.exception("weekly-review failed")
+        raise HTTPException(status_code=503, detail="AI weekly review unavailable") from exc
+
+
+@router.post("/{workspace_id}/assist/competitor-scan", response_model=CompetitorScanResponse)
+def assist_competitor_scan(
+    workspace_id: str,
+    store: Annotated[WorkspaceStore, Depends(get_workspace_store)],
+) -> CompetitorScanResponse:
+    version = _require_version(store, workspace_id)
+    try:
+        return competitor_scan(version.worksheet)
+    except Exception as exc:
+        logger.exception("competitor-scan failed")
+        raise HTTPException(status_code=503, detail="Competitor scan unavailable") from exc

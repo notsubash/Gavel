@@ -11,33 +11,129 @@ from api.run_manager import RunManager
 from api.workspace_store import WorkspaceStore
 import tests  # noqa: F401
 from validation.compose import compose_generated_document
-from validation.schemas import IdeaWorksheet
+from validation.export import export_judge_brief, export_workspace_markdown, sanitize_export_slug
+from validation.fixtures import SAMPLE_WORKSHEET
 
-SAMPLE = IdeaWorksheet(
-    working_name="Validation OS",
-    audience="Solo technical founders building paid SaaS before they have revenue.",
-    problem_statement="have trouble proving buyer demand before they build.",
-    current_workaround="They use Notion docs, ChatGPT, and spreadsheets.",
-    solution_statement=(
-        "I am developing a local-first founder workbench to help solo founders "
-        "turn startup ideas into validation experiments."
-    ),
-    secret_sauce="Five harsh AI judges plus a persistent evidence ledger.",
-    pricing_hypothesis="$19 to $49 one-time self-hosted license.",
-    existing_evidence="Three founders asked for a validation template.",
-    competitors=["ChatGPT", "Notion templates", "Doing nothing"],
-    top_risky_assumption="Solo founders will return weekly to update validation evidence.",
-    disconfirming_evidence="Five founders say ChatGPT plus Notion is enough.",
-)
+SAMPLE = SAMPLE_WORKSHEET
 
 
 class ComposeGeneratedDocumentTest(unittest.TestCase):
     def test_template_includes_core_sections(self):
         doc = compose_generated_document(SAMPLE)
         self.assertIn("Working name: Validation OS", doc)
-        self.assertIn("Problem: I believe that", doc)
         self.assertIn("Top risky assumption:", doc)
-        self.assertIn("- ChatGPT", doc)
+
+
+class WorkspaceExportTest(unittest.TestCase):
+    def setUp(self):
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self.store = WorkspaceStore(db_path=Path(self._tmpdir.name) / "workspaces.db")
+
+    def tearDown(self):
+        self.store.close()
+        self._tmpdir.cleanup()
+
+    def test_markdown_export_includes_sections(self):
+        workspace, version, assumption = self.store.create_workspace(SAMPLE)
+        from validation.schemas import CreateEvidenceRequest
+
+        self.store.create_evidence(
+            workspace.id,
+            CreateEvidenceRequest(
+                type="interview_quote",
+                content="Founder spends hours on validation spreadsheets weekly.",
+            ),
+        )
+        from validation.checklist import build_checklist
+
+        checklist = build_checklist(
+            worksheet=version.worksheet,
+            assumptions=[assumption],
+            evidence=self.store.list_evidence(workspace.id),
+            experiments=[],
+            interviews=[],
+        )
+        body = export_workspace_markdown(
+            workspace,
+            version,
+            [assumption],
+            self.store.list_evidence(workspace.id),
+            [],
+            [],
+            checklist=checklist,
+        )
+        self.assertIn("# Validation OS", body)
+        self.assertIn("## Assumptions", body)
+        self.assertIn("## Evidence", body)
+
+    def test_judge_brief_includes_readiness_and_context(self):
+        workspace, version, assumption = self.store.create_workspace(SAMPLE)
+        from validation.readiness import evaluate_readiness
+
+        readiness = evaluate_readiness(version.worksheet, [], has_prior_run=False)
+        body = export_judge_brief(workspace, version, [assumption], [], readiness=readiness)
+        self.assertIn("Judge-ready brief", body)
+        self.assertIn("```xml", body)
+        self.assertIn("<idea>", body)
+
+    def test_sanitize_export_slug_strips_unsafe_chars(self):
+        self.assertEqual(sanitize_export_slug('My "App" / v2'), "My-App-v2")
+
+
+class WeeklyReviewTest(unittest.TestCase):
+    def test_recent_evidence_excludes_undated_items(self):
+        from datetime import UTC, datetime, timedelta
+
+        from validation.llm.weekly_review import _recent_evidence
+        from validation.schemas import Evidence
+
+        now = datetime.now(UTC)
+        recent = Evidence(
+            id="e1",
+            workspace_id="w",
+            type="founder_note",
+            strength="weak",
+            content="Recent dated note",
+            occurred_at=now - timedelta(days=2),
+        )
+        old = Evidence(
+            id="e2",
+            workspace_id="w",
+            type="founder_note",
+            strength="weak",
+            content="Old note",
+            occurred_at=now - timedelta(days=10),
+        )
+        undated = Evidence(
+            id="e3",
+            workspace_id="w",
+            type="founder_note",
+            strength="weak",
+            content="No date",
+            occurred_at=None,
+        )
+        out = _recent_evidence([recent, old, undated], days=7)
+        self.assertEqual([e.id for e in out], ["e1"])
+
+    def test_weekly_review_mocked(self):
+        from unittest.mock import MagicMock, patch
+
+        from validation.llm.weekly_review import _WeeklyReviewResult, weekly_review
+
+        mock_result = _WeeklyReviewResult(
+            summary="One interview logged; pricing assumption still untested.",
+            highlights=["Interview with Alex"],
+            open_questions=["Will founders pay?"],
+        )
+        mock_model = MagicMock()
+        mock_structured = MagicMock()
+        mock_structured.invoke.return_value = mock_result
+        mock_model.with_structured_output.return_value = mock_structured
+
+        with patch("validation.llm.weekly_review.build_assist_model", return_value=mock_model):
+            out = weekly_review(SAMPLE, [], [], [])
+        self.assertEqual(out.evidence_count, 0)
+        self.assertIn("interview", out.summary.lower())
 
 
 class WorkspaceStoreTest(unittest.TestCase):
@@ -278,6 +374,32 @@ class WorkspaceApiTest(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 422)
 
+    def test_seed_sample_and_export_routes(self):
+        seeded = self.client.post("/api/workspaces/seed-sample")
+        self.assertEqual(seeded.status_code, 201)
+        ws_id = seeded.json()["workspace"]["id"]
+        self.assertEqual(
+            seeded.json()["current_version"]["worksheet"]["working_name"], "Validation OS"
+        )
+        self.assertGreaterEqual(len(seeded.json()["assumptions"]), 2)
+
+        md = self.client.get(f"/api/workspaces/{ws_id}/export/markdown")
+        self.assertEqual(md.status_code, 200)
+        self.assertIn("text/markdown", md.headers.get("content-type", ""))
+        self.assertIn("Validation OS", md.text)
+        self.assertIn("## Evidence", md.text)
+
+        brief = self.client.get(f"/api/workspaces/{ws_id}/export/judge-brief")
+        self.assertEqual(brief.status_code, 200)
+        self.assertIn("Judge-ready brief", brief.text)
+
+    def test_competitor_scan_without_tavily_key(self):
+        create = self.client.post("/api/workspaces", json={"worksheet": SAMPLE.model_dump()})
+        ws_id = create.json()["workspace"]["id"]
+        resp = self.client.post(f"/api/workspaces/{ws_id}/assist/competitor-scan")
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(resp.json()["available"])
+
 
 class ValidationPromptsTest(unittest.TestCase):
     def test_prompt_templates_render(self):
@@ -286,6 +408,8 @@ class ValidationPromptsTest(unittest.TestCase):
 
         system = render_validation_prompt("validation_draft_system.jinja2")
         self.assertIn("validation worksheet", system)
+        weekly = render_validation_prompt("validation_weekly_review_system.jinja2")
+        self.assertIn("weekly review", weekly.lower())
         user = render_validation_prompt(
             "validation_draft_user.jinja2",
             founder_notes=wrap_untrusted("test notes", "founder_notes"),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -43,6 +43,8 @@ function FieldError({ message }: { message?: string }) {
 export function WorksheetWizard() {
   const router = useRouter();
   const [mode, setMode] = useState<"fields" | "paste">("fields");
+  const [fieldStep, setFieldStep] = useState(0);
+  const mobileFieldRef = useRef<HTMLDivElement>(null);
   const [pasteNotes, setPasteNotes] = useState("");
   const [aiFields, setAiFields] = useState<Set<string>>(new Set());
   const [sharpening, setSharpening] = useState<WorksheetFieldName | null>(null);
@@ -127,6 +129,79 @@ export function WorksheetWizard() {
     saveMutation.mutate({ worksheet: data });
   }
 
+  function renderField(field: (typeof WORKSHEET_FIELDS)[number]) {
+    const isAi = aiFields.has(field.name);
+    const error = errors[field.name]?.message as string | undefined;
+
+    if (field.name === "competitors") {
+      return (
+        <div key={field.name} className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Label htmlFor={field.name}>{field.label}</Label>
+            {isAi && <Badge variant="heat">AI draft</Badge>}
+          </div>
+          <p className="font-sans text-meta text-ink-muted">{field.prompt}</p>
+          <Textarea
+            id={field.name}
+            className="min-h-20"
+            placeholder={field.example}
+            value={values.competitors.join("\n")}
+            onChange={(e) =>
+              setValue(
+                "competitors",
+                e.target.value
+                  .split(/[\n,]+/)
+                  .map((s) => s.trim())
+                  .filter(Boolean),
+              )
+            }
+          />
+          <FieldError message={error} />
+        </div>
+      );
+    }
+
+    const InputComponent = field.multiline ? Textarea : Input;
+    return (
+      <div key={field.name} className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Label htmlFor={field.name}>{field.label}</Label>
+            {isAi && <Badge variant="heat">AI draft</Badge>}
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={sharpening === field.name}
+            onClick={() => onSharpen(field.name)}
+          >
+            {sharpening === field.name ? (
+              <Loader2 className="size-3 animate-spin" aria-hidden />
+            ) : (
+              <Sparkles className="size-3 text-ai-processing" aria-hidden />
+            )}
+            Sharpen
+          </Button>
+        </div>
+        <p className="font-sans text-meta text-ink-muted">{field.prompt}</p>
+        <InputComponent
+          id={field.name}
+          className={field.multiline ? "min-h-24" : undefined}
+          placeholder={field.example}
+          {...register(field.name)}
+        />
+        <FieldError message={error} />
+      </div>
+    );
+  }
+
+  const mobileField = WORKSHEET_FIELDS[fieldStep];
+
+  useEffect(() => {
+    mobileFieldRef.current?.querySelector<HTMLElement>("input,textarea")?.focus();
+  }, [fieldStep]);
+
   return (
     <div className="space-y-8">
       <header>
@@ -188,91 +263,58 @@ export function WorksheetWizard() {
       ) : (
         <form onSubmit={handleSubmit(onSubmit)} className="grid gap-8 lg:grid-cols-2">
           <div className="space-y-6">
-            {WORKSHEET_FIELDS.map((field) => {
-              const isAi = aiFields.has(field.name);
-              const error = errors[field.name]?.message as string | undefined;
-
-              if (field.name === "competitors") {
-                return (
-                  <div key={field.name} className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Label htmlFor={field.name}>{field.label}</Label>
-                      {isAi && <Badge variant="heat">AI draft</Badge>}
-                    </div>
-                    <p className="font-sans text-meta text-ink-muted">{field.prompt}</p>
-                    <Textarea
-                      id={field.name}
-                      className="min-h-20"
-                      placeholder={field.example}
-                      value={values.competitors.join("\n")}
-                      onChange={(e) =>
-                        setValue(
-                          "competitors",
-                          e.target.value
-                            .split(/[\n,]+/)
-                            .map((s) => s.trim())
-                            .filter(Boolean),
-                        )
-                      }
-                    />
-                    <FieldError message={error} />
-                  </div>
-                );
-              }
-
-              const InputComponent = field.multiline ? Textarea : Input;
-              return (
-                <div key={field.name} className="space-y-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Label htmlFor={field.name}>{field.label}</Label>
-                      {isAi && <Badge variant="heat">AI draft</Badge>}
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled={sharpening === field.name}
-                      onClick={() => onSharpen(field.name)}
-                    >
-                      {sharpening === field.name ? (
-                        <Loader2 className="size-3 animate-spin" aria-hidden />
-                      ) : (
-                        <Sparkles className="size-3 text-ai-processing" aria-hidden />
-                      )}
-                      Sharpen
-                    </Button>
-                  </div>
-                  <p className="font-sans text-meta text-ink-muted">{field.prompt}</p>
-                  <InputComponent
-                    id={field.name}
-                    className={field.multiline ? "min-h-24" : undefined}
-                    placeholder={field.example}
-                    {...register(field.name)}
-                  />
-                  <FieldError message={error} />
-                </div>
-              );
-            })}
-
-            <Button
-              type="submit"
-              size="lg"
-              disabled={isSubmitting || saveMutation.isPending}
-              className="w-full sm:w-auto"
+            <div
+              className="md:hidden"
+              role="group"
+              aria-label={`Worksheet field ${fieldStep + 1} of ${WORKSHEET_FIELDS.length}`}
+              ref={mobileFieldRef}
             >
-              {(isSubmitting || saveMutation.isPending) && (
-                <Loader2 className="size-4 animate-spin" aria-hidden />
-              )}
-              Save workspace
-            </Button>
+              <p className="font-sans text-meta text-ink-muted" aria-current="step">
+                Field {fieldStep + 1} of {WORKSHEET_FIELDS.length}: {mobileField.label}
+              </p>
+              {renderField(mobileField)}
+              <div className="mt-4 flex justify-between gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={fieldStep === 0}
+                  onClick={() => setFieldStep((s) => Math.max(0, s - 1))}
+                >
+                  Back
+                </Button>
+                {fieldStep < WORKSHEET_FIELDS.length - 1 ? (
+                  <Button type="button" onClick={() => setFieldStep((s) => s + 1)}>
+                    Next
+                  </Button>
+                ) : (
+                  <Button type="submit" disabled={isSubmitting || saveMutation.isPending}>
+                    Save workspace
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="hidden space-y-6 md:block">
+              {WORKSHEET_FIELDS.map((field) => renderField(field))}
+              <Button
+                type="submit"
+                size="lg"
+                disabled={isSubmitting || saveMutation.isPending}
+                className="w-full sm:w-auto"
+              >
+                {(isSubmitting || saveMutation.isPending) && (
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                )}
+                Save workspace
+              </Button>
+            </div>
           </div>
 
           <div className="lg:sticky lg:top-8 lg:self-start">
             <h2 className="font-sans text-section font-semibold text-ink">Live preview</h2>
             <pre
               className={cn(
-                "mt-3 max-h-[70vh] overflow-auto whitespace-pre-wrap rounded-ui",
+                "mt-3 max-h-[40vh] overflow-auto whitespace-pre-wrap rounded-ui md:max-h-[70vh]",
                 "border border-rule-soft bg-paper-2 p-4 font-mono text-sm leading-relaxed text-ink",
               )}
             >

@@ -3,7 +3,21 @@ import { expect, type APIRequestContext } from "@playwright/test";
 import { E2E_API_URL } from "./api";
 
 /** Mirrors `validation.fixtures.SAMPLE_WORKSHEET` for stable API fixtures. */
-export const SAMPLE_WORKSHEET = {
+export type IdeaWorksheet = {
+  working_name: string;
+  audience: string;
+  problem_statement: string;
+  current_workaround: string;
+  solution_statement: string;
+  secret_sauce: string;
+  pricing_hypothesis: string;
+  existing_evidence: string;
+  competitors: string[];
+  top_risky_assumption: string;
+  disconfirming_evidence: string;
+};
+
+export const SAMPLE_WORKSHEET: IdeaWorksheet = {
   working_name: "Validation OS",
   audience: "Solo technical founders building paid SaaS before they have revenue.",
   problem_statement: "have trouble proving buyer demand before they build.",
@@ -17,9 +31,7 @@ export const SAMPLE_WORKSHEET = {
   competitors: ["ChatGPT", "Notion templates", "Doing nothing"],
   top_risky_assumption: "Solo founders will return weekly to update validation evidence.",
   disconfirming_evidence: "Five founders say ChatGPT plus Notion is enough.",
-} as const;
-
-export type IdeaWorksheet = typeof SAMPLE_WORKSHEET;
+};
 
 export type WorkspaceDetailResponse = {
   workspace: { id: string; lifecycle: string };
@@ -34,7 +46,7 @@ export type ReadinessResponse = {
 };
 
 type CreateWorkspaceOptions = {
-  worksheet?: Partial<IdeaWorksheet> & Record<string, unknown>;
+  worksheet?: Partial<IdeaWorksheet>;
 };
 
 /** Create a workspace via API (setup helper — not the behavior under test). */

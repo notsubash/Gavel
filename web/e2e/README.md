@@ -2,7 +2,7 @@
 
 Browser-level tests for the Next.js founder workbench and FastAPI backend. The default suite is **deterministic**: no Ollama, DeepSeek, Tavily, or other external model providers are required.
 
-## What this covers (Phases 0–2)
+## What this covers (Phases 0–5)
 
 | Area | Covered | Deliberately skipped |
 | --- | --- | --- |
@@ -10,7 +10,9 @@ Browser-level tests for the Next.js founder workbench and FastAPI backend. The d
 | API health in UI | Smoke spec | — |
 | Isolated SQLite data | `.e2e-data/` wiped before each run | Developer `data/*.db` |
 | API fixture helpers | `fixtures/*.ts` | — |
-| Workspace creation UI | Phase 3 | — |
+| Workspace creation + tabs + refresh | `workspace-create.spec.ts` | Paste-to-draft LLM path |
+| Validation CRUD + checklist | `validation-crud.spec.ts` | AI suggest/scan buttons |
+| Worksheet versioning | `worksheet-versioning.spec.ts` | Revise-from-evidence AI |
 | Stub judge runs + SSE | Phase 6 (`E2E_TEST_MODE`) | Real LLM pipeline |
 
 ## Phase 0 decisions (locked)
@@ -103,6 +105,9 @@ web/
     specs/
       smoke.spec.ts
       fixtures-isolation.spec.ts
+      workspace-create.spec.ts
+      validation-crud.spec.ts
+      worksheet-versioning.spec.ts
 ```
 
 ## Optional real LLM tier (Phase 10)

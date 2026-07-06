@@ -152,10 +152,12 @@ class E2eTestModeRunsApiTest(unittest.TestCase):
         stream_pipeline_mock.assert_not_called()
 
     @patch("api.run_manager.get_idea_store")
+    @patch("api.run_manager.build_model_for_run", return_value=object())
     @patch("api.run_manager.stream_pipeline")
     def test_disabled_e2e_mode_invokes_real_pipeline(
         self,
         stream_pipeline_mock,
+        _build_model_mock,
         store_mock,
     ):
         store_mock.return_value = MagicMock()

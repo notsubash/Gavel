@@ -34,7 +34,9 @@ class Settings:
     web_search_max_results: int
     sse_heartbeat_seconds: float
     stale_run_minutes: int
-    runs_db_path: Path
+    runs_db_path: Path = PROJECT_ROOT / "data" / "runs.db"
+    workspaces_db_path: Path = PROJECT_ROOT / "data" / "workspaces.db"
+    ideas_db_path: Path = PROJECT_ROOT / "data" / "ideas.db"
     rate_limit_enabled: bool = True
     rate_limit_requests: int = 30
     rate_limit_burst: int = 10
@@ -74,6 +76,10 @@ def get_settings() -> Settings:
         sse_heartbeat_seconds=float(os.getenv("SSE_HEARTBEAT_SECONDS", "15")),
         stale_run_minutes=int(os.getenv("STALE_RUN_MINUTES", "30")),
         runs_db_path=Path(os.getenv("RUNS_DB_PATH", str(PROJECT_ROOT / "data" / "runs.db"))),
+        workspaces_db_path=Path(
+            os.getenv("WORKSPACES_DB_PATH", str(PROJECT_ROOT / "data" / "workspaces.db"))
+        ),
+        ideas_db_path=Path(os.getenv("IDEAS_DB_PATH", str(PROJECT_ROOT / "data" / "ideas.db"))),
         rate_limit_enabled=_read_bool("RATE_LIMIT_ENABLED", True),
         rate_limit_requests=int(os.getenv("RATE_LIMIT_REQUESTS", "30")),
         rate_limit_burst=int(os.getenv("RATE_LIMIT_BURST", "10")),

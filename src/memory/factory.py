@@ -21,6 +21,7 @@ def build_idea_store() -> IdeaStore:
             )
             enable_semantic = False
     return IdeaStore(
+        db_path=settings.ideas_db_path,
         embed_fn=embed_fn,
         embedding_dimension=settings.embedding_dimension,
         enable_semantic=enable_semantic,

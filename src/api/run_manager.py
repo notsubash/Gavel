@@ -407,18 +407,29 @@ class RunManager:
             debate_result,
         )
 
-        model = build_model_for_run(record.request, settings)
-        startup_idea = build_startup_idea_context(run_id, record.request)
-        result = await asyncio.to_thread(
-            run_appeal,
-            model,
-            startup_idea,
-            roast_panel,
-            debate_result,
-            appeal_text,
-            None,
-            target_judges,
-        )
+        if settings.e2e_test_mode:
+            from api.e2e_test_support import run_e2e_stub_appeal
+
+            result = await asyncio.to_thread(
+                run_e2e_stub_appeal,
+                roast_panel,
+                debate_result,
+                appeal_text,
+                target_judges,
+            )
+        else:
+            model = build_model_for_run(record.request, settings)
+            startup_idea = build_startup_idea_context(run_id, record.request)
+            result = await asyncio.to_thread(
+                run_appeal,
+                model,
+                startup_idea,
+                roast_panel,
+                debate_result,
+                appeal_text,
+                None,
+                target_judges,
+            )
 
         outcomes = result.evidence_outcomes
         movement = confidence_before_after(
@@ -554,6 +565,20 @@ class RunManager:
                 if max_seconds > 0 and time.monotonic() - started_at > max_seconds:
                     return "budget_exceeded"
                 return None
+
+            if settings.e2e_test_mode:
+                from api.e2e_test_support import stream_e2e_stub_pipeline
+
+                events = stream_e2e_stub_pipeline(
+                    max_debate_rounds=record.request.max_debate_rounds,
+                    model_runtime=record.request.model_runtime,
+                    abort_check=abort_check,
+                )
+                for event in events:
+                    if isinstance(event, RunMetrics):
+                        log_run_metrics(event.as_dict(), run_id=run_id)
+                    emit(to_api_envelope(event, run_id=run_id, sequence=0))
+                return
 
             startup_idea = build_startup_idea_context(run_id, record.request)
             model = build_model_for_run(record.request, settings)

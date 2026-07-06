@@ -3,6 +3,7 @@
 venv/
 .cursor/
 data/
+.e2e-data/
 .pytest_cache/
 .ruff_cache/
 transcripts/

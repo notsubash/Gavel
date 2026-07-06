@@ -1286,5 +1286,7 @@ _store: WorkspaceStore | None = None
 def get_workspace_store() -> WorkspaceStore:
     global _store
     if _store is None:
-        _store = WorkspaceStore()
+        from config import get_settings
+
+        _store = WorkspaceStore(db_path=get_settings().workspaces_db_path)
     return _store

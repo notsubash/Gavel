@@ -2,7 +2,7 @@
 
 Browser-level tests for the Next.js founder workbench and FastAPI backend. The default suite is **deterministic**: no Ollama, DeepSeek, Tavily, or other external model providers are required.
 
-## What this covers (Phases 0–5)
+## What this covers (Phases 0–8)
 
 | Area | Covered | Deliberately skipped |
 | --- | --- | --- |
@@ -13,7 +13,9 @@ Browser-level tests for the Next.js founder workbench and FastAPI backend. The d
 | Workspace creation + tabs + refresh | `workspace-create.spec.ts` | Paste-to-draft LLM path |
 | Validation CRUD + checklist | `validation-crud.spec.ts` | AI suggest/scan buttons |
 | Worksheet versioning | `worksheet-versioning.spec.ts` | Revise-from-evidence AI |
-| Stub judge runs + SSE | Phase 6 (`E2E_TEST_MODE`) | Real LLM pipeline |
+| Readiness gate + launch | `judges-readiness.spec.ts` | Real LLM pipeline |
+| Stub judge runs + SSE run view | `run-view.spec.ts` | Real LLM pipeline |
+| History + exports + settings | `history-settings.spec.ts` | — |
 
 ## Phase 0 decisions (locked)
 
@@ -46,7 +48,7 @@ Local default E2E uses **`next dev`** (fast feedback). CI can switch to `next bu
 
 1. **Setup via API** when the behavior under test is not “user fills a form” (`seed-sample`, `createWorkspace`, `getReadiness`).
 2. **Browser actions** for navigation and forms (smoke spec today; workspace CRUD in Phase 3+).
-3. **Deterministic runs** via backend `E2E_TEST_MODE` stub pipeline (Phase 6). `createStubRun` exists but must not be used in default CI until the stub ships.
+3. **Deterministic runs** via backend `E2E_TEST_MODE` stub pipeline (`E2E_TEST_MODE=true` in Playwright API env). `createStubRun` is safe in default CI.
 4. **Cleanup**: full-suite reset by wiping `.e2e-data/` in global setup. No workspace delete API — per-test cleanup is not required for serial smoke/fixture specs.
 
 ### CI browser (phase one)
@@ -101,6 +103,9 @@ web/
     fixtures/
       api.ts
       workspace.ts
+      validation.ts
+      worksheet.ts
+      readiness.ts
       run.ts
     specs/
       smoke.spec.ts
@@ -108,6 +113,9 @@ web/
       workspace-create.spec.ts
       validation-crud.spec.ts
       worksheet-versioning.spec.ts
+      judges-readiness.spec.ts
+      run-view.spec.ts
+      history-settings.spec.ts
 ```
 
 ## Optional real LLM tier (Phase 10)

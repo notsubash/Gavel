@@ -1,5 +1,7 @@
 """FastAPI application factory."""
 
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -11,8 +13,14 @@ from api.run_manager import RunManager, get_run_manager
 from config import get_settings
 from version import get_version
 
+logger = logging.getLogger(__name__)
+
 
 def create_app(*, manager: RunManager | None = None) -> FastAPI:
+    settings = get_settings()
+    if settings.e2e_test_mode:
+        logger.warning("E2E_TEST_MODE is enabled — stub pipeline active; do not use in production")
+
     app = FastAPI(title="Roast Arena API", version=get_version())
 
     if manager is not None:

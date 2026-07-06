@@ -50,6 +50,7 @@ class Settings:
     list_runs_default_limit: int = 20
     list_runs_max_limit: int = 100
     trust_proxy: bool = False
+    e2e_test_mode: bool = False
 
 
 def _read_bool(name: str, default: bool) -> bool:
@@ -93,4 +94,5 @@ def get_settings() -> Settings:
         list_runs_default_limit=int(os.getenv("LIST_RUNS_DEFAULT_LIMIT", "20")),
         list_runs_max_limit=int(os.getenv("LIST_RUNS_MAX_LIMIT", "100")),
         trust_proxy=_read_bool("TRUST_PROXY", False),
+        e2e_test_mode=_read_bool("E2E_TEST_MODE", False),
     )

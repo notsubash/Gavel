@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../fixtures/test";
 
 import { createWorkspace } from "../fixtures/workspace";
 import {

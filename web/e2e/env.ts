@@ -34,5 +34,6 @@ export function backendE2eEnv(): Record<string, string> {
     ENABLE_WEB_SEARCH: "false",
     ENABLE_SEMANTIC_MEMORY: "false",
     ROAST_CORS_ORIGINS: `http://127.0.0.1:${process.env.E2E_WEB_PORT ?? "3000"},http://localhost:${process.env.E2E_WEB_PORT ?? "3000"}`,
+    E2E_TEST_MODE: "true",
   };
 }

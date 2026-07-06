@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "../fixtures/test";
 
 test.describe("smoke", () => {
   test("home redirects to new workspace worksheet", async ({ page }) => {

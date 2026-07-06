@@ -23,6 +23,7 @@ test.describe.serial("real LLM integration", { tag: "@real-llm" }, () => {
 
   test("completes one low-round roast through the real pipeline", async ({ page }) => {
     test.skip(!probe.available, probe.available ? undefined : probe.reason);
+    if (!probe.available) return;
 
     await configureRealRunSettings(page, probe.runtime);
     await openReadinessGate(page, workspaceId);

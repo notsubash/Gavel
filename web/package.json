@@ -27,10 +27,10 @@
     "test:debate-consequence": "node --experimental-strip-types --test scripts/test-debate-consequence.mjs",
     "test:version-diff": "node --experimental-strip-types scripts/test-version-diff.mjs",
     "test:latest-improvement": "node --experimental-strip-types scripts/test-latest-improvement.mjs",
-    "test:e2e": "playwright test",
-    "test:e2e:core": "playwright test --grep @core",
-    "test:e2e:ui": "playwright test --ui",
-    "test:e2e:headed": "playwright test --headed",
+    "test:e2e": "playwright install chromium && playwright test",
+    "test:e2e:core": "playwright install chromium && playwright test --grep @core",
+    "test:e2e:ui": "playwright install chromium && playwright test --ui",
+    "test:e2e:headed": "playwright install chromium && playwright test --headed",
     "test:e2e:real-llm": "node e2e/run-real-llm.mjs"
   },
   "dependencies": {

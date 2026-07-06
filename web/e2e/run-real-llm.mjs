@@ -6,11 +6,22 @@ const webDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 process.env.E2E_REAL_LLM = "true";
 
-const child = spawn("npx", ["playwright", "test", "--grep", "@real-llm"], {
+const child = spawn("npx", ["playwright", "install", "chromium"], {
   cwd: webDir,
   env: process.env,
   stdio: "inherit",
   shell: true,
 });
 
-child.on("exit", (code) => process.exit(code ?? 0));
+child.on("exit", (installCode) => {
+  if (installCode !== 0) process.exit(installCode ?? 1);
+
+  const test = spawn("npx", ["playwright", "test", "--grep", "@real-llm"], {
+    cwd: webDir,
+    env: process.env,
+    stdio: "inherit",
+    shell: true,
+  });
+
+  test.on("exit", (code) => process.exit(code ?? 0));
+});

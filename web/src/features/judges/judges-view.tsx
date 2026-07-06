@@ -13,6 +13,7 @@ import { WorkspaceNav } from "@/features/workspace/workspace-nav";
 import { ApiError } from "@/lib/api/client";
 import { createRun } from "@/lib/api/runs";
 import { parseApiDetail } from "@/lib/api/types-helpers";
+import { loadAdvancedSettings } from "@/lib/settings/advanced-settings";
 import {
   getReadiness,
   getRunHandoff,
@@ -61,8 +62,16 @@ export function JudgesView({ workspaceId }: { workspaceId: string }) {
   });
 
   const launchMutation = useMutation({
-    mutationFn: (readinessOverride: boolean) =>
-      createRun({ workspace_id: workspaceId, readiness_override: readinessOverride }),
+    mutationFn: (readinessOverride: boolean) => {
+      const { model_runtime, max_debate_rounds, enable_web_search } = loadAdvancedSettings();
+      return createRun({
+        workspace_id: workspaceId,
+        readiness_override: readinessOverride,
+        model_runtime,
+        max_debate_rounds,
+        enable_web_search,
+      });
+    },
     onSuccess: (data) => {
       setGateOpen(false);
       router.push(`/run/${data.run_id}`);

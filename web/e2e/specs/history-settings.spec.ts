@@ -10,7 +10,7 @@ import {
   waitForStubRunCompleted,
 } from "../fixtures/run";
 
-test.describe.serial("history, exports, and settings", () => {
+test.describe.serial("history, exports, and settings", { tag: "@extended" }, () => {
   let workspaceId: string;
   let workingName: string;
   let completedRunId: string;

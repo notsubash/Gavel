@@ -8,7 +8,7 @@ import {
 } from "../fixtures/validation";
 import { expectWorkspaceTab, openWorkspaceTab } from "../fixtures/worksheet";
 
-test.describe.serial("worksheet versioning", () => {
+test.describe.serial("worksheet versioning", { tag: "@extended" }, () => {
   let workspaceId: string;
   const originalAudience =
     "Solo technical founders building paid SaaS before they have revenue.";

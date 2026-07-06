@@ -1,6 +1,6 @@
 import { test, expect } from "../fixtures/test";
 
-test.describe("smoke", () => {
+test.describe("smoke", { tag: "@core" }, () => {
   test("home redirects to new workspace worksheet", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveURL(/\/workspaces\/new$/);

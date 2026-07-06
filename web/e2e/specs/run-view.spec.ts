@@ -12,7 +12,7 @@ import {
   waitForStubRunCompleted,
 } from "../fixtures/run";
 
-test.describe.serial("live run view, SSE, and post-run actions", () => {
+test.describe.serial("live run view, SSE, and post-run actions", { tag: "@core" }, () => {
   let workspaceId: string;
   let completedRunId: string;
 

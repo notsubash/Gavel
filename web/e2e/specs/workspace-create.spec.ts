@@ -8,7 +8,7 @@ import {
   openWorkspaceTab,
 } from "../fixtures/worksheet";
 
-test.describe("workspace creation and navigation", () => {
+test.describe("workspace creation and navigation", { tag: "@core" }, () => {
   test("creates a workspace through the guided worksheet and lands on overview", async ({
     page,
   }) => {

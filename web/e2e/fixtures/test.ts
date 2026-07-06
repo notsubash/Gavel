@@ -5,10 +5,14 @@ import { test as base, expect } from "@playwright/test";
 export const test = base.extend({
   page: async ({ page }, use) => {
     await use(page);
-    await page.evaluate(() => {
-      localStorage.removeItem("rms-advanced-settings");
-      localStorage.removeItem("rms-run-fold-variant");
-    });
+    try {
+      await page.evaluate(() => {
+        localStorage.removeItem("rms-advanced-settings");
+        localStorage.removeItem("rms-run-fold-variant");
+      });
+    } catch {
+      // ponytail: about:blank or cross-origin after crash — nothing to clear
+    }
   },
 });
 

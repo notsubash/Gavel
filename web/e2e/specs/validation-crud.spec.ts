@@ -10,7 +10,7 @@ import {
 } from "../fixtures/validation";
 import { openWorkspaceTab } from "../fixtures/worksheet";
 
-test.describe.serial("validation workbench CRUD", () => {
+test.describe.serial("validation workbench CRUD", { tag: "@extended" }, () => {
   let workspaceId: string;
   const addedAssumptionText = "Paid founders will log evidence weekly without reminders.";
   const editedAssumptionText = "Paid founders will log evidence weekly after the first roast.";

@@ -9,7 +9,7 @@ import {
 import { getReadiness } from "../fixtures/workspace";
 import { openWorkspaceTab } from "../fixtures/worksheet";
 
-test.describe.serial("readiness gate and judges launch", () => {
+test.describe.serial("readiness gate and judges launch", { tag: "@core" }, () => {
   let incompleteWorkspaceId: string;
   let readyWorkspaceId: string;
   let settingsWorkspaceId: string;

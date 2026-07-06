@@ -8,7 +8,7 @@ import {
   seedSampleWorkspace,
 } from "../fixtures/workspace";
 
-test.describe.serial("fixtures and isolated data", () => {
+test.describe.serial("fixtures and isolated data", { tag: "@extended" }, () => {
   test("API health check helper works", async ({ request }) => {
     await checkApiHealth(request);
   });

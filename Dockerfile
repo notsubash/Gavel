@@ -1,5 +1,9 @@
-# Multi-stage API image — Streamlit stays local; mount /data for runs.db persistence.
+# syntax=docker/dockerfile:1
+# API image — Streamlit stays local; mount /data for SQLite persistence.
 FROM python:3.11-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 COPY requirements.txt .
@@ -7,13 +11,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 FROM python:3.11-slim
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    RUNS_DB_PATH=/data/runs.db \
+    WORKSPACES_DB_PATH=/data/workspaces.db \
+    IDEAS_DB_PATH=/data/ideas.db
+
 WORKDIR /app
 COPY --from=builder /usr/local /usr/local
 COPY src/ src/
 COPY pyproject.toml .
-
-ENV PYTHONUNBUFFERED=1 \
-    RUNS_DB_PATH=/data/runs.db
 
 RUN mkdir -p /data
 VOLUME ["/data"]

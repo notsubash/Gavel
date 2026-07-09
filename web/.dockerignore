@@ -1,0 +1,12 @@
+node_modules
+.next
+playwright-report
+test-results
+.git
+.env*
+!.env.example
+e2e
+playwright.config.ts
+scripts
+*.md
+.DS_Store

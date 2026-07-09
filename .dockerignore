@@ -1,6 +1,7 @@
 .git
 .github
 .cursor
+.vscode
 .env
 venv
 .venv
@@ -8,10 +9,15 @@ __pycache__
 .pytest_cache
 .ruff_cache
 data
+.e2e-data
 transcripts
-evals/results
+evals
+web
 images
 docs
 tests
+scripts
 *.md
 !README.md
+.DS_Store
+uv.lock

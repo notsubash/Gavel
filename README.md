@@ -122,16 +122,19 @@ Run uvicorn with a single worker per machine; background tasks and in-process su
 
 **Cancel:** `POST /api/runs/{run_id}/cancel` is cooperative and asynchronous for running runs — the HTTP response may still show `status: "running"`. Poll `GET /api/runs/{run_id}` or watch SSE for the terminal `run_cancelled` event. Cancelling a `created` run (before SSE connect) is immediate.
 
-### Docker (API only)
+### Docker (API + web)
 
 ```bash
 cp .env.example .env   # set DEEPSEEK_API_KEY and/or point LOCAL_MODEL at host Ollama
 docker compose up --build
 ```
 
-`GET http://localhost:8000/health` should return `{"status":"ok"}`. Completed runs survive container restarts via the `roast-data` volume (`RUNS_DB_PATH=/data/runs.db`). Workspace data (`data/workspaces.db`) uses the default path unless you mount it explicitly.
+- API: [http://localhost:8000/health](http://localhost:8000/health) → `{"status":"ok"}`
+- Web: [http://localhost:3000](http://localhost:3000)
 
-For local Ollama from inside the container, use `host.docker.internal` in `LOCAL_MODEL` / `DEEPSEEK_BASE_URL` as needed, or run the API on the host and skip Docker. Behind nginx or a PaaS load balancer, set `TRUST_PROXY=true` in `.env`.
+SQLite files (`runs.db`, `workspaces.db`, `ideas.db`) persist in the `roast-data` volume under `/data`. API only: `docker compose up --build api`.
+
+For local Ollama from inside the container, point `LOCAL_MODEL` at `host.docker.internal` (compose sets `extra_hosts` for Linux). Or run the API on the host and skip Docker. Behind nginx or a PaaS load balancer, set `TRUST_PROXY=true` in `.env`.
 
 ## What it does
 

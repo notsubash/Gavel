@@ -105,6 +105,16 @@ export async function expandJudgeDetail(page: Page): Promise<void> {
   if (!isOpen) await summary.click();
 }
 
+/** Context (related roasts / metrics) is a closed <details> — open before asserting. */
+export async function expandContextDetail(page: Page): Promise<void> {
+  const contextGroup = page.getByRole("group", { name: "Context" });
+  if ((await contextGroup.count()) === 0) return;
+  const summary = contextGroup.locator(":scope > summary");
+  if ((await summary.count()) === 0) return;
+  const isOpen = await contextGroup.evaluate((el) => (el as HTMLDetailsElement).open);
+  if (!isOpen) await summary.click();
+}
+
 export async function expectStubJudgeVerdicts(
   page: Page,
   timeoutMs = 30_000,

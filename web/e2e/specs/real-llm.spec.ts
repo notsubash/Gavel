@@ -7,7 +7,7 @@ import {
   probeModelRuntime,
   type ModelProbeResult,
 } from "../fixtures/real-llm";
-import { expandJudgeDetail, waitForRunTerminalState } from "../fixtures/run";
+import { expandContextDetail, expandJudgeDetail, waitForRunTerminalState } from "../fixtures/run";
 
 test.describe.serial("real LLM integration", { tag: "@real-llm" }, () => {
   let probe: ModelProbeResult;
@@ -41,6 +41,7 @@ test.describe.serial("real LLM integration", { tag: "@real-llm" }, () => {
     await expect(page.getByRole("article", { name: /The VC/i })).toBeVisible({
       timeout: 30_000,
     });
+    await expandContextDetail(page);
     await expect(page.locator('footer[aria-label="Run metrics"]')).toBeVisible();
   });
 });

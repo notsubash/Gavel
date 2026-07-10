@@ -7,7 +7,7 @@ import {
   probeModelRuntime,
   type ModelProbeResult,
 } from "../fixtures/real-llm";
-import { waitForRunTerminalState } from "../fixtures/run";
+import { expandJudgeDetail, waitForRunTerminalState } from "../fixtures/run";
 
 test.describe.serial("real LLM integration", { tag: "@real-llm" }, () => {
   let probe: ModelProbeResult;
@@ -33,8 +33,14 @@ test.describe.serial("real LLM integration", { tag: "@real-llm" }, () => {
     await waitForRunTerminalState(page, "completed", 240_000);
 
     await expect(page.getByText(E2E_STUB_MARKER)).not.toBeVisible();
-    await expect(page.getByRole("article", { name: /The VC/i })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Overall decision" })).toBeVisible();
+    // Decision card is outside the collapsed judge <details>; assert it first.
+    await expect(page.getByRole("heading", { name: "Overall decision" })).toBeVisible({
+      timeout: 30_000,
+    });
+    await expandJudgeDetail(page);
+    await expect(page.getByRole("article", { name: /The VC/i })).toBeVisible({
+      timeout: 30_000,
+    });
     await expect(page.locator('footer[aria-label="Run metrics"]')).toBeVisible();
   });
 });

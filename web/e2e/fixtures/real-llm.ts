@@ -72,24 +72,15 @@ export async function probeModelRuntime(): Promise<ModelProbeResult> {
   };
 }
 
-/** Pin advanced settings for a fast, deterministic-ish real integration run. */
+/**
+ * Pin advanced settings for a fast real integration run.
+ * Writes localStorage directly — avoids brittle Select option label matching.
+ */
 export async function configureRealRunSettings(
   page: import("@playwright/test").Page,
   runtime: ModelRuntime,
 ): Promise<void> {
   await page.goto("/settings");
-  await page.getByLabel("Model runtime").click();
-  const runtimeLabel =
-    runtime === "local" ? "Local (free, slower)" : "DeepSeek (paid, faster)";
-  await page.getByRole("option", { name: runtimeLabel }).click();
-
-  const webSearch = page.getByRole("switch", {
-    name: "Enable web search for new reviews",
-  });
-  if (await webSearch.isChecked()) {
-    await webSearch.click();
-  }
-
   await page.evaluate((modelRuntime) => {
     const key = "rms-advanced-settings";
     const raw = localStorage.getItem(key);
@@ -104,4 +95,6 @@ export async function configureRealRunSettings(
       }),
     );
   }, runtime);
+  // Reload so the settings page (and later launch) read the pinned values.
+  await page.reload();
 }

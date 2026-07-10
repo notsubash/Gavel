@@ -95,20 +95,21 @@ export async function waitForRunPhase(
   await expect(rail.getByText(phaseLabel, { exact: true })).toBeVisible({ timeout: timeoutMs });
 }
 
+/** Completed runs collapse judge cards into a closed <details> — open before asserting. */
+export async function expandJudgeDetail(page: Page): Promise<void> {
+  const judgeGroup = page.getByRole("group", { name: "Judge detail" });
+  if ((await judgeGroup.count()) === 0) return;
+  const summary = judgeGroup.locator(":scope > summary");
+  if ((await summary.count()) === 0) return;
+  const isOpen = await judgeGroup.evaluate((el) => (el as HTMLDetailsElement).open);
+  if (!isOpen) await summary.click();
+}
+
 export async function expectStubJudgeVerdicts(
   page: Page,
   timeoutMs = 30_000,
 ): Promise<void> {
-  const judgeGroup = page.getByRole("group", { name: "Judge detail" });
-  if ((await judgeGroup.count()) > 0) {
-    const summary = judgeGroup.locator(":scope > summary");
-    if ((await summary.count()) > 0) {
-      const isOpen = await judgeGroup.evaluate((el) => (el as HTMLDetailsElement).open);
-      if (!isOpen) {
-        await summary.click();
-      }
-    }
-  }
+  await expandJudgeDetail(page);
   await expect(page.getByRole("article", { name: /The VC/i })).toBeVisible({ timeout: timeoutMs });
   await expect(page.getByRole("article", { name: /The Customer/i })).toBeVisible({
     timeout: timeoutMs,

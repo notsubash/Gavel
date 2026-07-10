@@ -80,7 +80,7 @@ export async function configureRealRunSettings(
   await page.goto("/settings");
   await page.getByLabel("Model runtime").click();
   const runtimeLabel =
-    runtime === "local" ? "Local (free, slower)" : "DeepSeek (fast, paid)";
+    runtime === "local" ? "Local (free, slower)" : "DeepSeek (paid, faster)";
   await page.getByRole("option", { name: runtimeLabel }).click();
 
   const webSearch = page.getByRole("switch", {

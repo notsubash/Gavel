@@ -3,8 +3,8 @@ name: E2E Real LLM
 on:
   workflow_dispatch:
   schedule:
-    # 04:00 UTC nightly — integration signal only, not a PR gate
-    - cron: "0 4 * * *"
+    # 04:00 UTC Mondays — integration signal only, not a PR gate
+    - cron: "0 4 * * 1"
 
 jobs:
   real-llm:

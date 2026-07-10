@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 _DEFAULT_RATIONALE = "Rationale not provided by grader."
 _RATIONALE_MIN = 10
@@ -17,6 +18,19 @@ _PERSONA_ALIASES: tuple[tuple[str, str], ...] = (
     ("customer", "customer_persona"),
     ("competitor", "competitor_persona"),
 )
+
+
+def _parse_json_if_str(value: Any) -> Any:
+    """DeepSeek tool-calling sometimes returns nested objects as JSON strings."""
+    if not isinstance(value, str):
+        return value
+    stripped = value.strip()
+    if not stripped or stripped[0] not in "{[":
+        return value
+    try:
+        return json.loads(stripped)
+    except json.JSONDecodeError:
+        return value
 
 
 class DimensionScore(BaseModel):
@@ -67,10 +81,18 @@ class IdeaAuditGrade(BaseModel):
     synthesis: SynthesisGrade
     appeal: AppealGrade | None = None
 
+    # Why: LangChain builds this model inside with_structured_output before our
+    # normalize_grade_payload runs; coerce stringified nests at the schema boundary.
+    @field_validator("roast_panel", "debate", "synthesis", "appeal", mode="before")
+    @classmethod
+    def _coerce_nested_json_strings(cls, value: Any) -> Any:
+        return _parse_json_if_str(value)
+
 
 def _as_dict(value: Any) -> dict[str, Any]:
     if hasattr(value, "model_dump"):
         return value.model_dump()
+    value = _parse_json_if_str(value)
     if isinstance(value, dict):
         return value
     return {}

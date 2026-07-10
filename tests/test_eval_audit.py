@@ -12,7 +12,12 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 from evals import BASELINES_DIR
 from evals.dataset.baseline_builder import build_smartpatch_baseline
 from evals.dataset.loader import filter_ideas, load_golden_ideas
-from evals.grader.deepseek_judge import DeepSeekGrader, build_grader_prompt, flatten_grade
+from evals.grader.deepseek_judge import (
+    GRADER_MAX_ATTEMPTS,
+    DeepSeekGrader,
+    build_grader_prompt,
+    flatten_grade,
+)
 from evals.grader.schemas import (
     AppealGrade,
     DebateGrade,
@@ -164,6 +169,64 @@ class EvalAuditTest(unittest.TestCase):
         self.assertEqual(grade.roast_panel.vc_persona.score, 5)
         self.assertEqual(grade.debate.non_repetition.score, 3)
         self.assertTrue(grade.roast_panel.verdict_score_alignment)
+
+    def test_idea_audit_grade_coerces_stringified_nested_sections(self):
+        """DeepSeek tool-calling sometimes returns nested objects as JSON strings."""
+        nested = _sample_grade().model_dump(mode="json")
+        stringified = {
+            "roast_panel": json.dumps(nested["roast_panel"]),
+            "debate": json.dumps(nested["debate"]),
+            "synthesis": json.dumps(nested["synthesis"]),
+            "appeal": json.dumps(nested["appeal"]),
+        }
+        grade = IdeaAuditGrade.model_validate(stringified)
+        self.assertEqual(grade.roast_panel.vc_persona.score, 4)
+        self.assertEqual(grade.debate.cross_judge_engagement.score, 4)
+        self.assertTrue(grade.synthesis.dissent_preservation)
+        self.assertEqual(grade.appeal.evidence_responsiveness.score, 4)
+
+        via_normalize = IdeaAuditGrade.model_validate(normalize_grade_payload(stringified))
+        self.assertEqual(via_normalize.debate.non_repetition.score, 4)
+
+    def test_grader_falls_back_when_structured_invoke_raises_validation_error(self):
+        from pydantic import ValidationError
+
+        valid_json = _sample_grade().model_dump(mode="json")
+
+        class FakeStructured:
+            def invoke(self, messages, **_kwargs):
+                raise ValidationError.from_exception_data(
+                    "IdeaAuditGrade",
+                    [
+                        {
+                            "type": "model_type",
+                            "loc": ("roast_panel",),
+                            "input": '{"vc_persona": {}}',
+                            "ctx": {"class_name": "RoastPanelGrade"},
+                        }
+                    ],
+                )
+
+        class FakeModel:
+            def __init__(self):
+                self.fallback_called = False
+
+            def with_structured_output(self, schema):
+                return FakeStructured()
+
+            def invoke(self, messages, **_kwargs):
+                self.fallback_called = True
+
+                class Response:
+                    content = json.dumps(valid_json)
+
+                return Response()
+
+        grader = DeepSeekGrader(model=FakeModel())
+        grade = grader.grade_idea_result(build_smartpatch_baseline())
+        self.assertTrue(grader.model.fallback_called)
+        self.assertEqual(grade.roast_panel.vc_persona.score, 4)
+        self.assertEqual(grader.calls_made, GRADER_MAX_ATTEMPTS + 1)
 
     def test_normalize_grade_payload_truncates_long_rationales(self):
         long_rationale = "x" * 600

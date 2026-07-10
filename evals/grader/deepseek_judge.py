@@ -159,7 +159,14 @@ class DeepSeekGrader:
         last_validation_error: ValidationError | None = None
         for _attempt in range(GRADER_MAX_ATTEMPTS):
             self.estimated_input_tokens += _estimate_tokens(system_prompt + user_prompt)
-            result = structured.invoke(messages)
+            try:
+                result = structured.invoke(messages)
+            except ValidationError as exc:
+                # Nested fields sometimes arrive as JSON strings; schema validators
+                # usually coerce them, but if invoke still fails, retry then fallback.
+                last_validation_error = exc
+                self.calls_made += 1
+                continue
             self.calls_made += 1
 
             if result is None:
@@ -173,10 +180,14 @@ class DeepSeekGrader:
                     raise
 
         if last_validation_error is not None:
-            raise ValueError(
-                f"Grader returned invalid structured output for {idea_id} after "
-                f"{GRADER_MAX_ATTEMPTS} attempts: {last_validation_error}"
-            ) from last_validation_error
+            # Exhausted structured retries — try free-form JSON before giving up.
+            try:
+                return self._grade_via_json_fallback(messages, idea_id)
+            except ValueError:
+                raise ValueError(
+                    f"Grader returned invalid structured output for {idea_id} after "
+                    f"{GRADER_MAX_ATTEMPTS} attempts: {last_validation_error}"
+                ) from last_validation_error
 
         return self._grade_via_json_fallback(messages, idea_id)
 

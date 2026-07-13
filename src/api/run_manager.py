@@ -229,6 +229,30 @@ class RunManager:
     def close(self) -> None:
         self._store.close()
 
+    def has_blocking_prior_run(self, workspace_id: str) -> bool:
+        """True when re-run needs evidence/worksheet delta or override.
+
+        Only a *completed* latest roast blocks. Failed/cancelled/in-flight links
+        still appear in history but must not trap founders behind rerun_delta.
+        """
+        ws_store = workspace_store.get_workspace_store()
+        run_ids, _ = ws_store.list_run_ids(workspace_id, limit=1)
+        if not run_ids:
+            return False
+        record = self.get(run_ids[0])
+        return record is not None and record.status == "completed"
+
+    def count_completed_runs(self, workspace_id: str) -> int:
+        """Completed roasts only — used for judged/iterating lifecycle."""
+        ws_store = workspace_store.get_workspace_store()
+        # ponytail: local workspaces stay small; upgrade to status JOIN if needed
+        run_ids, _ = ws_store.list_run_ids(workspace_id, limit=500)
+        return sum(
+            1
+            for run_id in run_ids
+            if (record := self.get(run_id)) is not None and record.status == "completed"
+        )
+
     def create(self, request: CreateRunRequest) -> RunRecord:
         ws_store = workspace_store.get_workspace_store()
         workspace = ws_store.get_workspace(request.workspace_id)
@@ -246,7 +270,7 @@ class RunManager:
             readiness = evaluate_readiness(
                 version.worksheet,
                 ws_store.list_evidence(request.workspace_id),
-                has_prior_run=ws_store.count_runs(request.workspace_id) > 0,
+                has_prior_run=self.has_blocking_prior_run(request.workspace_id),
                 worksheet_changed_since_run=ws_store.worksheet_changed_since_last_run(
                     request.workspace_id
                 ),
@@ -278,7 +302,11 @@ class RunManager:
         record = RunRecord(run_id=run_id, request=request)
         self._store.insert_run(record)
         ws_store.link_run(run_id, request.workspace_id, version_id)
-        ws_store.sync_lifecycle(request.workspace_id)
+        # Don't count this in-flight link as judged — only completed roasts.
+        ws_store.sync_lifecycle(
+            request.workspace_id,
+            judged_run_count=self.count_completed_runs(request.workspace_id),
+        )
         self._runs[run_id] = _RunState(record, store=self._store)
         return record
 
@@ -342,9 +370,7 @@ class RunManager:
         if appeal is not None:
             revised_structured = appeal.payload.get("revised_structured_synthesis")
             if isinstance(revised_structured, dict):
-                snapshot = confidence_snapshot_from_structured(
-                    revised_structured, verdicts or None
-                )
+                snapshot = confidence_snapshot_from_structured(revised_structured, verdicts or None)
                 return snapshot.model_dump(mode="json") if snapshot else None
 
         completed = self._store.get_latest_event(run_id, "run_completed")
@@ -663,7 +689,10 @@ class RunManager:
                 record.status = "completed"
                 self._store.update_status(run_id, "completed")
                 self._ingest_run_handoff(run_id)
-                workspace_store.get_workspace_store().sync_lifecycle(record.request.workspace_id)
+                workspace_store.get_workspace_store().sync_lifecycle(
+                    record.request.workspace_id,
+                    judged_run_count=self.count_completed_runs(record.request.workspace_id),
+                )
             elif state._cancel.is_set():
                 record.status = "cancelled"
                 self._store.update_status(run_id, "cancelled")

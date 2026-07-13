@@ -114,7 +114,7 @@ The run engine is decoupled from the HTTP connection: `RunManager` drives the pi
 
 Set `ROAST_CORS_ORIGINS` in `.env` for your frontend origin (comma-separated). Default: `http://localhost:3000,http://127.0.0.1:3000`.
 
-Run uvicorn with a single worker per machine; background tasks and in-process subscribers are not coordinated across workers yet.
+Run uvicorn with a single worker per machine; background tasks and in-process subscribers are not coordinated across workers yet. Compose publishes the API without auth on purpose (local/self-host); put a reverse-proxy auth layer in front if you expose it beyond your LAN.
 
 **Rate limits:** `POST /api/runs` and `POST /api/runs/{run_id}/appeal` are token-bucket limited per client IP (`RATE_LIMIT_*` and `RATE_LIMIT_APPEAL_*` in `.env`). Returns `429` when exceeded. Disable with `RATE_LIMIT_ENABLED=false`. Set `TRUST_PROXY=true` only when the API sits behind a reverse proxy that sets `X-Forwarded-For` (Fly, Render, nginx). Otherwise clients could spoof that header to bypass limits.
 

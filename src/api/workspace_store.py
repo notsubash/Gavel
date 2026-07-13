@@ -1183,7 +1183,9 @@ class WorkspaceStore:
             self.sync_lifecycle(workspace_id)
         return deleted
 
-    def sync_lifecycle(self, workspace_id: str) -> Workspace | None:
+    def sync_lifecycle(
+        self, workspace_id: str, *, judged_run_count: int | None = None
+    ) -> Workspace | None:
         workspace = self.get_workspace(workspace_id)
         if workspace is None:
             return None
@@ -1194,8 +1196,13 @@ class WorkspaceStore:
         experiments = self.list_experiments(workspace_id)
         interviews = self.list_interviews(workspace_id)
         readiness = evaluate_readiness(version.worksheet, evidence)
+        if judged_run_count is None:
+            # Prefer completed roasts; orphan links (failed/cancelled) must not mark judged.
+            from api.run_manager import get_run_manager
+
+            judged_run_count = get_run_manager().count_completed_runs(workspace_id)
         lifecycle = compute_lifecycle(
-            run_count=self.count_runs(workspace_id),
+            run_count=judged_run_count,
             readiness_level=readiness.level,
             experiments=experiments,
             interviews=interviews,

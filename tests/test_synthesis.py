@@ -307,9 +307,7 @@ class VerdictOutputQualityTest(unittest.TestCase):
         )
         quality = assess_verdict_output_quality(panel, _structured_debate_result())
         self.assertTrue(quality["low_confidence"])
-        self.assertTrue(
-            any("suspiciously uniform" in reason for reason in quality["reasons"])
-        )
+        self.assertTrue(any("suspiciously uniform" in reason for reason in quality["reasons"]))
 
 
 if __name__ == "__main__":

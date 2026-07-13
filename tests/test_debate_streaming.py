@@ -4,7 +4,16 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from debate.service import stream_debate
-from events import DebateCompleted, DebateMessagePublished, DebateRoundStarted, DebateTokenDelta
+from events import (
+    DebateCompleted,
+    DebateMessagePublished,
+    DebateRoundStarted,
+    DebateSpeakerThinking,
+    DebateSynthesisPublished,
+    DebateTokenDelta,
+    RevoteJudgeCompleted,
+    RevoteStarted,
+)
 from judges.schemas import RoastPanel, Verdict
 import tests  # noqa: F401
 
@@ -251,8 +260,6 @@ class TestDebateStreaming(unittest.TestCase):
         )
 
     def test_revote_events_stream_before_debate_completed(self):
-        from events import DebateSpeakerThinking, DebateSynthesisPublished, RevoteJudgeCompleted, RevoteStarted
-
         model = InvokeOnlyModel()
         events = list(
             stream_debate(

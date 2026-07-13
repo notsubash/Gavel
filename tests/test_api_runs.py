@@ -995,8 +995,7 @@ class ApiRunsTest(unittest.TestCase):
         )
 
         appeal_text = (
-            "We completed two university validation studies and signed LOIs "
-            "with two NCAA programs."
+            "We completed two university validation studies and signed LOIs with two NCAA programs."
         )
         appeal_response = self.client.post(
             f"/api/runs/{run_id}/appeal",
@@ -1027,6 +1026,7 @@ class ApiRunsTest(unittest.TestCase):
             saved.revised_panel.model_dump(mode="json"),
             _revised_panel().model_dump(mode="json"),
         )
+
     def test_appeal_unknown_run_returns_404(self):
         response = self.client.post(
             "/api/runs/missing-run/appeal",
@@ -1410,9 +1410,31 @@ class ApiRunsTest(unittest.TestCase):
         response = self.client.get("/api/runs/missing-run/similar")
         self.assertEqual(response.status_code, 404)
 
-    def test_rerun_blocked_without_delta_unless_override_or_worksheet_change(self):
+    @patch("api.run_manager.build_research_context_for_run", return_value=None)
+    @patch("api.run_manager.build_model_for_run")
+    @patch("api.run_manager.stream_pipeline")
+    def test_rerun_blocked_without_delta_unless_override_or_worksheet_change(
+        self,
+        stream_pipeline_mock,
+        build_model_mock,
+        _research_mock,
+    ):
+        build_model_mock.return_value = object()
+
+        def _stub_pipeline(*_args, **_kwargs):
+            yield PhaseStarted(phase="roast")
+            yield PipelineCompleted(
+                roast_panel=_panel(),
+                debate_result={"debate_messages": [], "final_synthesis": "Done."},
+            )
+
+        stream_pipeline_mock.side_effect = _stub_pipeline
+
         first, ws_id = _post_run(self.client)
         self.assertEqual(first.status_code, 200)
+        first_id = first.json()["run_id"]
+        _fetch_sse_events(self.client, first_id, manager=self.manager)
+        self.assertEqual(self.manager.get(first_id).status, "completed")
 
         blocked = self.client.post("/api/runs", json={"workspace_id": ws_id})
         self.assertEqual(blocked.status_code, 422)
@@ -1423,6 +1445,12 @@ class ApiRunsTest(unittest.TestCase):
             json={"workspace_id": ws_id, "readiness_override": True},
         )
         self.assertEqual(with_override.status_code, 200)
+        override_id = with_override.json()["run_id"]
+        _fetch_sse_events(self.client, override_id, manager=self.manager)
+        self.assertEqual(self.manager.get(override_id).status, "completed")
+
+        still_blocked = self.client.post("/api/runs", json={"workspace_id": ws_id})
+        self.assertEqual(still_blocked.status_code, 422)
 
         updated = WORKSHEET_RUN.model_copy(
             update={
@@ -1441,6 +1469,36 @@ class ApiRunsTest(unittest.TestCase):
 
         after_change = self.client.post("/api/runs", json={"workspace_id": ws_id})
         self.assertEqual(after_change.status_code, 200)
+
+    @patch("api.run_manager.build_research_context_for_run", return_value=None)
+    @patch("api.run_manager.build_model_for_run")
+    @patch("api.run_manager.stream_pipeline")
+    def test_rerun_allowed_after_failed_or_cancelled_without_delta(
+        self,
+        stream_pipeline_mock,
+        build_model_mock,
+        _research_mock,
+    ):
+        build_model_mock.return_value = object()
+        stream_pipeline_mock.side_effect = RuntimeError("boom")
+
+        failed, ws_id = _post_run(self.client)
+        self.assertEqual(failed.status_code, 200)
+        failed_id = failed.json()["run_id"]
+        _fetch_sse_events(self.client, failed_id, manager=self.manager)
+        self.assertEqual(self.manager.get(failed_id).status, "failed")
+
+        retry = self.client.post("/api/runs", json={"workspace_id": ws_id})
+        self.assertEqual(retry.status_code, 200)
+
+        cancel_create, _ = _post_run(self.client, workspace_id=ws_id)
+        cancel_id = cancel_create.json()["run_id"]
+        cancel_response = self.client.post(f"/api/runs/{cancel_id}/cancel")
+        self.assertEqual(cancel_response.status_code, 200)
+        self.assertEqual(self.manager.get(cancel_id).status, "cancelled")
+
+        after_cancel = self.client.post("/api/runs", json={"workspace_id": ws_id})
+        self.assertEqual(after_cancel.status_code, 200)
 
 
 if __name__ == "__main__":

@@ -109,8 +109,8 @@ def invoke_structured_verdict(
     last_error: ValidationError | GuardrailError | None = None
     for attempt in range(JUDGE_MAX_ATTEMPTS):
         # Transient transport blips retry here; schema/guardrail retries stay in this loop.
-        def _invoke_once():
-            return structured_model.invoke(messages, **optional_config_kwargs(run_config))
+        def _invoke_once(msgs=messages):
+            return structured_model.invoke(msgs, **optional_config_kwargs(run_config))
 
         result = call_with_llm_retry(_invoke_once, label=f"{judge} {label}")
 

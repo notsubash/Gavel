@@ -237,10 +237,15 @@ def _invoke_structured_synthesis(model: Any, prompt: str) -> tuple[Synthesis | N
 
 
 def _render_moderator_prompt(template_name: str, state: dict, transcript: str) -> str:
+    panel = _format_verdicts_readable(state["verdicts"])
+    initial_raw = state.get("initial_verdicts") or state["verdicts"]
+    initial = _format_verdicts_readable(initial_raw)
     return template_env.get_template(template_name).render(
         state=state,
         startup_idea=wrap_user_idea(state["startup_idea"]),
-        original_verdicts=_format_verdicts_readable(state["verdicts"]),
+        panel_verdicts=panel,
+        initial_verdicts=initial,
+        scores_moved=initial != panel,
         transcript=transcript,
     )
 

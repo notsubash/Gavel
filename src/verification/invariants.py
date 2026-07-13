@@ -150,7 +150,7 @@ def check_score_change_bounded(
             code="score_change_out_of_bounds",
             message=(
                 f"Score moved {delta} points (max {max_delta} per re-vote); "
-                "revise by smaller steps unless debate evidence is overwhelming"
+                "revise by a smaller step"
             ),
         )
     return None

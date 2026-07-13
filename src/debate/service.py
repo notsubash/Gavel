@@ -29,7 +29,7 @@ def _initial_state(startup_idea: str, roast_panel: RoastPanel, max_rounds: int) 
         "messages": [HumanMessage(content="Begin the debate.")],
         "startup_idea": startup_idea,
         "verdicts": verdicts,
-        "initial_verdicts": verdicts,
+        "initial_verdicts": [dict(v) for v in verdicts],
         "debate_messages": [],
         "round": 1,
         "max_rounds": max_rounds,
@@ -151,8 +151,9 @@ def stream_debate(
                 if structured is not None:
                     structured_synthesis = structured
                 yield DebateSynthesisPublished(content=synthesis)
-            else:
-                next_idx = node_output.get("current_speaker_idx", 0)
+            elif "current_speaker_idx" in node_output:
+                # ponytail: only speaker nodes set this; revote/moderator must not fake thinking.
+                next_idx = node_output["current_speaker_idx"]
                 if next_idx < len(JUDGE_ORDER):
                     yield DebateSpeakerThinking(
                         judge=JUDGE_ORDER[next_idx],

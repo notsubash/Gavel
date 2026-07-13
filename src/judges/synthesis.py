@@ -159,9 +159,15 @@ def synthesis_to_prose(synthesis: Synthesis) -> str:
     if synthesis.top_risks:
         lines.append("**Top risks:**")
         lines.extend(f"- {item}" for item in synthesis.top_risks)
+    if synthesis.top_problems:
+        lines.append("**Top problems:**")
+        lines.extend(f"- {item}" for item in synthesis.top_problems)
     if synthesis.highest_priority:
         lines.append(f"**Highest priority:** {synthesis.highest_priority}")
     lines.append(f"**Biggest disagreement:** {synthesis.biggest_disagreement}")
+    if synthesis.recommended_experiment is not None:
+        exp = synthesis.recommended_experiment
+        lines.append(f"**Recommended experiment:** {exp.title}")
     return "\n".join(lines)
 
 

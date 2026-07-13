@@ -170,6 +170,26 @@ class SynthesisHelpersTest(unittest.TestCase):
         self.assertIsNotNone(parsed)
         self.assertEqual(parsed.recommended_experiment.title, experiment.title)
 
+    def test_synthesis_to_prose_includes_problems_and_experiment(self):
+        synthesis = Synthesis(
+            overall_recommendation=OverallRecommendation.ITERATE,
+            confidence=ConfidenceLevel.MEDIUM,
+            top_problems=["No buyer proof yet."],
+            biggest_disagreement="VC vs PM on wedge.",
+            recommended_experiment=RecommendedExperiment(
+                title="Run five buyer interviews with compliance leads this week.",
+                audience="Compliance leads at mid-size hospitals",
+                hypothesis="Buyers rank audit prep as a top-three weekly pain.",
+                questions=["Q1?", "Q2?", "Q3?"],
+                effort_minutes=120,
+            ),
+        )
+        prose = synthesis_to_prose(synthesis)
+        self.assertIn("**Top problems:**", prose)
+        self.assertIn("No buyer proof yet.", prose)
+        self.assertIn("**Recommended experiment:**", prose)
+        self.assertIn("Run five buyer interviews", prose)
+
     def test_is_meta_summary_text(self):
         self.assertTrue(
             is_meta_summary_text(

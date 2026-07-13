@@ -49,7 +49,7 @@ from memory.retrieval import records_for_memory
 from observability.metrics import log_run_metrics
 from pipeline import stream_pipeline
 from research.service import format_research_context
-from run_control import RunAbort
+from run_control import RunAbort, check_abort
 from validation.ingest import build_run_handoff
 from validation.readiness import evaluate_readiness
 
@@ -582,7 +582,11 @@ class RunManager:
 
             startup_idea = build_startup_idea_context(run_id, record.request)
             model = build_model_for_run(record.request, settings)
+            # ponytail: research has no mid-call abort; check around it so cancel/budget
+            # aren't ignored for the whole Tavily + policy-LLM stretch.
+            check_abort(abort_check)
             research = build_research_context_for_run(record.request, startup_idea, settings, model)
+            check_abort(abort_check)
             if research is not None:
                 emit(research_findings_envelope(run_id=run_id, sequence=0, context=research))
             research_context = format_research_context(research) if research is not None else None

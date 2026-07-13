@@ -169,9 +169,14 @@ class RunMetricsCollector:
         )
 
     def discard_phase(self, phase: Literal["roast", "debate"]) -> None:
-        """Drop recorded calls for a phase (e.g. before a degenerate-panel retry)."""
+        """Drop recorded calls for a phase (e.g. before a degenerate roast-panel retry)."""
         with self._lock:
             self._calls = [call for call in self._calls if call.phase != phase]
+
+    def discard_label_prefix(self, prefix: str) -> None:
+        """Drop calls whose label starts with prefix (e.g. revote-* before a re-vote retry)."""
+        with self._lock:
+            self._calls = [call for call in self._calls if not call.label.startswith(prefix)]
 
     def snapshot(
         self,

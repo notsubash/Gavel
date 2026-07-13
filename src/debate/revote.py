@@ -204,9 +204,9 @@ def run_revote(
     verdicts = [results[judge] for judge in JUDGE_ORDER]
 
     if is_degenerate_panel(verdicts):
-        # ponytail: one anti-collusion retry, same pattern as roast panel.
+        # ponytail: one anti-collusion retry; only drop revote-* so speaker metrics survive.
         if metrics is not None:
-            metrics.discard_phase("debate")
+            metrics.discard_label_prefix("revote-")
         results = _run_revote_panel(
             model,
             startup_idea,

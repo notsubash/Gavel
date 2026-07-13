@@ -144,6 +144,9 @@ def stream_pipeline(
     if debate_result is None:
         raise RuntimeError("Debate did not complete")
 
+    # Abort before memory write so cancelled runs don't pollute the idea store.
+    check_abort(abort_check)
+
     if user_id and idea_store:
         record_kwargs: dict = {
             "user_id": user_id,

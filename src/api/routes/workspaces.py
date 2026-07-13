@@ -174,9 +174,14 @@ def get_workspace(
 def get_validation_overview(
     workspace_id: str,
     store: Annotated[WorkspaceStore, Depends(get_workspace_store)],
+    manager: Annotated[RunManager, Depends(get_run_manager)],
 ) -> ValidationOverviewResponse:
     _require_workspace(store, workspace_id)
-    overview = build_validation_overview(store, workspace_id)
+    overview = build_validation_overview(
+        store,
+        workspace_id,
+        has_prior_run=manager.has_blocking_prior_run(workspace_id),
+    )
     if overview is None:
         raise HTTPException(status_code=404, detail="workspace not found")
     return overview
@@ -310,12 +315,13 @@ def get_confidence(
 def get_readiness(
     workspace_id: str,
     store: Annotated[WorkspaceStore, Depends(get_workspace_store)],
+    manager: Annotated[RunManager, Depends(get_run_manager)],
 ) -> ReadinessResponse:
     version, _, evidence, _, _ = _validation_state(store, workspace_id)
     return evaluate_readiness(
         version.worksheet,
         evidence,
-        has_prior_run=store.count_runs(workspace_id) > 0,
+        has_prior_run=manager.has_blocking_prior_run(workspace_id),
         worksheet_changed_since_run=store.worksheet_changed_since_last_run(workspace_id),
     )
 
@@ -327,12 +333,13 @@ def get_readiness(
 def assist_readiness_briefing(
     workspace_id: str,
     store: Annotated[WorkspaceStore, Depends(get_workspace_store)],
+    manager: Annotated[RunManager, Depends(get_run_manager)],
 ) -> ReadinessBriefingResponse:
     version, _, evidence, _, _ = _validation_state(store, workspace_id)
     readiness = evaluate_readiness(
         version.worksheet,
         evidence,
-        has_prior_run=store.count_runs(workspace_id) > 0,
+        has_prior_run=manager.has_blocking_prior_run(workspace_id),
         worksheet_changed_since_run=store.worksheet_changed_since_last_run(workspace_id),
     )
     try:
@@ -768,8 +775,13 @@ def assist_map_evidence(
 def assist_validation_coach(
     workspace_id: str,
     store: Annotated[WorkspaceStore, Depends(get_workspace_store)],
+    manager: Annotated[RunManager, Depends(get_run_manager)],
 ) -> ValidationCoachResponse:
-    overview = build_validation_overview(store, workspace_id)
+    overview = build_validation_overview(
+        store,
+        workspace_id,
+        has_prior_run=manager.has_blocking_prior_run(workspace_id),
+    )
     if overview is None:
         raise HTTPException(status_code=404, detail="workspace not found")
     version = _require_version(store, workspace_id)
@@ -827,7 +839,11 @@ def export_markdown(
     if workspace is None:
         raise HTTPException(status_code=404, detail="workspace not found")
     version, assumptions, evidence, experiments, interviews = _validation_state(store, workspace_id)
-    overview = build_validation_overview(store, workspace_id)
+    overview = build_validation_overview(
+        store,
+        workspace_id,
+        has_prior_run=manager.has_blocking_prior_run(workspace_id),
+    )
     run_items, _ = manager.list_runs_for_workspace(workspace_id, limit=20, offset=0)
     runs = [_run_list_item(record, summary) for record, summary in run_items]
     body = export_workspace_markdown(
@@ -853,6 +869,7 @@ def export_markdown(
 def export_judge_brief_route(
     workspace_id: str,
     store: Annotated[WorkspaceStore, Depends(get_workspace_store)],
+    manager: Annotated[RunManager, Depends(get_run_manager)],
 ) -> PlainTextResponse:
     workspace = store.get_workspace(workspace_id)
     if workspace is None:
@@ -861,7 +878,7 @@ def export_judge_brief_route(
     readiness = evaluate_readiness(
         version.worksheet,
         evidence,
-        has_prior_run=store.count_runs(workspace_id) > 0,
+        has_prior_run=manager.has_blocking_prior_run(workspace_id),
         worksheet_changed_since_run=store.worksheet_changed_since_last_run(workspace_id),
     )
     last_version_id = store.get_last_run_version_id(workspace_id)

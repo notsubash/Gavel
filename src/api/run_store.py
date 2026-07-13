@@ -48,8 +48,8 @@ _INTERRUPTED_MESSAGE = "The roast run was interrupted. Please try again."
 
 
 class RunStore:
-    # ponytail: SQLite + in-process notify is enough for single-box multi-worker
-    # (shared DB file, one machine). Redis pub/sub is the upgrade for multi-machine.
+    # ponytail: durable event log for one process. RunManager tasks/subscribers are
+    # in-memory — keep a single uvicorn worker. Redis pub/sub for multi-machine.
 
     def __init__(self, db_path: Path | None = None) -> None:
         self.db_path = db_path or PROJECT_ROOT / "data" / "runs.db"

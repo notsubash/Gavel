@@ -366,6 +366,9 @@ class WorkspaceStore:
                 validate_minor_edit(diff)
 
             create_new = should_create_version(diff, minor_edit=minor_edit)
+            # ponytail: copy-on-write once roasted; in-place patch rewrites run history
+            if not create_new and self._version_linked_to_run_locked(current.id):
+                create_new = True
             summary = change_summary or build_change_summary(diff)
             generated = compose_generated_document(worksheet)
             now = datetime.now(UTC)
@@ -457,6 +460,13 @@ class WorkspaceStore:
             (row[0],),
         ).fetchone()
         return self._row_to_version(vrow) if vrow else None
+
+    def _version_linked_to_run_locked(self, version_id: str) -> bool:
+        row = self._conn.execute(
+            "SELECT 1 FROM workspace_runs WHERE worksheet_version_id = ? LIMIT 1",
+            (version_id,),
+        ).fetchone()
+        return row is not None
 
     def version_diff(
         self, workspace_id: str, from_version_id: str, to_version_id: str
@@ -1173,7 +1183,9 @@ class WorkspaceStore:
             self.sync_lifecycle(workspace_id)
         return deleted
 
-    def sync_lifecycle(self, workspace_id: str) -> Workspace | None:
+    def sync_lifecycle(
+        self, workspace_id: str, *, judged_run_count: int | None = None
+    ) -> Workspace | None:
         workspace = self.get_workspace(workspace_id)
         if workspace is None:
             return None
@@ -1184,12 +1196,18 @@ class WorkspaceStore:
         experiments = self.list_experiments(workspace_id)
         interviews = self.list_interviews(workspace_id)
         readiness = evaluate_readiness(version.worksheet, evidence)
+        if judged_run_count is None:
+            # Prefer completed roasts; orphan links (failed/cancelled) must not mark judged.
+            from api.run_manager import get_run_manager
+
+            judged_run_count = get_run_manager().count_completed_runs(workspace_id)
         lifecycle = compute_lifecycle(
-            run_count=self.count_runs(workspace_id),
+            run_count=judged_run_count,
             readiness_level=readiness.level,
             experiments=experiments,
             interviews=interviews,
             evidence=evidence,
+            worksheet_changed_since_run=self.worksheet_changed_since_last_run(workspace_id),
         )
         if lifecycle != workspace.lifecycle:
             return self.update_lifecycle(workspace_id, lifecycle)

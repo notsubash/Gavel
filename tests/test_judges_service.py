@@ -1,6 +1,7 @@
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from judges.service import invoke_judge
@@ -69,6 +70,49 @@ class JudgeServiceTest(unittest.TestCase):
             judge="pm",
             startup_idea="AI pothole detection for municipalities",
         )
+
+        self.assertEqual(verdict.judge.value, "pm")
+        self.assertEqual(model.structured_model.calls, 2)
+
+    def test_invoke_judge_retries_transient_transport_error(self):
+        class FlakyStructuredModel:
+            def __init__(self, responses):
+                self.responses = list(responses)
+                self.calls = 0
+
+            def invoke(self, messages, **_kwargs):
+                self.calls += 1
+                if self.calls == 1:
+                    raise TimeoutError("provider timeout")
+                return self.responses.pop(0)
+
+        class FlakyModel:
+            def __init__(self, responses):
+                self.structured_model = FlakyStructuredModel(responses)
+
+            def with_structured_output(self, schema):
+                return self.structured_model
+
+        model = FlakyModel(
+            [
+                {
+                    "judge": "pm",
+                    "verdict": "CONDITIONAL",
+                    "roast": "The target buyer and workflow are too fuzzy for a reliable product strategy.",
+                    "score": 4,
+                    "key_concern": "The municipal buyer path is not clear enough.",
+                    "recommended_fix": SAMPLE_FIX,
+                    "evidence_to_change_verdict": SAMPLE_EVIDENCE,
+                }
+            ]
+        )
+
+        with patch("llm_resilience.time.sleep"):
+            verdict = invoke_judge(
+                model=model,
+                judge="pm",
+                startup_idea="AI pothole detection for municipalities",
+            )
 
         self.assertEqual(verdict.judge.value, "pm")
         self.assertEqual(model.structured_model.calls, 2)

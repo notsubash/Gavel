@@ -104,6 +104,18 @@ class WorkspaceVersioningTest(unittest.TestCase):
         self.assertEqual(patched.id, v1.id)
         self.assertEqual(patched.version, 1)
 
+    def test_run_linked_version_copy_on_write(self):
+        workspace, v1, _ = self.store.create_workspace(SAMPLE)
+        self.store.link_run("run-1", workspace.id, v1.id)
+        updated = SAMPLE.model_copy(update={"working_name": "Validation Workbench"})
+        v2, created, _ = self.store.save_worksheet(workspace.id, updated)
+        self.assertTrue(created)
+        self.assertEqual(v2.version, 2)
+        self.assertEqual(v2.parent_version_id, v1.id)
+        frozen = self.store.get_version(v1.id)
+        assert frozen is not None
+        self.assertEqual(frozen.worksheet.working_name, SAMPLE.working_name)
+
     def test_in_place_edit_preserves_change_summary(self):
         workspace, v1, _ = self.store.create_workspace(SAMPLE)
         updated = SAMPLE.model_copy(update={"working_name": "Validation Workbench"})

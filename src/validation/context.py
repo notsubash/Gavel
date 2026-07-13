@@ -10,7 +10,10 @@ from validation.schemas import ValidationOverviewResponse
 
 
 def build_validation_overview(
-    store: WorkspaceStore, workspace_id: str
+    store: WorkspaceStore,
+    workspace_id: str,
+    *,
+    has_prior_run: bool = False,
 ) -> ValidationOverviewResponse | None:
     workspace = store.get_workspace(workspace_id)
     if workspace is None:
@@ -39,7 +42,7 @@ def build_validation_overview(
     readiness = evaluate_readiness(
         version.worksheet,
         evidence,
-        has_prior_run=store.count_runs(workspace_id) > 0,
+        has_prior_run=has_prior_run,
         worksheet_changed_since_run=store.worksheet_changed_since_last_run(workspace_id),
     )
     active = next((e for e in experiments if e.status == "active"), None)

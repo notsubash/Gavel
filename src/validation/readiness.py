@@ -10,8 +10,9 @@ from validation.schemas import (
     ReadinessResponse,
 )
 
+# founder_note is self-reported; counts for checklist/confidence, not "ready"
 _HUMAN_EVIDENCE_TYPES = frozenset(
-    {"interview_quote", "loi", "payment", "usage", "experiment_metric", "founder_note"}
+    {"interview_quote", "loi", "payment", "usage", "experiment_metric"}
 )
 
 

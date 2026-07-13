@@ -44,12 +44,14 @@ from judges.confidence import (
     confidence_snapshot_from_structured,
 )
 from judges.schemas import RoastPanel, Verdict
+from memory.context import build_memory_context
 from memory.identity import LOCAL_USER
+from memory.models import IdeaRecord
 from memory.retrieval import records_for_memory
 from observability.metrics import log_run_metrics
 from pipeline import stream_pipeline
 from research.service import format_research_context
-from run_control import RunAbort
+from run_control import RunAbort, check_abort
 from validation.ingest import build_run_handoff
 from validation.readiness import evaluate_readiness
 
@@ -103,11 +105,54 @@ def _effective_panel_for_run(store: RunStore, run_id: str) -> dict | None:
     return None
 
 
+def _verdicts_from_panel_dict(panel: dict | None) -> list[Verdict]:
+    if not isinstance(panel, dict):
+        return []
+    try:
+        return RoastPanel.model_validate(panel).verdicts
+    except Exception:
+        return []
+
+
 def _summary_for_completed_run(store: RunStore, run_id: str) -> VerdictSummary | None:
     panel = _effective_panel_for_run(store, run_id)
     if panel is None:
         return None
     return _verdict_summary_from_panel(panel)
+
+
+def _persist_appeal_to_idea_store(
+    store,
+    *,
+    run_id: str,
+    startup_idea: str,
+    roast_panel: RoastPanel,
+    debate_result: dict,
+    appeal_text: str,
+    result: AppealResult,
+) -> None:
+    """Keep IdeaStore in sync with appeal_completed (Streamlit parity)."""
+    updates = {
+        "appeal_text": appeal_text,
+        "appeal_target_judges": list(result.target_judges),
+        "revised_panel": result.revised_panel,
+        "revised_synthesis": result.revised_synthesis,
+    }
+    existing = store.get(run_id)
+    if existing is not None:
+        store.save(existing.model_copy(update=updates))
+        return
+    # ponytail: pipeline should have saved; backfill so similar/memory see the appeal.
+    store.save(
+        IdeaRecord(
+            id=run_id,
+            user_id=LOCAL_USER,
+            idea_text=startup_idea,
+            roast_panel=roast_panel,
+            debate_result=debate_result,
+            **updates,
+        )
+    )
 
 
 class _RunState:
@@ -184,6 +229,30 @@ class RunManager:
     def close(self) -> None:
         self._store.close()
 
+    def has_blocking_prior_run(self, workspace_id: str) -> bool:
+        """True when re-run needs evidence/worksheet delta or override.
+
+        Only a *completed* latest roast blocks. Failed/cancelled/in-flight links
+        still appear in history but must not trap founders behind rerun_delta.
+        """
+        ws_store = workspace_store.get_workspace_store()
+        run_ids, _ = ws_store.list_run_ids(workspace_id, limit=1)
+        if not run_ids:
+            return False
+        record = self.get(run_ids[0])
+        return record is not None and record.status == "completed"
+
+    def count_completed_runs(self, workspace_id: str) -> int:
+        """Completed roasts only — used for judged/iterating lifecycle."""
+        ws_store = workspace_store.get_workspace_store()
+        # ponytail: local workspaces stay small; upgrade to status JOIN if needed
+        run_ids, _ = ws_store.list_run_ids(workspace_id, limit=500)
+        return sum(
+            1
+            for run_id in run_ids
+            if (record := self.get(run_id)) is not None and record.status == "completed"
+        )
+
     def create(self, request: CreateRunRequest) -> RunRecord:
         ws_store = workspace_store.get_workspace_store()
         workspace = ws_store.get_workspace(request.workspace_id)
@@ -201,7 +270,7 @@ class RunManager:
             readiness = evaluate_readiness(
                 version.worksheet,
                 ws_store.list_evidence(request.workspace_id),
-                has_prior_run=ws_store.count_runs(request.workspace_id) > 0,
+                has_prior_run=self.has_blocking_prior_run(request.workspace_id),
                 worksheet_changed_since_run=ws_store.worksheet_changed_since_last_run(
                     request.workspace_id
                 ),
@@ -233,7 +302,11 @@ class RunManager:
         record = RunRecord(run_id=run_id, request=request)
         self._store.insert_run(record)
         ws_store.link_run(run_id, request.workspace_id, version_id)
-        ws_store.sync_lifecycle(request.workspace_id)
+        # Don't count this in-flight link as judged — only completed roasts.
+        ws_store.sync_lifecycle(
+            request.workspace_id,
+            judged_run_count=self.count_completed_runs(request.workspace_id),
+        )
         self._runs[run_id] = _RunState(record, store=self._store)
         return record
 
@@ -291,17 +364,12 @@ class RunManager:
         if record is None or record.status != "completed":
             return None
 
+        verdicts = _verdicts_from_panel_dict(_effective_panel_for_run(self._store, run_id))
+
         appeal = self._store.get_latest_event(run_id, "appeal_completed")
         if appeal is not None:
             revised_structured = appeal.payload.get("revised_structured_synthesis")
             if isinstance(revised_structured, dict):
-                revised_panel = appeal.payload.get("revised_panel")
-                verdicts: list[Verdict] = []
-                if isinstance(revised_panel, dict):
-                    try:
-                        verdicts = RoastPanel.model_validate(revised_panel).verdicts
-                    except Exception:
-                        verdicts = []
                 snapshot = confidence_snapshot_from_structured(revised_structured, verdicts or None)
                 return snapshot.model_dump(mode="json") if snapshot else None
 
@@ -309,13 +377,6 @@ class RunManager:
         if completed is None:
             return None
         debate_result = completed.payload.get("debate_result")
-        roast_panel = completed.payload.get("roast_panel")
-        verdicts = []
-        if isinstance(roast_panel, dict):
-            try:
-                verdicts = RoastPanel.model_validate(roast_panel).verdicts
-            except Exception:
-                verdicts = []
         snapshot = confidence_snapshot_from_debate(
             debate_result if isinstance(debate_result, dict) else None,
             verdicts or None,
@@ -402,10 +463,16 @@ class RunManager:
         if not isinstance(debate_result, dict):
             debate_result = {}
 
-        roast_panel = appeal_baseline_panel(
-            RoastPanel.model_validate(completed.payload["roast_panel"]),
-            debate_result,
-        )
+        original_panel = RoastPanel.model_validate(completed.payload["roast_panel"])
+        roast_panel = appeal_baseline_panel(original_panel, debate_result)
+        startup_idea = build_startup_idea_context(run_id, record.request)
+        idea_store = get_idea_store()
+        prior_records = [
+            idea
+            for idea in records_for_memory(idea_store, LOCAL_USER, startup_idea, limit=4)
+            if idea.id != run_id
+        ][:3]
+        memory_context = build_memory_context(prior_records) or None
 
         if settings.e2e_test_mode:
             from api.e2e_test_support import run_e2e_stub_appeal
@@ -419,7 +486,6 @@ class RunManager:
             )
         else:
             model = build_model_for_run(record.request, settings)
-            startup_idea = build_startup_idea_context(run_id, record.request)
             result = await asyncio.to_thread(
                 run_appeal,
                 model,
@@ -427,8 +493,8 @@ class RunManager:
                 roast_panel,
                 debate_result,
                 appeal_text,
-                None,
-                target_judges,
+                memory_context=memory_context,
+                target_judges=target_judges,
             )
 
         outcomes = result.evidence_outcomes
@@ -471,6 +537,16 @@ class RunManager:
             )
         except ValueError as exc:
             raise ValueError("An appeal has already been submitted for this run") from exc
+
+        _persist_appeal_to_idea_store(
+            idea_store,
+            run_id=run_id,
+            startup_idea=startup_idea,
+            roast_panel=original_panel,
+            debate_result=debate_result,
+            appeal_text=appeal_text.strip(),
+            result=result,
+        )
         return roast_panel, result
 
     def _ensure_state(self, run_id: str) -> _RunState:
@@ -582,7 +658,11 @@ class RunManager:
 
             startup_idea = build_startup_idea_context(run_id, record.request)
             model = build_model_for_run(record.request, settings)
+            # ponytail: research has no mid-call abort; check around it so cancel/budget
+            # aren't ignored for the whole Tavily + policy-LLM stretch.
+            check_abort(abort_check)
             research = build_research_context_for_run(record.request, startup_idea, settings, model)
+            check_abort(abort_check)
             if research is not None:
                 emit(research_findings_envelope(run_id=run_id, sequence=0, context=research))
             research_context = format_research_context(research) if research is not None else None
@@ -609,15 +689,26 @@ class RunManager:
                 record.status = "completed"
                 self._store.update_status(run_id, "completed")
                 self._ingest_run_handoff(run_id)
-                workspace_store.get_workspace_store().sync_lifecycle(record.request.workspace_id)
+                workspace_store.get_workspace_store().sync_lifecycle(
+                    record.request.workspace_id,
+                    judged_run_count=self.count_completed_runs(record.request.workspace_id),
+                )
             elif state._cancel.is_set():
                 record.status = "cancelled"
                 self._store.update_status(run_id, "cancelled")
                 if "run_cancelled" not in event_types:
                     state.append(run_cancelled_envelope(run_id=run_id, sequence=0))
             else:
-                record.status = "completed"
-                self._store.update_status(run_id, "completed")
+                # Pipeline returned without run_completed or cancel — don't fake success.
+                record.status = "failed"
+                self._store.update_status(run_id, "failed")
+                state.append(
+                    run_failed_envelope(
+                        run_id=run_id,
+                        sequence=0,
+                        message="The roast run ended without a result. Please try again.",
+                    )
+                )
         except RunAbort as exc:
             if exc.reason == "cancelled":
                 record.status = "cancelled"

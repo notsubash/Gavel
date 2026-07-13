@@ -4,7 +4,16 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from debate.service import stream_debate
-from events import DebateCompleted, DebateMessagePublished, DebateRoundStarted, DebateTokenDelta
+from events import (
+    DebateCompleted,
+    DebateMessagePublished,
+    DebateRoundStarted,
+    DebateSpeakerThinking,
+    DebateSynthesisPublished,
+    DebateTokenDelta,
+    RevoteJudgeCompleted,
+    RevoteStarted,
+)
 from judges.schemas import RoastPanel, Verdict
 import tests  # noqa: F401
 
@@ -251,8 +260,6 @@ class TestDebateStreaming(unittest.TestCase):
         )
 
     def test_revote_events_stream_before_debate_completed(self):
-        from events import RevoteJudgeCompleted, RevoteStarted
-
         model = InvokeOnlyModel()
         events = list(
             stream_debate(
@@ -273,6 +280,21 @@ class TestDebateStreaming(unittest.TestCase):
             self.assertLess(events.index(event), completed_idx)
             if event.verdict.score != event.original_score:
                 self.assertTrue(event.verdict.evidence_to_change_verdict)
+
+        last_revote_idx = max(events.index(e) for e in revote_judges)
+        synthesis_idx = events.index(
+            next(e for e in events if isinstance(e, DebateSynthesisPublished))
+        )
+        thinking_after_revote = [
+            e
+            for e in events[last_revote_idx + 1 : synthesis_idx]
+            if isinstance(e, DebateSpeakerThinking)
+        ]
+        self.assertEqual(
+            thinking_after_revote,
+            [],
+            "revote must not emit a fake next-speaker thinking event",
+        )
 
     def test_stream_recovers_from_transient_provider_disconnect(self):
         model = FlakyStreamModel()

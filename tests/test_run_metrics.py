@@ -91,6 +91,22 @@ class RunMetricsCollectorTest(unittest.TestCase):
         self.assertEqual(snapshot["judge_calls"], [])
         self.assertEqual(snapshot["total_tokens"], 0)
 
+    def test_discard_label_prefix_keeps_other_calls(self):
+        collector = RunMetricsCollector(model_runtime="local")
+        collector.record_debate("vc", seconds=1.0, prompt_text="abcd", output_text="efgh")
+        collector.record_debate(
+            "revote-vc",
+            seconds=0.5,
+            prompt_text="ijkl",
+            output_text="mnop",
+        )
+        collector.discard_label_prefix("revote-")
+        snapshot = collector.snapshot(roast_seconds=0.0, debate_seconds=1.5, total_seconds=1.5)
+        self.assertEqual(len(snapshot["debate_calls"]), 1)
+        self.assertEqual(snapshot["debate_calls"][0]["label"], "vc")
+        self.assertEqual(snapshot["revote_calls"], [])
+        self.assertEqual(snapshot["total_tokens"], 2)  # speaker only: "abcd" / "efgh"
+
     def test_snapshot_aggregates_calls_and_phases(self):
         collector = RunMetricsCollector(model_runtime="deepseek")
         collector.record_judge(
@@ -293,6 +309,49 @@ class PipelineRunMetricsTest(unittest.TestCase):
                 saved = store.list_recent(LOCAL_USER, limit=1)
             self.assertEqual(len(saved), 1)
             self.assertEqual(saved[0].id, "run-persist-123")
+
+    def test_stream_pipeline_abort_before_save_skips_idea_store(self):
+        from pathlib import Path
+        import tempfile
+
+        from memory.identity import LOCAL_USER
+        from memory.store import IdeaStore
+        from run_control import RunAbort
+
+        panel = RoastPanel(verdicts=[_verdict(judge) for judge in JUDGE_ORDER])
+        debate_done = {"value": False}
+
+        def fake_stream_roast_panel(_model, _idea, *_args, **_kwargs):
+            from events import RoastPanelCompleted
+
+            yield RoastPanelCompleted(panel=panel)
+
+        def fake_stream_debate(_model, _idea, _panel, *_args, **_kwargs):
+            from events import DebateCompleted
+
+            yield DebateCompleted(debate_messages=[], final_synthesis="summary")
+            debate_done["value"] = True
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with IdeaStore(Path(tmpdir) / "ideas.db") as store:
+                with (
+                    patch("pipeline.stream_roast_panel", side_effect=fake_stream_roast_panel),
+                    patch("pipeline.stream_debate", side_effect=fake_stream_debate),
+                ):
+                    with self.assertRaises(RunAbort):
+                        list(
+                            stream_pipeline(
+                                object(),
+                                "An AI journal for startup founders with daily reflection prompts.",
+                                max_debate_rounds=1,
+                                user_id=LOCAL_USER,
+                                idea_store=store,
+                                idea_id="run-abort-no-save",
+                                abort_check=lambda: "cancelled" if debate_done["value"] else None,
+                            )
+                        )
+                self.assertTrue(debate_done["value"])
+                self.assertEqual(store.list_recent(LOCAL_USER, limit=1), [])
 
 
 if __name__ == "__main__":

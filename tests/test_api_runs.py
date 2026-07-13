@@ -239,18 +239,26 @@ class ApiRunsTest(unittest.TestCase):
         self.db_path = base / "runs.db"
         self.ws_store = WorkspaceStore(db_path=base / "workspaces.db")
         self.manager = RunManager(db_path=self.db_path, recover_on_init=False)
+        import api.deps as deps
         import api.workspace_store as ws_mod
+        from memory.store import IdeaStore
 
         self._orig_store = ws_mod._store
         ws_mod._store = self.ws_store
+        self.idea_store = IdeaStore(base / "ideas.db")
+        self._orig_idea_store = deps._idea_store
+        deps._idea_store = self.idea_store
         self.client = TestClient(create_app(manager=self.manager))
 
     def tearDown(self):
+        import api.deps as deps
         import api.workspace_store as ws_mod
 
         ws_mod._store = self._orig_store
+        deps._idea_store = self._orig_idea_store
         self.manager.close()
         self.ws_store.close()
+        self.idea_store.close()
         self._tmpdir.cleanup()
 
     def test_health_endpoint(self):
@@ -943,6 +951,8 @@ class ApiRunsTest(unittest.TestCase):
         _research_mock,
     ):
         from appeal.service import AppealResult
+        from memory.identity import LOCAL_USER
+        from memory.models import IdeaRecord
 
         build_model_mock.return_value = object()
         stream_pipeline_mock.return_value = iter(
@@ -958,20 +968,38 @@ class ApiRunsTest(unittest.TestCase):
         run_appeal_mock.return_value = AppealResult(
             revised_panel=_revised_panel(),
             revised_synthesis="Revised synthesis after appeal.",
+            target_judges=("vc",),
         )
 
         create_response = _post_run(self.client)[0]
         run_id = create_response.json()["run_id"]
         _fetch_sse_events(self.client, run_id, manager=self.manager)
 
+        self.idea_store.save(
+            IdeaRecord(
+                id=run_id,
+                user_id=LOCAL_USER,
+                idea_text="Founder Journal pitch under appeal.",
+                roast_panel=_panel(),
+                debate_result={"final_synthesis": "summary"},
+            )
+        )
+        self.idea_store.save(
+            IdeaRecord(
+                id="prior-run",
+                user_id=LOCAL_USER,
+                idea_text="Earlier hospital AI pitch with weak traction.",
+                roast_panel=_panel(),
+                debate_result={"final_synthesis": "Prior NO-GO on demand."},
+            )
+        )
+
+        appeal_text = (
+            "We completed two university validation studies and signed LOIs with two NCAA programs."
+        )
         appeal_response = self.client.post(
             f"/api/runs/{run_id}/appeal",
-            json={
-                "appeal_text": (
-                    "We completed two university validation studies and signed LOIs "
-                    "with two NCAA programs."
-                ),
-            },
+            json={"appeal_text": appeal_text, "target_judges": ["vc"]},
         )
         self.assertEqual(appeal_response.status_code, 200)
         payload = appeal_response.json()
@@ -981,6 +1009,23 @@ class ApiRunsTest(unittest.TestCase):
 
         events = self.manager.list_events(run_id)
         self.assertEqual(events[-1].type, "appeal_completed")
+
+        run_appeal_mock.assert_called_once()
+        call_kwargs = run_appeal_mock.call_args.kwargs
+        self.assertIsNotNone(call_kwargs.get("memory_context"))
+        self.assertIn("hospital AI", call_kwargs["memory_context"])
+        self.assertEqual(call_kwargs.get("target_judges"), ["vc"])
+
+        saved = self.idea_store.get(run_id)
+        self.assertIsNotNone(saved)
+        assert saved is not None
+        self.assertEqual(saved.appeal_text, appeal_text)
+        self.assertEqual(saved.appeal_target_judges, ["vc"])
+        self.assertEqual(saved.revised_synthesis, "Revised synthesis after appeal.")
+        self.assertEqual(
+            saved.revised_panel.model_dump(mode="json"),
+            _revised_panel().model_dump(mode="json"),
+        )
 
     def test_appeal_unknown_run_returns_404(self):
         response = self.client.post(
@@ -1113,6 +1158,111 @@ class ApiRunsTest(unittest.TestCase):
             json={"appeal_text": "too short"},
         )
         self.assertEqual(response.status_code, 422)
+
+    @patch("api.run_manager.build_research_context_for_run", return_value=None)
+    @patch("api.run_manager.build_model_for_run")
+    @patch("api.run_manager.stream_pipeline")
+    def test_panel_confidence_uses_revised_verdicts_for_guardrails(
+        self,
+        stream_pipeline_mock,
+        build_model_mock,
+        _research_mock,
+    ):
+        """Re-vote scores must drive confidence caps, not the original roast panel."""
+        build_model_mock.return_value = object()
+        structured = {
+            "confidence_dimensions": [
+                {
+                    "dimension": "demand",
+                    "value": 80,
+                    "driver": "Buyers keep asking for a journal tied to validation.",
+                    "next_action": "Run five paid pilot conversations this week.",
+                },
+                {
+                    "dimension": "pricing",
+                    "value": 85,
+                    "driver": "Founders already pay for scattered note tools.",
+                    "next_action": "Test a $9 monthly price in five sales calls.",
+                },
+                {
+                    "dimension": "competition",
+                    "value": 70,
+                    "driver": "Notion is generic and not roast-linked.",
+                    "next_action": "Map switching costs against Day One and Notion.",
+                },
+                {
+                    "dimension": "moat",
+                    "value": 65,
+                    "driver": "Feedback loop from prior roasts is sticky.",
+                    "next_action": "Ship one roast-to-journal retention experiment.",
+                },
+            ]
+        }
+        # Original roast: FAIL score=3 would cap pricing; revised customer score=8 should not.
+        revised = [
+            v.model_dump(mode="json")
+            for v in [
+                _revised_verdict("vc", score=7),
+                _revised_verdict("engineer", score=6),
+                _revised_verdict("pm", score=7),
+                _revised_verdict("customer", score=8),
+                _revised_verdict("competitor", score=6),
+            ]
+        ]
+        for item in revised:
+            item["verdict"] = "PASS"
+        stream_pipeline_mock.return_value = iter(
+            [
+                PhaseStarted(phase="roast"),
+                RoastPanelCompleted(panel=_panel()),
+                PipelineCompleted(
+                    roast_panel=_panel(),
+                    debate_result={
+                        "debate_messages": [],
+                        "final_synthesis": "summary",
+                        "structured_synthesis": structured,
+                        "revised_verdicts": revised,
+                    },
+                ),
+            ]
+        )
+
+        create_response = _post_run(self.client)[0]
+        run_id = create_response.json()["run_id"]
+        _fetch_sse_events(self.client, run_id, manager=self.manager)
+
+        response = self.client.get(f"/api/runs/{run_id}/panel")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["verdicts"][3]["judge"], "customer")
+        self.assertEqual(payload["verdicts"][3]["score"], 8)
+        snapshot = payload["confidence_snapshot"]
+        self.assertIsNotNone(snapshot)
+        pricing = next(d for d in snapshot["dimensions"] if d["dimension"] == "pricing")
+        self.assertEqual(pricing["value"], 85)
+
+    @patch("api.run_manager.build_research_context_for_run", return_value=None)
+    @patch("api.run_manager.build_model_for_run")
+    @patch("api.run_manager.stream_pipeline")
+    def test_pipeline_exit_without_completed_marks_failed(
+        self,
+        stream_pipeline_mock,
+        build_model_mock,
+        _research_mock,
+    ):
+        build_model_mock.return_value = object()
+        stream_pipeline_mock.return_value = iter([PhaseStarted(phase="roast")])
+
+        create_response = _post_run(self.client)[0]
+        run_id = create_response.json()["run_id"]
+        _fetch_sse_events(self.client, run_id, manager=self.manager)
+
+        record = self.manager.get(run_id)
+        assert record is not None
+        self.assertEqual(record.status, "failed")
+        events = self.manager.list_events(run_id)
+        self.assertEqual(events[-1].type, "run_failed")
+        self.assertIn("without a result", events[-1].payload["message"])
 
     @patch("api.run_manager.build_research_context_for_run")
     @patch("api.run_manager.build_model_for_run")
@@ -1259,6 +1409,96 @@ class ApiRunsTest(unittest.TestCase):
     def test_similar_runs_unknown_run_returns_404(self):
         response = self.client.get("/api/runs/missing-run/similar")
         self.assertEqual(response.status_code, 404)
+
+    @patch("api.run_manager.build_research_context_for_run", return_value=None)
+    @patch("api.run_manager.build_model_for_run")
+    @patch("api.run_manager.stream_pipeline")
+    def test_rerun_blocked_without_delta_unless_override_or_worksheet_change(
+        self,
+        stream_pipeline_mock,
+        build_model_mock,
+        _research_mock,
+    ):
+        build_model_mock.return_value = object()
+
+        def _stub_pipeline(*_args, **_kwargs):
+            yield PhaseStarted(phase="roast")
+            yield PipelineCompleted(
+                roast_panel=_panel(),
+                debate_result={"debate_messages": [], "final_synthesis": "Done."},
+            )
+
+        stream_pipeline_mock.side_effect = _stub_pipeline
+
+        first, ws_id = _post_run(self.client)
+        self.assertEqual(first.status_code, 200)
+        first_id = first.json()["run_id"]
+        _fetch_sse_events(self.client, first_id, manager=self.manager)
+        self.assertEqual(self.manager.get(first_id).status, "completed")
+
+        blocked = self.client.post("/api/runs", json={"workspace_id": ws_id})
+        self.assertEqual(blocked.status_code, 422)
+        self.assertIn("Readiness gate blocked", blocked.json()["detail"])
+
+        with_override = self.client.post(
+            "/api/runs",
+            json={"workspace_id": ws_id, "readiness_override": True},
+        )
+        self.assertEqual(with_override.status_code, 200)
+        override_id = with_override.json()["run_id"]
+        _fetch_sse_events(self.client, override_id, manager=self.manager)
+        self.assertEqual(self.manager.get(override_id).status, "completed")
+
+        still_blocked = self.client.post("/api/runs", json={"workspace_id": ws_id})
+        self.assertEqual(still_blocked.status_code, 422)
+
+        updated = WORKSHEET_RUN.model_copy(
+            update={
+                "problem_statement": (
+                    "struggle to capture lessons from customer conversations "
+                    "before the next build sprint."
+                )
+            }
+        )
+        save = self.client.post(
+            f"/api/workspaces/{ws_id}/versions",
+            json={"worksheet": updated.model_dump(), "minor_edit": False},
+        )
+        self.assertEqual(save.status_code, 200)
+        self.assertTrue(save.json()["created"])
+
+        after_change = self.client.post("/api/runs", json={"workspace_id": ws_id})
+        self.assertEqual(after_change.status_code, 200)
+
+    @patch("api.run_manager.build_research_context_for_run", return_value=None)
+    @patch("api.run_manager.build_model_for_run")
+    @patch("api.run_manager.stream_pipeline")
+    def test_rerun_allowed_after_failed_or_cancelled_without_delta(
+        self,
+        stream_pipeline_mock,
+        build_model_mock,
+        _research_mock,
+    ):
+        build_model_mock.return_value = object()
+        stream_pipeline_mock.side_effect = RuntimeError("boom")
+
+        failed, ws_id = _post_run(self.client)
+        self.assertEqual(failed.status_code, 200)
+        failed_id = failed.json()["run_id"]
+        _fetch_sse_events(self.client, failed_id, manager=self.manager)
+        self.assertEqual(self.manager.get(failed_id).status, "failed")
+
+        retry = self.client.post("/api/runs", json={"workspace_id": ws_id})
+        self.assertEqual(retry.status_code, 200)
+
+        cancel_create, _ = _post_run(self.client, workspace_id=ws_id)
+        cancel_id = cancel_create.json()["run_id"]
+        cancel_response = self.client.post(f"/api/runs/{cancel_id}/cancel")
+        self.assertEqual(cancel_response.status_code, 200)
+        self.assertEqual(self.manager.get(cancel_id).status, "cancelled")
+
+        after_cancel = self.client.post("/api/runs", json={"workspace_id": ws_id})
+        self.assertEqual(after_cancel.status_code, 200)
 
 
 if __name__ == "__main__":

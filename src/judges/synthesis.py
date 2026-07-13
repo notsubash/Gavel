@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from judges.confidence import ConfidenceDimensionScore
 from judges.schemas import RoastPanel, Verdict
-from verification import is_degenerate_fixes
+from verification import is_degenerate_fixes, is_degenerate_panel
 
 SYNTHESIS_ITEM_MAX_LENGTH = 300
 BIGGEST_DISAGREEMENT_MAX_LENGTH = 400
@@ -159,9 +159,15 @@ def synthesis_to_prose(synthesis: Synthesis) -> str:
     if synthesis.top_risks:
         lines.append("**Top risks:**")
         lines.extend(f"- {item}" for item in synthesis.top_risks)
+    if synthesis.top_problems:
+        lines.append("**Top problems:**")
+        lines.extend(f"- {item}" for item in synthesis.top_problems)
     if synthesis.highest_priority:
         lines.append(f"**Highest priority:** {synthesis.highest_priority}")
     lines.append(f"**Biggest disagreement:** {synthesis.biggest_disagreement}")
+    if synthesis.recommended_experiment is not None:
+        exp = synthesis.recommended_experiment
+        lines.append(f"**Recommended experiment:** {exp.title}")
     return "\n".join(lines)
 
 
@@ -223,6 +229,9 @@ def assess_verdict_output_quality(
     verdicts = roast_panel.verdicts if roast_panel else []
     structured = parse_structured_synthesis(debate_result)
     reasons: list[str] = []
+
+    if verdicts and is_degenerate_panel(verdicts):
+        reasons.append("Initial panel scores are suspiciously uniform.")
 
     if verdicts and is_degenerate_fixes(verdicts):
         reasons.append("Judges returned near-identical recommended fixes.")

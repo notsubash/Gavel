@@ -66,6 +66,41 @@ class ApiOperabilityTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         return response.json()["run_id"]
 
+    @patch("api.run_manager.build_model_for_run")
+    @patch("api.run_manager.stream_pipeline")
+    @patch("api.run_manager.build_research_context_for_run")
+    def test_cancel_during_research_skips_pipeline(
+        self,
+        research_mock,
+        stream_pipeline_mock,
+        build_model_mock,
+    ):
+        build_model_mock.return_value = object()
+
+        def research_then_cancel(*_args, **_kwargs):
+            for state in self.manager._runs.values():
+                state.request_cancel()
+            return None
+
+        research_mock.side_effect = research_then_cancel
+
+        run_id = self._create_run()
+        self.client.get(f"/api/runs/{run_id}/events")
+
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline:
+            record = self.manager.get(run_id)
+            assert record is not None
+            if record.status == "cancelled":
+                break
+            time.sleep(0.02)
+        else:
+            self.fail("Run did not reach cancelled status")
+
+        stream_pipeline_mock.assert_not_called()
+        events = self.manager.list_events(run_id)
+        self.assertEqual(events[-1].type, "run_cancelled")
+
     @patch("api.run_manager.build_research_context_for_run", return_value=None)
     @patch("api.run_manager.build_model_for_run")
     @patch("api.run_manager.stream_pipeline")

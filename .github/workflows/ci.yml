@@ -91,6 +91,10 @@ jobs:
         working-directory: web
         run: npm run lint
 
+      - name: Web unit checks
+        working-directory: web
+        run: npm run test:unit
+
       - name: Build
         working-directory: web
         run: npm run build:e2e
@@ -122,3 +126,14 @@ jobs:
             web/playwright-report/
             web/test-results/
           retention-days: 14
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build API image
+        run: docker build -t roast-api:ci .
+
+      - name: Build web image
+        run: docker build -t roast-web:ci ./web

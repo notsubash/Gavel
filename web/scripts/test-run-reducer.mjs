@@ -301,7 +301,7 @@ test("debate_completed replay restores revote state without live revote events",
   );
 });
 
-test("run_completed with initial snapshot only skips roast panel and stores baseline", () => {
+test("run_completed with initial_verdicts only applies roast panel and does not fake a revote", () => {
   const initial = { ...VERDICT };
   const events = [
     env(0, "stream_connected", { status: "connected" }),
@@ -311,13 +311,28 @@ test("run_completed with initial snapshot only skips roast panel and stores base
         debate_messages: [],
         final_synthesis: "Done.",
         initial_verdicts: [initial],
-        revised_verdicts: [],
+        revised_verdicts: null,
       },
     }),
   ];
   const state = reduceEnvelopes(events);
-  assert.equal(state.judges.vc.verdict, undefined);
-  assert.equal(state.revoteBaseline.vc?.score, 3);
+  assert.equal(state.judges.vc.verdict?.score, 3);
+  assert.equal(Object.keys(state.revoteBaseline).length, 0);
+});
+
+test("debate_completed with initial_verdicts only does not seed revote baseline", () => {
+  const events = [
+    env(0, "stream_connected", { status: "connected" }),
+    env(1, "debate_completed", {
+      debate_messages: [{ speaker: "vc", round: 1, content: "Still weak." }],
+      final_synthesis: "Not convinced.",
+      initial_verdicts: [VERDICT],
+      revised_verdicts: null,
+    }),
+  ];
+  const state = reduceEnvelopes(events);
+  assert.equal(state.synthesis, "Not convinced.");
+  assert.equal(Object.keys(state.revoteBaseline).length, 0);
 });
 
 test("applyRevoteFromPanels clears stale change reason when score moves without explanation", () => {

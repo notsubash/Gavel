@@ -18,9 +18,11 @@ def compute_lifecycle(
     experiments: list[Experiment],
     interviews: list[InterviewNote],
     evidence: list[Evidence],
+    worksheet_changed_since_run: bool = False,
 ) -> WorkspaceLifecycle:
     if run_count > 0:
-        return "judged"
+        # ponytail: worksheet delta only; evidence-only post-roast stays "judged"
+        return "iterating" if worksheet_changed_since_run else "judged"
 
     if any(e.status == "active" for e in experiments):
         return "testing"

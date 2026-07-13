@@ -156,7 +156,7 @@ class ClarifyFieldRequest(BaseModel):
         "disconfirming_evidence",
         "trigger_event",
     ]
-    current_value: str
+    current_value: str = Field(max_length=12000)
     worksheet_context: IdeaWorksheet | None = None
 
 

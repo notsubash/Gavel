@@ -13,6 +13,7 @@ from config import PROMPTS_DIR, get_settings
 from idea_context import UNTRUSTED_DATA_INSTRUCTION, wrap_untrusted, wrap_user_idea
 from judges.guardrails import GuardrailError, validate_structured_verdict
 from judges.schemas import Verdict
+from llm_resilience import call_with_llm_retry
 from observability import build_run_config, idea_fingerprint, optional_config_kwargs
 from observability.metrics import RunMetricsCollector
 from verification import JUDGE_ROLE_NAMES
@@ -107,7 +108,11 @@ def invoke_structured_verdict(
     attempt_started = started_at if started_at is not None else time.perf_counter()
     last_error: ValidationError | GuardrailError | None = None
     for attempt in range(JUDGE_MAX_ATTEMPTS):
-        result = structured_model.invoke(messages, **optional_config_kwargs(run_config))
+        # Transient transport blips retry here; schema/guardrail retries stay in this loop.
+        def _invoke_once(msgs=messages):
+            return structured_model.invoke(msgs, **optional_config_kwargs(run_config))
+
+        result = call_with_llm_retry(_invoke_once, label=f"{judge} {label}")
 
         if result is None:
             continue

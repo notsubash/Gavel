@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -28,6 +29,9 @@ export function PostRoastHandoff({
   workspaceId: string;
   items: RunHandoffItem[];
 }) {
+  const [busy, setBusy] = useState<ReadonlySet<number>>(() => new Set());
+  const [saved, setSaved] = useState<ReadonlySet<number>>(() => new Set());
+
   const mutation = useMutation({
     mutationFn: async ({ item }: { item: RunHandoffItem; index: number }) => {
       if (item.kind === "assumption") {
@@ -56,13 +60,24 @@ export function PostRoastHandoff({
         due_date: null,
       });
     },
-    onSuccess: (_data, { item }) => {
+    onMutate: ({ index }) => {
+      setBusy((prev) => new Set(prev).add(index));
+    },
+    onSuccess: (_data, { item, index }) => {
+      setSaved((prev) => new Set(prev).add(index));
       toast.success(`${KIND_LABEL[item.kind]} saved`);
     },
     onError: (error) => {
       const message =
         error instanceof ApiError ? parseApiDetail(error.body) : "Could not save handoff item";
       toast.error(message ?? "Could not save handoff item");
+    },
+    onSettled: (_data, _error, { index }) => {
+      setBusy((prev) => {
+        const next = new Set(prev);
+        next.delete(index);
+        return next;
+      });
     },
   });
 
@@ -78,32 +93,34 @@ export function PostRoastHandoff({
       </div>
       <ul className="space-y-3">
         {items.map((item, index) => {
-          const itemPending = mutation.isPending && mutation.variables?.index === index;
+          const itemPending = busy.has(index);
+          const itemSaved = saved.has(index);
           return (
-          <li
-            key={`${item.kind}-${index}`}
-            className="flex flex-col gap-3 border border-rule-soft p-4 sm:flex-row sm:items-start sm:justify-between"
-          >
-            <div>
-              <p className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-subtle">
-                {item.kind.replace("_", " ")}
-              </p>
-              <p className="mt-1 font-sans text-sm text-ink">{item.title}</p>
-              {item.source_judge ? (
-                <p className="mt-1 font-mono text-xs text-ink-subtle">from {item.source_judge}</p>
-              ) : null}
-            </div>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={itemPending}
-              aria-busy={itemPending || undefined}
-              onClick={() => mutation.mutate({ item, index })}
+            <li
+              key={`${item.kind}-${index}`}
+              className="flex flex-col gap-3 border border-rule-soft p-4 sm:flex-row sm:items-start sm:justify-between"
             >
-              {itemPending ? <Loader2 className="size-4 animate-spin" /> : null}
-              {KIND_LABEL[item.kind]}
-            </Button>
-          </li>
+              <div>
+                <p className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-subtle">
+                  {item.kind.replace("_", " ")}
+                </p>
+                <p className="mt-1 font-sans text-sm text-ink">{item.title}</p>
+                {item.source_judge ? (
+                  <p className="font-mono text-xs text-ink-subtle">from {item.source_judge}</p>
+                ) : null}
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={itemPending || itemSaved}
+                aria-busy={itemPending || undefined}
+                onClick={() => mutation.mutate({ item, index })}
+              >
+                {itemPending ? <Loader2 className="size-4 animate-spin" /> : null}
+                {itemSaved ? <Check className="size-4" aria-hidden /> : null}
+                {itemSaved ? "Saved" : KIND_LABEL[item.kind]}
+              </Button>
+            </li>
           );
         })}
       </ul>

@@ -215,15 +215,6 @@ function reconcileDebateMessages(
   return { ...state, debateTurns };
 }
 
-function applyRevoteBaseline(state: RunState, initialVerdicts: unknown[]): RunState {
-  const revoteBaseline = { ...state.revoteBaseline };
-  for (const item of initialVerdicts) {
-    const verdict = parseVerdict(item);
-    if (verdict) revoteBaseline[verdict.judge] = verdict;
-  }
-  return { ...state, revoteBaseline };
-}
-
 function applyRevoteFromPanels(
   state: RunState,
   initialVerdicts: unknown[],
@@ -481,10 +472,13 @@ export function runReducer(state: RunState, envelope: ApiEventEnvelope): RunStat
       }
       const initialVerdicts = payload.initial_verdicts;
       const revisedVerdicts = payload.revised_verdicts;
-      if (Array.isArray(initialVerdicts) && Array.isArray(revisedVerdicts) && revisedVerdicts.length > 0) {
+      // ponytail: initial_verdicts alone is pre-debate snapshot, not a re-vote
+      if (
+        Array.isArray(initialVerdicts) &&
+        Array.isArray(revisedVerdicts) &&
+        revisedVerdicts.length > 0
+      ) {
         next = applyRevoteFromPanels(next, initialVerdicts, revisedVerdicts);
-      } else if (Array.isArray(initialVerdicts) && initialVerdicts.length > 0) {
-        next = applyRevoteBaseline(next, initialVerdicts);
       }
       return next;
     }
@@ -502,16 +496,15 @@ export function runReducer(state: RunState, envelope: ApiEventEnvelope): RunStat
             revised_verdicts?: unknown[];
           }
         | undefined;
-      const hasRevoteSnapshot =
-        Array.isArray(debateResult?.initial_verdicts) &&
-        debateResult.initial_verdicts.length > 0;
+      // ponytail: only revised_verdicts means a re-vote ran; initial_verdicts alone is ambient
       const hasRevoteReplay =
-        hasRevoteSnapshot &&
+        Array.isArray(debateResult?.initial_verdicts) &&
+        debateResult.initial_verdicts.length > 0 &&
         Array.isArray(debateResult?.revised_verdicts) &&
         debateResult.revised_verdicts.length > 0;
 
       const roastPanel = (payload.roast_panel as { verdicts?: unknown[] } | undefined)?.verdicts;
-      if (Array.isArray(roastPanel) && !hasRevoteSnapshot) {
+      if (Array.isArray(roastPanel) && !hasRevoteReplay) {
         const verdicts = roastPanel.map(parseVerdict).filter((v): v is Verdict => v !== null);
         if (verdicts.length > 0) next = applyRoastPanel(next, verdicts);
       }
@@ -534,8 +527,6 @@ export function runReducer(state: RunState, envelope: ApiEventEnvelope): RunStat
             debateResult.initial_verdicts!,
             debateResult.revised_verdicts!,
           );
-        } else if (hasRevoteSnapshot) {
-          next = applyRevoteBaseline(next, debateResult.initial_verdicts!);
         }
       }
       const panelQuality = parsePanelQuality(payload.panel_quality);

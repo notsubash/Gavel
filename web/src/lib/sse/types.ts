@@ -118,7 +118,7 @@ export interface RunState {
   judges: Record<JudgeId, JudgeView>;
   judgesDispatched: boolean;
   roastPanelComplete: boolean;
-  /** Initial roast scores preserved for post-debate delta badges. */
+  /** Pre-re-vote scores for delta badges; empty unless a re-vote ran. */
   revoteBaseline: Partial<Record<JudgeId, Verdict>>;
   revoteChangeReasons: Partial<Record<JudgeId, string>>;
   currentRound: number | null;

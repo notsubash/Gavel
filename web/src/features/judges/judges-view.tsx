@@ -178,7 +178,10 @@ export function JudgesView({ workspaceId }: { workspaceId: string }) {
 
       <ReadinessGateModal
         open={gateOpen}
-        onOpenChange={setGateOpen}
+        onOpenChange={(open) => {
+          if (!open) setBriefing(null);
+          setGateOpen(open);
+        }}
         readiness={readiness}
         readinessLoading={gateOpen && readinessQuery.isLoading}
         readinessError={readinessQuery.isError}

@@ -44,7 +44,9 @@ from judges.confidence import (
     confidence_snapshot_from_structured,
 )
 from judges.schemas import RoastPanel, Verdict
+from memory.context import build_memory_context
 from memory.identity import LOCAL_USER
+from memory.models import IdeaRecord
 from memory.retrieval import records_for_memory
 from observability.metrics import log_run_metrics
 from pipeline import stream_pipeline
@@ -117,6 +119,40 @@ def _summary_for_completed_run(store: RunStore, run_id: str) -> VerdictSummary |
     if panel is None:
         return None
     return _verdict_summary_from_panel(panel)
+
+
+def _persist_appeal_to_idea_store(
+    store,
+    *,
+    run_id: str,
+    startup_idea: str,
+    roast_panel: RoastPanel,
+    debate_result: dict,
+    appeal_text: str,
+    result: AppealResult,
+) -> None:
+    """Keep IdeaStore in sync with appeal_completed (Streamlit parity)."""
+    updates = {
+        "appeal_text": appeal_text,
+        "appeal_target_judges": list(result.target_judges),
+        "revised_panel": result.revised_panel,
+        "revised_synthesis": result.revised_synthesis,
+    }
+    existing = store.get(run_id)
+    if existing is not None:
+        store.save(existing.model_copy(update=updates))
+        return
+    # ponytail: pipeline should have saved; backfill so similar/memory see the appeal.
+    store.save(
+        IdeaRecord(
+            id=run_id,
+            user_id=LOCAL_USER,
+            idea_text=startup_idea,
+            roast_panel=roast_panel,
+            debate_result=debate_result,
+            **updates,
+        )
+    )
 
 
 class _RunState:
@@ -401,10 +437,16 @@ class RunManager:
         if not isinstance(debate_result, dict):
             debate_result = {}
 
-        roast_panel = appeal_baseline_panel(
-            RoastPanel.model_validate(completed.payload["roast_panel"]),
-            debate_result,
-        )
+        original_panel = RoastPanel.model_validate(completed.payload["roast_panel"])
+        roast_panel = appeal_baseline_panel(original_panel, debate_result)
+        startup_idea = build_startup_idea_context(run_id, record.request)
+        idea_store = get_idea_store()
+        prior_records = [
+            idea
+            for idea in records_for_memory(idea_store, LOCAL_USER, startup_idea, limit=4)
+            if idea.id != run_id
+        ][:3]
+        memory_context = build_memory_context(prior_records) or None
 
         if settings.e2e_test_mode:
             from api.e2e_test_support import run_e2e_stub_appeal
@@ -418,7 +460,6 @@ class RunManager:
             )
         else:
             model = build_model_for_run(record.request, settings)
-            startup_idea = build_startup_idea_context(run_id, record.request)
             result = await asyncio.to_thread(
                 run_appeal,
                 model,
@@ -426,8 +467,8 @@ class RunManager:
                 roast_panel,
                 debate_result,
                 appeal_text,
-                None,
-                target_judges,
+                memory_context=memory_context,
+                target_judges=target_judges,
             )
 
         outcomes = result.evidence_outcomes
@@ -470,6 +511,16 @@ class RunManager:
             )
         except ValueError as exc:
             raise ValueError("An appeal has already been submitted for this run") from exc
+
+        _persist_appeal_to_idea_store(
+            idea_store,
+            run_id=run_id,
+            startup_idea=startup_idea,
+            roast_panel=original_panel,
+            debate_result=debate_result,
+            appeal_text=appeal_text.strip(),
+            result=result,
+        )
         return roast_panel, result
 
     def _ensure_state(self, run_id: str) -> _RunState:

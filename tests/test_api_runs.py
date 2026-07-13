@@ -239,18 +239,26 @@ class ApiRunsTest(unittest.TestCase):
         self.db_path = base / "runs.db"
         self.ws_store = WorkspaceStore(db_path=base / "workspaces.db")
         self.manager = RunManager(db_path=self.db_path, recover_on_init=False)
+        import api.deps as deps
         import api.workspace_store as ws_mod
+        from memory.store import IdeaStore
 
         self._orig_store = ws_mod._store
         ws_mod._store = self.ws_store
+        self.idea_store = IdeaStore(base / "ideas.db")
+        self._orig_idea_store = deps._idea_store
+        deps._idea_store = self.idea_store
         self.client = TestClient(create_app(manager=self.manager))
 
     def tearDown(self):
+        import api.deps as deps
         import api.workspace_store as ws_mod
 
         ws_mod._store = self._orig_store
+        deps._idea_store = self._orig_idea_store
         self.manager.close()
         self.ws_store.close()
+        self.idea_store.close()
         self._tmpdir.cleanup()
 
     def test_health_endpoint(self):
@@ -943,6 +951,8 @@ class ApiRunsTest(unittest.TestCase):
         _research_mock,
     ):
         from appeal.service import AppealResult
+        from memory.identity import LOCAL_USER
+        from memory.models import IdeaRecord
 
         build_model_mock.return_value = object()
         stream_pipeline_mock.return_value = iter(
@@ -958,20 +968,39 @@ class ApiRunsTest(unittest.TestCase):
         run_appeal_mock.return_value = AppealResult(
             revised_panel=_revised_panel(),
             revised_synthesis="Revised synthesis after appeal.",
+            target_judges=("vc",),
         )
 
         create_response = _post_run(self.client)[0]
         run_id = create_response.json()["run_id"]
         _fetch_sse_events(self.client, run_id, manager=self.manager)
 
+        self.idea_store.save(
+            IdeaRecord(
+                id=run_id,
+                user_id=LOCAL_USER,
+                idea_text="Founder Journal pitch under appeal.",
+                roast_panel=_panel(),
+                debate_result={"final_synthesis": "summary"},
+            )
+        )
+        self.idea_store.save(
+            IdeaRecord(
+                id="prior-run",
+                user_id=LOCAL_USER,
+                idea_text="Earlier hospital AI pitch with weak traction.",
+                roast_panel=_panel(),
+                debate_result={"final_synthesis": "Prior NO-GO on demand."},
+            )
+        )
+
+        appeal_text = (
+            "We completed two university validation studies and signed LOIs "
+            "with two NCAA programs."
+        )
         appeal_response = self.client.post(
             f"/api/runs/{run_id}/appeal",
-            json={
-                "appeal_text": (
-                    "We completed two university validation studies and signed LOIs "
-                    "with two NCAA programs."
-                ),
-            },
+            json={"appeal_text": appeal_text, "target_judges": ["vc"]},
         )
         self.assertEqual(appeal_response.status_code, 200)
         payload = appeal_response.json()
@@ -982,6 +1011,22 @@ class ApiRunsTest(unittest.TestCase):
         events = self.manager.list_events(run_id)
         self.assertEqual(events[-1].type, "appeal_completed")
 
+        run_appeal_mock.assert_called_once()
+        call_kwargs = run_appeal_mock.call_args.kwargs
+        self.assertIsNotNone(call_kwargs.get("memory_context"))
+        self.assertIn("hospital AI", call_kwargs["memory_context"])
+        self.assertEqual(call_kwargs.get("target_judges"), ["vc"])
+
+        saved = self.idea_store.get(run_id)
+        self.assertIsNotNone(saved)
+        assert saved is not None
+        self.assertEqual(saved.appeal_text, appeal_text)
+        self.assertEqual(saved.appeal_target_judges, ["vc"])
+        self.assertEqual(saved.revised_synthesis, "Revised synthesis after appeal.")
+        self.assertEqual(
+            saved.revised_panel.model_dump(mode="json"),
+            _revised_panel().model_dump(mode="json"),
+        )
     def test_appeal_unknown_run_returns_404(self):
         response = self.client.post(
             "/api/runs/missing-run/appeal",

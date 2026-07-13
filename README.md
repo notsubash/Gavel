@@ -320,7 +320,7 @@ Stored at `data/ideas.db`. Streamlit uses a stable local user id (`data/local_us
 
 ### Appeal mode
 
-Founder appeal is sent to all five judges (or a `target_judges` subset via the API) with the original idea, their baseline verdict (post-revote panel when re-vote ran), moderator synthesis, optional memory context, and appeal text. **Appeal coaching** surfaces each judge's evidence ask before submission. Each judge returns a fresh validated `Verdict`; the UI shows score deltas and whether targeted evidence was met.
+Founder appeal is sent to all five judges with the original idea, their baseline verdict (post-revote panel when re-vote ran), moderator synthesis, optional memory context, and appeal text. Optional `target_judges` labels which evidence asks the founder is answering; every judge still re-scores. **Appeal coaching** surfaces each judge's evidence ask before submission. Each judge returns a fresh validated `Verdict`; the UI shows score deltas and whether targeted evidence was met.
 
 ### Pitch iteration
 

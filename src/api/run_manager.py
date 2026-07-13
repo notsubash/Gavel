@@ -103,6 +103,15 @@ def _effective_panel_for_run(store: RunStore, run_id: str) -> dict | None:
     return None
 
 
+def _verdicts_from_panel_dict(panel: dict | None) -> list[Verdict]:
+    if not isinstance(panel, dict):
+        return []
+    try:
+        return RoastPanel.model_validate(panel).verdicts
+    except Exception:
+        return []
+
+
 def _summary_for_completed_run(store: RunStore, run_id: str) -> VerdictSummary | None:
     panel = _effective_panel_for_run(store, run_id)
     if panel is None:
@@ -291,31 +300,21 @@ class RunManager:
         if record is None or record.status != "completed":
             return None
 
+        verdicts = _verdicts_from_panel_dict(_effective_panel_for_run(self._store, run_id))
+
         appeal = self._store.get_latest_event(run_id, "appeal_completed")
         if appeal is not None:
             revised_structured = appeal.payload.get("revised_structured_synthesis")
             if isinstance(revised_structured, dict):
-                revised_panel = appeal.payload.get("revised_panel")
-                verdicts: list[Verdict] = []
-                if isinstance(revised_panel, dict):
-                    try:
-                        verdicts = RoastPanel.model_validate(revised_panel).verdicts
-                    except Exception:
-                        verdicts = []
-                snapshot = confidence_snapshot_from_structured(revised_structured, verdicts or None)
+                snapshot = confidence_snapshot_from_structured(
+                    revised_structured, verdicts or None
+                )
                 return snapshot.model_dump(mode="json") if snapshot else None
 
         completed = self._store.get_latest_event(run_id, "run_completed")
         if completed is None:
             return None
         debate_result = completed.payload.get("debate_result")
-        roast_panel = completed.payload.get("roast_panel")
-        verdicts = []
-        if isinstance(roast_panel, dict):
-            try:
-                verdicts = RoastPanel.model_validate(roast_panel).verdicts
-            except Exception:
-                verdicts = []
         snapshot = confidence_snapshot_from_debate(
             debate_result if isinstance(debate_result, dict) else None,
             verdicts or None,
@@ -620,8 +619,16 @@ class RunManager:
                 if "run_cancelled" not in event_types:
                     state.append(run_cancelled_envelope(run_id=run_id, sequence=0))
             else:
-                record.status = "completed"
-                self._store.update_status(run_id, "completed")
+                # Pipeline returned without run_completed or cancel — don't fake success.
+                record.status = "failed"
+                self._store.update_status(run_id, "failed")
+                state.append(
+                    run_failed_envelope(
+                        run_id=run_id,
+                        sequence=0,
+                        message="The roast run ended without a result. Please try again.",
+                    )
+                )
         except RunAbort as exc:
             if exc.reason == "cancelled":
                 record.status = "cancelled"

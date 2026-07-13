@@ -1114,6 +1114,111 @@ class ApiRunsTest(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 422)
 
+    @patch("api.run_manager.build_research_context_for_run", return_value=None)
+    @patch("api.run_manager.build_model_for_run")
+    @patch("api.run_manager.stream_pipeline")
+    def test_panel_confidence_uses_revised_verdicts_for_guardrails(
+        self,
+        stream_pipeline_mock,
+        build_model_mock,
+        _research_mock,
+    ):
+        """Re-vote scores must drive confidence caps, not the original roast panel."""
+        build_model_mock.return_value = object()
+        structured = {
+            "confidence_dimensions": [
+                {
+                    "dimension": "demand",
+                    "value": 80,
+                    "driver": "Buyers keep asking for a journal tied to validation.",
+                    "next_action": "Run five paid pilot conversations this week.",
+                },
+                {
+                    "dimension": "pricing",
+                    "value": 85,
+                    "driver": "Founders already pay for scattered note tools.",
+                    "next_action": "Test a $9 monthly price in five sales calls.",
+                },
+                {
+                    "dimension": "competition",
+                    "value": 70,
+                    "driver": "Notion is generic and not roast-linked.",
+                    "next_action": "Map switching costs against Day One and Notion.",
+                },
+                {
+                    "dimension": "moat",
+                    "value": 65,
+                    "driver": "Feedback loop from prior roasts is sticky.",
+                    "next_action": "Ship one roast-to-journal retention experiment.",
+                },
+            ]
+        }
+        # Original roast: FAIL score=3 would cap pricing; revised customer score=8 should not.
+        revised = [
+            v.model_dump(mode="json")
+            for v in [
+                _revised_verdict("vc", score=7),
+                _revised_verdict("engineer", score=6),
+                _revised_verdict("pm", score=7),
+                _revised_verdict("customer", score=8),
+                _revised_verdict("competitor", score=6),
+            ]
+        ]
+        for item in revised:
+            item["verdict"] = "PASS"
+        stream_pipeline_mock.return_value = iter(
+            [
+                PhaseStarted(phase="roast"),
+                RoastPanelCompleted(panel=_panel()),
+                PipelineCompleted(
+                    roast_panel=_panel(),
+                    debate_result={
+                        "debate_messages": [],
+                        "final_synthesis": "summary",
+                        "structured_synthesis": structured,
+                        "revised_verdicts": revised,
+                    },
+                ),
+            ]
+        )
+
+        create_response = _post_run(self.client)[0]
+        run_id = create_response.json()["run_id"]
+        _fetch_sse_events(self.client, run_id, manager=self.manager)
+
+        response = self.client.get(f"/api/runs/{run_id}/panel")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["verdicts"][3]["judge"], "customer")
+        self.assertEqual(payload["verdicts"][3]["score"], 8)
+        snapshot = payload["confidence_snapshot"]
+        self.assertIsNotNone(snapshot)
+        pricing = next(d for d in snapshot["dimensions"] if d["dimension"] == "pricing")
+        self.assertEqual(pricing["value"], 85)
+
+    @patch("api.run_manager.build_research_context_for_run", return_value=None)
+    @patch("api.run_manager.build_model_for_run")
+    @patch("api.run_manager.stream_pipeline")
+    def test_pipeline_exit_without_completed_marks_failed(
+        self,
+        stream_pipeline_mock,
+        build_model_mock,
+        _research_mock,
+    ):
+        build_model_mock.return_value = object()
+        stream_pipeline_mock.return_value = iter([PhaseStarted(phase="roast")])
+
+        create_response = _post_run(self.client)[0]
+        run_id = create_response.json()["run_id"]
+        _fetch_sse_events(self.client, run_id, manager=self.manager)
+
+        record = self.manager.get(run_id)
+        assert record is not None
+        self.assertEqual(record.status, "failed")
+        events = self.manager.list_events(run_id)
+        self.assertEqual(events[-1].type, "run_failed")
+        self.assertIn("without a result", events[-1].payload["message"])
+
     @patch("api.run_manager.build_research_context_for_run")
     @patch("api.run_manager.build_model_for_run")
     @patch("api.run_manager.stream_pipeline")

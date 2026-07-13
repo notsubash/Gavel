@@ -60,6 +60,40 @@ class ReadinessTest(unittest.TestCase):
         result = evaluate_readiness(SAMPLE, evidence)
         self.assertEqual(result.level, "ready")
 
+    def test_founder_note_stays_speculative(self):
+        evidence = [
+            Evidence(
+                id="e1",
+                workspace_id="w1",
+                type="founder_note",
+                content="I talked to three friends who said this sounds useful.",
+            )
+        ]
+        result = evaluate_readiness(SAMPLE, evidence)
+        self.assertEqual(result.level, "speculative")
+        self.assertTrue(result.can_run_judges)
+
+    def test_rerun_blocked_without_delta(self):
+        result = evaluate_readiness(
+            SAMPLE,
+            [],
+            has_prior_run=True,
+            worksheet_changed_since_run=False,
+        )
+        self.assertFalse(result.can_run_judges)
+        rerun = next(c for c in result.checks if c.name == "rerun_delta")
+        self.assertFalse(rerun.passed)
+
+    def test_rerun_allowed_after_worksheet_change(self):
+        result = evaluate_readiness(
+            SAMPLE,
+            [],
+            has_prior_run=True,
+            worksheet_changed_since_run=True,
+        )
+        self.assertTrue(result.can_run_judges)
+        self.assertEqual(result.level, "speculative")
+
 
 class ChecklistTest(unittest.TestCase):
     def test_problem_clarity_auto_complete_on_valid_worksheet(self):
@@ -136,6 +170,32 @@ class LifecycleTest(unittest.TestCase):
             "discovery",
         )
 
+    def test_iterating_after_roast_with_worksheet_change(self):
+        self.assertEqual(
+            compute_lifecycle(
+                run_count=1,
+                readiness_level="speculative",
+                experiments=[],
+                interviews=[],
+                evidence=[],
+                worksheet_changed_since_run=True,
+            ),
+            "iterating",
+        )
+
+    def test_judged_after_roast_without_worksheet_change(self):
+        self.assertEqual(
+            compute_lifecycle(
+                run_count=1,
+                readiness_level="ready",
+                experiments=[],
+                interviews=[],
+                evidence=[],
+                worksheet_changed_since_run=False,
+            ),
+            "judged",
+        )
+
 
 class ValidationCrudTest(unittest.TestCase):
     def setUp(self):
@@ -184,6 +244,16 @@ class ValidationCrudTest(unittest.TestCase):
         workspace, version, _assumption = self.store.create_workspace(SAMPLE)
         self.store.link_run("run-1", workspace.id, version.id)
         self.assertFalse(self.store.worksheet_changed_since_last_run(workspace.id))
+
+        updated = SAMPLE.model_copy(update={"competitors": ["ChatGPT", "Notion", "Excel"]})
+        new_version, created, _ = self.store.save_worksheet(workspace.id, updated)
+        self.assertTrue(created)
+        self.assertNotEqual(new_version.id, version.id)
+        self.assertTrue(self.store.worksheet_changed_since_last_run(workspace.id))
+        # roasted snapshot stays intact
+        frozen = self.store.get_version(version.id)
+        assert frozen is not None
+        self.assertEqual(frozen.worksheet.competitors, SAMPLE.competitors)
 
     def test_invalid_assumption_id_raises(self):
         workspace, _, _ = self.store.create_workspace(SAMPLE)

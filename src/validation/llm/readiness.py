@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from llm_resilience import call_with_llm_retry
 from validation.llm import build_assist_model
-from validation.llm.prompts import render_validation_prompt
+from validation.llm.prompts import render_validation_prompt, wrap_worksheet_context
 from validation.schemas import IdeaWorksheet, ReadinessBriefingResponse, ReadinessResponse
 
 
@@ -29,7 +29,7 @@ def readiness_briefing(
         HumanMessage(
             content=render_validation_prompt(
                 "readiness_briefing_user.jinja2",
-                worksheet_json=worksheet.model_dump_json(indent=2),
+                worksheet_json=wrap_worksheet_context(worksheet.model_dump_json(indent=2)),
                 readiness_level=readiness.level,
                 can_run_judges=readiness.can_run_judges,
                 checks=check_lines,

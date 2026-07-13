@@ -197,7 +197,10 @@ def run_appeal(
         results: dict[str, Verdict] = {}
         for future in concurrent.futures.as_completed(future_to_judge):
             judge = future_to_judge[future]
-            results[judge] = future.result()
+            try:
+                results[judge] = future.result()
+            except Exception as exc:
+                raise ValueError(f"{judge} judge failed during appeal: {exc}") from exc
 
     revised_verdicts = [results[judge] for judge in JUDGE_ORDER]
     revised_panel = RoastPanel(verdicts=revised_verdicts)

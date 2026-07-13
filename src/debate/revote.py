@@ -152,7 +152,10 @@ def _run_revote_panel(
         for future in concurrent.futures.as_completed(future_to_judge):
             check_abort(abort_check)
             judge = future_to_judge[future]
-            verdict = future.result()
+            try:
+                verdict = future.result()
+            except Exception as exc:
+                raise ValueError(f"{judge} judge failed during re-vote: {exc}") from exc
             results[judge] = verdict
             completed += 1
             original = originals[judge]

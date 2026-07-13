@@ -276,6 +276,21 @@ class VerdictOutputQualityTest(unittest.TestCase):
         self.assertFalse(quality["low_confidence"])
         self.assertTrue(quality["structured_synthesis"])
 
+    def test_assess_flags_degenerate_panel_scores(self):
+        from judges.schemas import VerdictLabel
+
+        panel = RoastPanel(
+            verdicts=[
+                verdict.model_copy(update={"score": 10, "verdict": VerdictLabel.PASS})
+                for verdict in _panel().verdicts
+            ]
+        )
+        quality = assess_verdict_output_quality(panel, _structured_debate_result())
+        self.assertTrue(quality["low_confidence"])
+        self.assertTrue(
+            any("suspiciously uniform" in reason for reason in quality["reasons"])
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -517,6 +517,18 @@ class DegeneratePanelRetryTest(unittest.TestCase):
         self.assertEqual(len(snapshot["judge_calls"]), 5)
         self.assertEqual(snapshot["total_tokens"], 5 * ((40 // 4) + (20 // 4)))
 
+    @patch("judges.panel.invoke_judge")
+    def test_stream_roast_panel_names_failing_judge(self, invoke_mock):
+        def side_effect(_model, judge, *_args, **_kwargs):
+            if judge == "pm":
+                raise TimeoutError("provider timeout")
+            return _verdict(judge)
+
+        invoke_mock.side_effect = side_effect
+
+        with self.assertRaisesRegex(ValueError, "pm judge failed during roast panel"):
+            list(stream_roast_panel(model=object(), startup_idea="one flaky judge"))
+
 
 if __name__ == "__main__":
     unittest.main()

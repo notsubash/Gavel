@@ -84,7 +84,10 @@ def _run_judge_panel(
             # ponytail: in-flight judge calls still finish; abort stops before the next wait.
             check_abort(abort_check)
             judge = future_to_judge[future]
-            results[judge] = future.result()
+            try:
+                results[judge] = future.result()
+            except Exception as exc:
+                raise ValueError(f"{judge} judge failed during roast panel: {exc}") from exc
     return results
 
 

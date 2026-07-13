@@ -28,8 +28,13 @@ jobs:
       - name: Run DeepSeek grader on committed baselines
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           if [ -z "$DEEPSEEK_API_KEY" ]; then
+            if [ "$EVENT_NAME" = "schedule" ]; then
+              echo "DEEPSEEK_API_KEY is required for scheduled eval audits."
+              exit 1
+            fi
             echo "Skipping DeepSeek grader: DEEPSEEK_API_KEY is not configured."
             exit 0
           fi

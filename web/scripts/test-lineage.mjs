@@ -3,6 +3,7 @@ import {
   concernAddressedStatus,
   fixStatusLabel,
   groupByLineage,
+  parseVerdict,
   recommendedFixStatus,
   sidebarLineageVersions,
 } from "../src/lib/lineage/lineage.ts";
@@ -11,7 +12,7 @@ import {
   deriveNextActionFromPanel,
   deriveNextActionFromStatus,
 } from "../src/features/history/workspace-next-action.ts";
-import { deriveWorkflowBrief } from "../src/features/run/structured-synthesis.ts";
+import { deriveExperiment, experimentSummaryLine } from "../src/lib/experiment/experiment.ts";
 
 /** Mirror of `isWorkspaceHistoryEnabled` — Next env modules are not loaded in node scripts. */
 function isWorkspaceHistoryEnabled() {
@@ -129,10 +130,15 @@ const panelVerdicts = [
   },
 ];
 
-const expectedExperiment = deriveWorkflowBrief(null, null, panelVerdicts).experiment;
+const verdicts = panelVerdicts
+  .map(parseVerdict)
+  .filter((verdict) => verdict !== null);
+const expectedDetail = experimentSummaryLine(
+  deriveExperiment("child-2", null, null, verdicts),
+);
 const panelAction = deriveNextActionFromPanel("child-2", "completed", panelVerdicts);
 assert.equal(panelAction.label, "Complete experiment");
-assert.equal(panelAction.detail, expectedExperiment);
+assert.equal(panelAction.detail, expectedDetail);
 assert.match(panelAction.detail, /Interview five clinic admins/);
 
 const priorFlag = process.env.NEXT_PUBLIC_WORKSPACE_HISTORY;

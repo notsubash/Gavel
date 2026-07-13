@@ -200,3 +200,25 @@ class E2eTestModeRunsApiTest(unittest.TestCase):
 
         events = [envelope.model_dump(mode="json") for envelope in self.manager.list_events(run_id)]
         self.assertEqual(events[-1]["type"], "appeal_completed")
+
+    def test_stub_run_persists_handoff_items(self):
+        create_response, ws_id = _post_run(self.client)
+        run_id = create_response.json()["run_id"]
+
+        async def start_and_wait() -> None:
+            self.manager.ensure_started(run_id, self.settings)
+            await _wait_for_terminal(self.manager, run_id, timeout=10)
+
+        asyncio.run(start_and_wait())
+
+        response = self.client.get(f"/api/runs/{run_id}/handoff")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["run_id"], run_id)
+        self.assertEqual(payload["workspace_id"], ws_id)
+        self.assertGreater(len(payload["items"]), 0)
+        kinds = {item["kind"] for item in payload["items"]}
+        self.assertTrue(kinds & {"assumption", "evidence_target", "experiment"})
+
+        missing = self.client.get("/api/runs/missing-run/handoff")
+        self.assertEqual(missing.status_code, 404)

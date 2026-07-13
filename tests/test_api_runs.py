@@ -1410,6 +1410,38 @@ class ApiRunsTest(unittest.TestCase):
         response = self.client.get("/api/runs/missing-run/similar")
         self.assertEqual(response.status_code, 404)
 
+    def test_rerun_blocked_without_delta_unless_override_or_worksheet_change(self):
+        first, ws_id = _post_run(self.client)
+        self.assertEqual(first.status_code, 200)
+
+        blocked = self.client.post("/api/runs", json={"workspace_id": ws_id})
+        self.assertEqual(blocked.status_code, 422)
+        self.assertIn("Readiness gate blocked", blocked.json()["detail"])
+
+        with_override = self.client.post(
+            "/api/runs",
+            json={"workspace_id": ws_id, "readiness_override": True},
+        )
+        self.assertEqual(with_override.status_code, 200)
+
+        updated = WORKSHEET_RUN.model_copy(
+            update={
+                "problem_statement": (
+                    "struggle to capture lessons from customer conversations "
+                    "before the next build sprint."
+                )
+            }
+        )
+        save = self.client.post(
+            f"/api/workspaces/{ws_id}/versions",
+            json={"worksheet": updated.model_dump(), "minor_edit": False},
+        )
+        self.assertEqual(save.status_code, 200)
+        self.assertTrue(save.json()["created"])
+
+        after_change = self.client.post("/api/runs", json={"workspace_id": ws_id})
+        self.assertEqual(after_change.status_code, 200)
+
 
 if __name__ == "__main__":
     unittest.main()

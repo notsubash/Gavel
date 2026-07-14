@@ -1,6 +1,6 @@
 # Evaluation Guide
 
-How to run evals for **Roast My Startup**, what each tier does, and when to use it.
+How to run evals for **Gavel**, what each tier does, and when to use it.
 
 ## Overview
 

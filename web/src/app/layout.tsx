@@ -24,7 +24,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Roast My Startup",
+  title: "Gavel",
   description:
     "Five AI judges review your startup idea, debate it, and deliver a decision.",
 };

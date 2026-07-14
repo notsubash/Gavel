@@ -1,4 +1,4 @@
-# Roast My Startup — frontend
+# Gavel — frontend
 
 Next.js App Router frontend for the editorial verdict experience. See
 `docs/specs/frontend-spec.md` for the full product spec.

@@ -31,7 +31,7 @@ def export_transcript(
     filepath = output_dir / f"{timestamp}_{slug}.md"
 
     lines = [
-        "# Roast My Startup — Transcript",
+        "# Gavel — Transcript",
         "",
         f"**Idea:** {startup_idea}",
         f"**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M')}",

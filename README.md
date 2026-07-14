@@ -1,10 +1,10 @@
-# Roast My Startup
+# Gavel
 
 > **Validate first. Five AI judges when you're ready. Zero sugarcoating.**
 
 A founder workbench for stress-testing startup ideas. Capture a structured **Idea Validation Worksheet**, log assumptions and evidence, and run the roast panel only when a readiness gate says the pitch is specific enough. Five judges — VC, engineer, product manager, customer, and competitor — score independently, debate across multiple rounds, re-vote on the transcript, and a moderator delivers a structured GO / ITERATE / NO-GO call with actionable fixes. Verdicts flow back into validation as concrete next steps. Disagree? **Appeal with evidence** and make them reconsider.
 
-![SupportLens AI workspace overview](images/new-ui-workspace-overview.png)
+![Gavel](images/Gavel.webp)
 
 | | |
 | :--- | :--- |
@@ -29,8 +29,8 @@ A founder workbench for stress-testing startup ideas. Capture a structured **Ide
 **Requirements:** Python 3.11+ · [Ollama](https://ollama.com/) (local) or DeepSeek API (cloud)
 
 ```bash
-git clone https://github.com/notsubash/roast-my-startup-idea.git
-cd roast-my-startup-idea
+git clone https://github.com/notsubash/Gavel.git
+cd Gavel
 pip install -r requirements.txt
 ollama pull qwen3.5:9b          # default chat model; override in .env
 ollama pull nomic-embed-text    # only if ENABLE_SEMANTIC_MEMORY=true
@@ -132,7 +132,7 @@ docker compose up --build
 - API: [http://localhost:8000/health](http://localhost:8000/health) → `{"status":"ok"}`
 - Web: [http://localhost:3000](http://localhost:3000)
 
-SQLite files (`runs.db`, `workspaces.db`, `ideas.db`) persist in the `roast-data` volume under `/data`. API only: `docker compose up --build api`.
+SQLite files (`runs.db`, `workspaces.db`, `ideas.db`) persist in the `gavel-data` volume under `/data`. API only: `docker compose up --build api`.
 
 For local Ollama from inside the container, point `LOCAL_MODEL` at `host.docker.internal` (compose sets `extra_hosts` for Linux). Or run the API on the host and skip Docker. Behind nginx or a PaaS load balancer, set `TRUST_PROXY=true` in `.env`.
 
@@ -278,7 +278,7 @@ Tracing is opt-in. Set credentials in `.env`:
 ```bash
 LANGSMITH_TRACING=true
 LANGSMITH_API_KEY=your_langsmith_api_key
-LANGSMITH_PROJECT=roast-my-startup
+LANGSMITH_PROJECT=gavel
 ```
 
 Legacy `LANGCHAIN_TRACING_V2`, `LANGCHAIN_API_KEY`, and `LANGCHAIN_PROJECT` are also supported.

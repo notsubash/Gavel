@@ -10,7 +10,7 @@ services:
       WORKSPACES_DB_PATH: /data/workspaces.db
       IDEAS_DB_PATH: /data/ideas.db
     volumes:
-      - roast-data:/data
+      - gavel-data:/data
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
@@ -28,4 +28,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  roast-data:
+  gavel-data:

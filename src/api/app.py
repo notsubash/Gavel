@@ -21,7 +21,7 @@ def create_app(*, manager: RunManager | None = None) -> FastAPI:
     if settings.e2e_test_mode:
         logger.warning("E2E_TEST_MODE is enabled — stub pipeline active; do not use in production")
 
-    app = FastAPI(title="Roast Arena API", version=get_version())
+    app = FastAPI(title="Gavel API", version=get_version())
 
     if manager is not None:
         app.state.run_manager = manager

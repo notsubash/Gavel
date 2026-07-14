@@ -1,4 +1,4 @@
-"""Evaluation harness for Roast My Startup (Tier 1 local + Tier 2 DeepSeek audit)."""
+"""Evaluation harness for Gavel (Tier 1 local + Tier 2 DeepSeek audit)."""
 
 from pathlib import Path
 

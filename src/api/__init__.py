@@ -1,1 +1,1 @@
-"""FastAPI layer for the custom Roast Arena frontend."""
+"""FastAPI layer for the Gavel frontend."""

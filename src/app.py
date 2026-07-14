@@ -66,7 +66,7 @@ VERDICT_ICON = {"PASS": "\U0001f7e2", "FAIL": "\U0001f534", "CONDITIONAL": "\U00
 
 # ── Page config ──
 
-st.set_page_config(page_title="Roast My Startup", page_icon="\U0001f525", layout="wide")
+st.set_page_config(page_title="Gavel", page_icon="\U0001f528", layout="wide")
 
 # ── Custom CSS ──
 
@@ -101,7 +101,7 @@ st.markdown(
 
 # ── Header ──
 
-st.title("Roast My Startup")
+st.title("Gavel")
 st.caption("Submit your startup idea. Five AI judges will roast it, then debate each other.")
 
 idea_store = build_idea_store()

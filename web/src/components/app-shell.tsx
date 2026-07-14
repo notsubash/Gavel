@@ -23,7 +23,7 @@ export function AppHeader() {
           href="/workspaces"
           className="font-sans text-lg font-semibold tracking-tight text-primary md:text-xl"
         >
-          Roast My Startup
+          Gavel
         </Link>
         <nav className="flex flex-wrap items-center gap-2 sm:gap-3" aria-label="Main">
           <Link

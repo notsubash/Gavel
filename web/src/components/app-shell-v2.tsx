@@ -117,7 +117,7 @@ export function AppSidebar({ className }: { className?: string }) {
           href="/workspaces"
           className="font-sans text-base font-semibold tracking-tight text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta"
         >
-          Roast My Startup
+          Gavel
         </Link>
         <p className="mt-1 font-sans text-meta tracking-[var(--shell-nav-meta-tracking)] text-ink-subtle">
           Idea validation

@@ -44,7 +44,7 @@ export function buildTranscriptMarkdown(input: TranscriptInput, now = new Date()
   const partial = verdicts.length > 0 && verdicts.length < JUDGE_ORDER.length;
 
   const lines: string[] = [
-    "# Roast My Startup — Transcript",
+    "# Gavel — Transcript",
     "",
     `**Idea:** ${input.idea}`,
     `**Date:** ${formatExportDate(now)}`,

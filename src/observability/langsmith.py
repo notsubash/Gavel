@@ -12,7 +12,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 _CONFIGURED = False
-_DEFAULT_PROJECT = "roast-my-startup"
+_DEFAULT_PROJECT = "gavel"
 
 
 @dataclass(frozen=True)

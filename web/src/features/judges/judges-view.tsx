@@ -9,7 +9,6 @@ import { toast } from "sonner";
 
 import { PostRoastHandoff } from "@/features/judges/post-roast-handoff";
 import { ReadinessGateModal } from "@/features/judges/readiness-gate-modal";
-import { WorkspaceNav } from "@/features/workspace/workspace-nav";
 import { ApiError } from "@/lib/api/client";
 import { createRun } from "@/lib/api/runs";
 import { parseApiDetail } from "@/lib/api/types-helpers";
@@ -103,13 +102,11 @@ export function JudgesView({ workspaceId }: { workspaceId: string }) {
           Judges
         </p>
         <h1 className="font-sans text-display-home font-semibold tracking-tight text-ink">{workingName}</h1>
-        <p className="max-w-2xl font-sans text-sm text-ink-muted">
+        <p className="max-w-prose font-sans text-body text-ink-muted">
           Launch a five-judge roast when your worksheet is ready, then turn their evidence asks into
           validation work.
         </p>
       </header>
-
-      <WorkspaceNav workspaceId={workspaceId} />
 
       <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -124,7 +121,7 @@ export function JudgesView({ workspaceId }: { workspaceId: string }) {
       </Card>
 
       <section className="space-y-3">
-        <h2 className="font-serif text-xl text-ink">Run history</h2>
+        <h2 className="font-sans text-section font-semibold text-ink">Run history</h2>
         {runsQuery.isLoading ? <Skeleton className="h-24 w-full" /> : null}
         {runsQuery.isError ? (
           <div className="space-y-3 border border-rule-soft bg-paper-2 p-4" role="alert">

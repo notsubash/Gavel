@@ -86,7 +86,9 @@ export function PostRoastHandoff({
   return (
     <Card className="space-y-4 p-5">
       <div>
-        <h3 className="font-serif text-lg text-ink">Turn judge feedback into validation tasks</h3>
+        <h3 className="font-sans text-body font-semibold text-ink">
+          Turn judge feedback into validation tasks
+        </h3>
         <p className="mt-1 font-sans text-sm text-ink-muted">
           One-click drafts from the last roast. Review before you treat them as truth.
         </p>

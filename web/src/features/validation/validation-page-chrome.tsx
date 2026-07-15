@@ -1,12 +1,4 @@
-import { WorkspaceNav } from "@/features/workspace/workspace-nav";
-
-export function ValidationPageChrome({
-  workspaceId,
-  children,
-}: {
-  workspaceId: string;
-  children: React.ReactNode;
-}) {
+export function ValidationPageChrome({ children }: { children: React.ReactNode }) {
   return (
     <div className="space-y-10">
       <header className="space-y-2">
@@ -20,8 +12,6 @@ export function ValidationPageChrome({
           Collect evidence, test assumptions, and decide what to learn next before judges.
         </p>
       </header>
-
-      <WorkspaceNav workspaceId={workspaceId} />
 
       {children}
     </div>

@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 
-import { EditorialContainer } from "@/components/app-shell";
 import { WorksheetEditor } from "@/features/worksheet/worksheet-editor";
 import { Skeleton } from "@/ui/skeleton";
 
@@ -20,10 +19,8 @@ function EditorFallback() {
 export default async function WorksheetPage({ params }: Props) {
   const { workspaceId } = await params;
   return (
-    <EditorialContainer className="py-8 md:py-12">
-      <Suspense fallback={<EditorFallback />}>
-        <WorksheetEditor workspaceId={workspaceId} />
-      </Suspense>
-    </EditorialContainer>
+    <Suspense fallback={<EditorFallback />}>
+      <WorksheetEditor workspaceId={workspaceId} />
+    </Suspense>
   );
 }

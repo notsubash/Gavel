@@ -10,7 +10,6 @@ import { NextStepHero } from "@/features/workspace/next-step-hero";
 import { ValidationProgressSection } from "@/features/workspace/validation-progress-section";
 import { WeeklyReviewSection } from "@/features/workspace/weekly-review-section";
 import { WorkspaceActionBar } from "@/features/workspace/workspace-action-bar";
-import { WorkspaceNav } from "@/features/workspace/workspace-nav";
 import {
   CONFIDENCE_DISPLAY,
   getValidationOverview,
@@ -148,8 +147,6 @@ export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
           coachNarrative={coachNarrative}
           onRetryOverview={() => void overviewQuery.refetch()}
         />
-
-        <WorkspaceNav workspaceId={workspaceId} />
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="max-w-prose font-sans text-body text-ink-muted">{ws.audience}</p>

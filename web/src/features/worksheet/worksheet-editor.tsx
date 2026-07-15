@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -277,14 +276,6 @@ export function WorksheetEditor({ workspaceId }: { workspaceId: string }) {
             {values.working_name || "Untitled"}
           </h1>
           <Badge variant="default">v{currentVersion.version}</Badge>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/workspaces/${workspaceId}`}>Overview</Link>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/workspaces/${workspaceId}/validation`}>Validation</Link>
-          </Button>
         </div>
       </header>
 

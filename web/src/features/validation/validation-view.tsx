@@ -106,7 +106,7 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
 
   if (isLoading) {
     return (
-      <ValidationPageChrome workspaceId={workspaceId}>
+      <ValidationPageChrome>
         <div className="space-y-4" aria-busy="true">
           <Skeleton className="h-10 w-1/2" />
           <Skeleton className="h-64 w-full" />
@@ -117,7 +117,7 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
 
   if (isError || !data) {
     return (
-      <ValidationPageChrome workspaceId={workspaceId}>
+      <ValidationPageChrome>
         <p className="font-sans text-body text-fail" role="alert">
           Could not load validation data.
         </p>
@@ -131,7 +131,7 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
   const { assumptions, experiments, evidence, interviews } = data;
 
   return (
-    <ValidationPageChrome workspaceId={workspaceId}>
+    <ValidationPageChrome>
       <ValidationProgressChecklist
         overview={overviewQuery.data}
         isLoading={overviewQuery.isLoading}

@@ -50,7 +50,7 @@ export async function fillWorksheetForm(
   await page.getByLabel("What would prove this wrong?").fill(data.disconfirming_evidence);
 }
 
-/** Navigate to a workspace section (URL-first — worksheet page omits full tab nav). */
+/** Navigate to a workspace section by URL. Prefer openWorkspaceTab when the tab nav is visible. */
 export async function gotoWorkspaceTab(
   page: Page,
   workspaceId: string,

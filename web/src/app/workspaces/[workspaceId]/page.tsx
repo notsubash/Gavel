@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 
-import { EditorialContainer } from "@/components/app-shell";
 import { WorkspaceOverview } from "@/features/workspace/workspace-overview";
 import { Skeleton } from "@/ui/skeleton";
 
@@ -20,10 +19,8 @@ function OverviewFallback() {
 export default async function WorkspaceDetailPage({ params }: Props) {
   const { workspaceId } = await params;
   return (
-    <EditorialContainer className="py-8 md:py-12">
-      <Suspense fallback={<OverviewFallback />}>
-        <WorkspaceOverview workspaceId={workspaceId} />
-      </Suspense>
-    </EditorialContainer>
+    <Suspense fallback={<OverviewFallback />}>
+      <WorkspaceOverview workspaceId={workspaceId} />
+    </Suspense>
   );
 }

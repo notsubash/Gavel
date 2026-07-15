@@ -4,7 +4,6 @@ import { createWorkspace } from "../fixtures/workspace";
 import {
   expectWorkspaceTab,
   fillWorksheetForm,
-  gotoWorkspaceTab,
   openWorkspaceTab,
 } from "../fixtures/worksheet";
 
@@ -69,16 +68,20 @@ test.describe("workspace creation and navigation", { tag: "@core" }, () => {
 
     await openWorkspaceTab(page, "Worksheet");
     await expect(page).toHaveURL(new RegExp(`/workspaces/${workspaceId}/worksheet$`));
+    await expectWorkspaceTab(page, "Worksheet");
     await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();
 
-    await gotoWorkspaceTab(page, workspaceId, "Judges");
+    await openWorkspaceTab(page, "Judges");
     await expect(page).toHaveURL(new RegExp(`/workspaces/${workspaceId}/judges$`));
+    await expectWorkspaceTab(page, "Judges");
     await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();
 
-    await gotoWorkspaceTab(page, workspaceId, "Overview");
+    await openWorkspaceTab(page, "Overview");
     await expect(page).toHaveURL(new RegExp(`/workspaces/${workspaceId}$`));
+    await expectWorkspaceTab(page, "Overview");
     await page.reload();
     await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();
+    await expectWorkspaceTab(page, "Overview");
 
     await page.goto(`/workspaces/${workspaceId}/validation`);
     await page.reload();

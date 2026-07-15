@@ -20,8 +20,8 @@ export function AppHeader() {
   return (
     <header className="border-b border-rule-soft bg-card">
       <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-4 md:px-6">
-        <Link href="/workspaces" className="inline-flex items-center">
-          <GavelLogo size={40} />
+        <Link href="/" className="inline-flex items-center">
+          <GavelLogo size={40} showName />
         </Link>
         <nav className="flex flex-wrap items-center gap-2 sm:gap-3" aria-label="Main">
           <Link
@@ -56,7 +56,7 @@ export function AppFooter() {
   return (
     <footer className="mt-auto border-t border-rule-soft bg-paper-2">
       <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-4 px-4 py-6 font-sans text-xs text-ink-muted md:px-6">
-        <p>Five judges. One verdict. Zero sugarcoating.</p>
+        <p>Gavel — five judges, one verdict.</p>
         <HealthStatus />
       </div>
     </footer>

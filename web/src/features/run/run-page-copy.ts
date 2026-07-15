@@ -64,7 +64,7 @@ export const HOME_COPY = {
 
 export const SETTINGS_COPY = {
   intro:
-    "Defaults for new reviews and how completed review pages are laid out. Stored in this browser only — founders can ignore this page and use the simple submit flow on",
+    "Defaults for new Gavel reviews and how completed review pages are laid out. Stored in this browser only — founders can ignore this page and use the simple submit flow on",
   newReviewDefaults: "New review defaults",
   newReviewDescription:
     "Applied every time you submit or refine an idea. The submit form no longer shows these controls.",
@@ -74,12 +74,12 @@ export const SETTINGS_COPY = {
 } as const;
 
 export const HISTORY_COPY = {
-  eyebrow: "Workspaces",
-  title: "Startups you're iterating",
+  eyebrow: "Gavel",
+  title: "Ideas you've put on trial",
   description:
-    "Each row is one startup workspace — versions, score, movement, and your open next action.",
-  emptyTitle: "No workspaces yet",
-  emptyDescription: "Submit your first idea — it becomes a workspace when the review finishes.",
+    "Each row is one idea in Gavel — versions, score, movement, and your open next action.",
+  emptyTitle: "No trials yet",
+  emptyDescription: "Roast your first idea in Gavel — it shows up here when a review finishes.",
   versionCount: (count: number) => `${count} ${count === 1 ? "version" : "versions"}`,
   currentScore: "Score",
   latestDelta: "Delta",

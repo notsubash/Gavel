@@ -413,6 +413,9 @@ class RunManager:
             items.append((record, summary))
         return items, total
 
+    def list_activity_day_counts(self) -> dict[str, int]:
+        return self._store.list_activity_day_counts()
+
     def list_similar_runs(self, run_id: str, *, limit: int = 3) -> list[SimilarRunItem]:
         record = self.get(run_id)
         if record is None:

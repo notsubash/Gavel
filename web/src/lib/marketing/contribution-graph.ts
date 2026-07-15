@@ -1,7 +1,9 @@
 export type ContributionDay = {
   id: string;
+  date: string;
   day: number;
   week: number;
+  count: number;
   level: 0 | 1 | 2 | 3 | 4;
 };
 
@@ -18,38 +20,60 @@ export const LEVEL_CLASS: Record<ContributionDay["level"], string> = {
   4: "border-pass bg-pass",
 };
 
-function nextRandom(seed: number): number {
-  return (seed * 1664525 + 1013904223) >>> 0;
+export function levelFromCount(count: number): ContributionDay["level"] {
+  if (count <= 0) return 0;
+  if (count === 1) return 1;
+  if (count <= 3) return 2;
+  if (count <= 6) return 3;
+  return 4;
 }
 
-function levelFor(value: number, week: number, day: number): ContributionDay["level"] {
-  const normalized = value / 0xffffffff;
-  const lateMomentum = week > 34 && day % 2 === 0 ? 0.08 : 0;
-  const trialSpike = (week === 11 || week === 29 || week === 43) && day > 1 ? 0.18 : 0;
-  const score = Math.min(normalized + lateMomentum + trialSpike, 1);
-
-  if (score > 0.9) return 4;
-  if (score > 0.72) return 3;
-  if (score > 0.5) return 2;
-  if (score > 0.28) return 1;
-  return 0;
+export function utcDayKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
 }
 
-export function buildContributionWeeks(
-  seed: number,
-  weeks = DEFAULT_CONTRIBUTION_WEEKS,
-): ContributionWeek[] {
-  let state = seed >>> 0;
-
-  return Array.from({ length: weeks }, (_, week) =>
-    Array.from({ length: CONTRIBUTION_DAYS }, (_, day) => {
-      state = nextRandom(state + week + day);
-      return {
-        id: `${week}-${day}`,
-        day,
-        week,
-        level: levelFor(state, week, day),
-      };
-    }),
+function startOfUtcDay(date: Date): Date {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
   );
+}
+
+/** Build a GitHub-style calendar from YYYY-MM-DD → count. */
+export function buildContributionWeeksFromCounts(
+  counts: Record<string, number>,
+  weeks = DEFAULT_CONTRIBUTION_WEEKS,
+  today = new Date(),
+): { weeks: ContributionWeek[]; total: number } {
+  const end = startOfUtcDay(today);
+  // Align the window to full Sun–Sat columns ending this week (GitHub-style).
+  const endSaturday = new Date(end);
+  endSaturday.setUTCDate(endSaturday.getUTCDate() + (6 - endSaturday.getUTCDay()));
+  const start = new Date(endSaturday);
+  start.setUTCDate(start.getUTCDate() - (weeks * CONTRIBUTION_DAYS - 1));
+
+  const grid: ContributionWeek[] = [];
+  let cursor = new Date(start);
+  let total = 0;
+
+  for (let weekIndex = 0; weekIndex < weeks; weekIndex++) {
+    const week: ContributionDay[] = [];
+    for (let day = 0; day < CONTRIBUTION_DAYS; day++) {
+      const date = utcDayKey(cursor);
+      const future = cursor.getTime() > end.getTime();
+      const count = future ? 0 : (counts[date] ?? 0);
+      if (!future) total += count;
+      week.push({
+        id: date,
+        date,
+        day,
+        week: weekIndex,
+        count,
+        level: future ? 0 : levelFromCount(count),
+      });
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+    grid.push(week);
+  }
+
+  return { weeks: grid, total };
 }

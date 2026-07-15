@@ -6,7 +6,7 @@ test.describe("smoke", { tag: "@core" }, () => {
     await expect(
       page.getByRole("heading", { name: "Put your startup idea on trial." }),
     ).toBeVisible();
-    await expect(page.getByText("Validation action board")).toBeVisible();
+    await expect(page.getByText("Your Gavel trail")).toBeVisible();
     await expect(page.getByRole("link", { name: "Roast my idea" })).toHaveAttribute(
       "href",
       "/workspaces/new",
@@ -25,12 +25,12 @@ test.describe("smoke", { tag: "@core" }, () => {
 
     await mainNav.getByRole("link", { name: "Workspaces" }).click();
     await expect(page).toHaveURL(/\/workspaces$/);
-    await expect(page.getByRole("heading", { name: "Your startup ideas" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your ideas on trial" })).toBeVisible();
 
     await mainNav.getByRole("link", { name: "History" }).click();
     await expect(page).toHaveURL(/\/history$/);
     await expect(
-      page.getByRole("heading", { name: "Startups you're iterating" }),
+      page.getByRole("heading", { name: "Ideas you've put on trial" }),
     ).toBeVisible();
 
     await mainNav.getByRole("link", { name: "Settings" }).click();

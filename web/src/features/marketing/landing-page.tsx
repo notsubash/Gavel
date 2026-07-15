@@ -12,11 +12,11 @@ const JUDGE_IDS: JudgeId[] = ["vc", "engineer", "pm", "customer", "competitor"];
 const STEPS = [
   {
     title: "Draft the case",
-    body: "Turn a rough startup idea into a structured worksheet the panel can judge.",
+    body: "Turn a rough startup idea into a structured worksheet Gavel's panel can judge.",
   },
   {
     title: "Build the evidence trail",
-    body: "Track assumptions, interviews, experiments, and judge asks like a founder action board.",
+    body: "Track assumptions, interviews, experiments, and judge asks as contributions in Gavel.",
   },
   {
     title: "Face the judges",
@@ -35,25 +35,25 @@ export function LandingPage() {
           href="/"
           className="inline-flex items-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta"
         >
-          <GavelLogo size={36} />
+          <GavelLogo size={36} showName />
         </Link>
         <Link
           href="/workspaces"
           className="inline-flex min-h-11 items-center rounded-ui px-3 font-sans text-sm font-semibold text-ink-muted transition-colors duration-200 hover:bg-paper-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta"
         >
-          Open app
+          Open Gavel
         </Link>
       </nav>
 
-      <section className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-10 md:px-8 md:py-16 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <div className="flex flex-col justify-center">
+      <section className="mx-auto w-full max-w-6xl px-4 py-10 md:px-8 md:py-16">
+        <div className="max-w-2xl">
           <p className="font-sans text-meta font-semibold uppercase tracking-widest text-cta">
-            Startup idea validation
+            Gavel
           </p>
-          <h1 className="mt-4 max-w-3xl font-sans text-display-home font-semibold tracking-tight text-ink lg:text-display-lg">
+          <h1 className="mt-4 font-sans text-display-home font-semibold tracking-tight text-ink lg:text-display-lg">
             Put your startup idea on trial.
           </h1>
-          <p className="mt-5 max-w-2xl font-sans text-lg leading-relaxed text-ink-muted">
+          <p className="mt-5 font-sans text-lg leading-relaxed text-ink-muted">
             Gavel turns messy founder notes into a case file, gathers evidence, and lets five
             AI judges debate what will break first.
           </p>
@@ -65,12 +65,14 @@ export function LandingPage() {
               href="#how-it-works"
               className="inline-flex min-h-11 items-center rounded-ui border border-rule-soft bg-card px-5 py-3 font-sans text-base font-semibold text-ink transition-colors duration-200 hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta"
             >
-              See how it works
+              How Gavel works
             </Link>
           </div>
         </div>
 
-        <ContributionGraph />
+        <div className="mt-10">
+          <ContributionGraph />
+        </div>
       </section>
 
       <section
@@ -83,7 +85,7 @@ export function LandingPage() {
             id="how-it-works-heading"
             className="font-sans text-section font-semibold text-ink"
           >
-            From hunch to verdict
+            How Gavel works
           </h2>
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             {STEPS.map((step, index) => (
@@ -142,15 +144,15 @@ export function LandingPage() {
       <section className="mx-auto w-full max-w-6xl px-4 py-12 md:px-8 md:pb-16">
         <div className="rounded-ui border border-cta/30 bg-cta/10 p-6 text-center">
           <h2 className="font-sans text-section font-semibold text-ink">
-            Stop asking if the idea is good. Put it on the stand.
+            Stop guessing. Let Gavel put it on the stand.
           </h2>
           <p className="mx-auto mt-3 max-w-2xl font-sans text-sm leading-relaxed text-ink-muted">
-            Start with a worksheet, collect the missing proof, then let the panel tell you what
-            to fix before you build.
+            Start with a worksheet, collect the missing proof, then let Gavel&apos;s panel tell
+            you what to fix before you build.
           </p>
           <div className="mt-6">
             <Button asChild size="lg">
-              <Link href="/workspaces/new">Start the worksheet</Link>
+              <Link href="/workspaces/new">Start in Gavel</Link>
             </Button>
           </div>
         </div>
@@ -158,9 +160,9 @@ export function LandingPage() {
 
       <footer className="border-t border-rule-soft py-6">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 font-sans text-sm text-ink-muted md:px-8">
-          <GavelLogo size={28} />
+          <GavelLogo size={28} showName />
           <Link href="/workspaces" className="font-semibold text-cta hover:underline">
-            Enter the app
+            Open Gavel
           </Link>
         </div>
       </footer>

@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   description:
     "Five AI judges review your startup idea, debate it, and deliver a decision.",
   icons: {
-    icon: "/logo-gavel.webp",
+    icon: "/logo-color.svg",
   },
 };
 

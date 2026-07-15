@@ -218,6 +218,33 @@ class WorkspaceApiTest(unittest.TestCase):
         self.assertEqual(listed.status_code, 200)
         self.assertEqual(listed.json()["total"], 1)
 
+    def test_activity_endpoint_counts_workspace_actions(self):
+        empty = self.client.get("/api/activity")
+        self.assertEqual(empty.status_code, 200)
+        self.assertEqual(empty.json()["total"], 0)
+
+        created = self.client.post(
+            "/api/workspaces",
+            json={"worksheet": SAMPLE.model_dump()},
+        )
+        self.assertEqual(created.status_code, 201)
+        ws_id = created.json()["workspace"]["id"]
+
+        self.client.post(
+            f"/api/workspaces/{ws_id}/assumptions",
+            json={"statement": "Founders will pay for validation help"},
+        )
+        self.client.post(
+            "/api/runs",
+            json={"workspace_id": ws_id, "readiness_override": True},
+        )
+
+        activity = self.client.get("/api/activity")
+        self.assertEqual(activity.status_code, 200)
+        body = activity.json()
+        self.assertGreaterEqual(body["total"], 3)
+        self.assertTrue(all("date" in day and day["count"] > 0 for day in body["days"]))
+
     def test_legacy_run_creates_workspace_link(self):
         """Phase 4: legacy flat POST /api/runs is removed; runs require workspace_id."""
         ws = self.client.post("/api/workspaces", json={"worksheet": SAMPLE.model_dump()})

@@ -10,6 +10,20 @@ import type {
   SimilarRunsResponse,
 } from "./types-helpers";
 
+export type ActivityDay = {
+  date: string;
+  count: number;
+};
+
+export type ActivityResponse = {
+  days: ActivityDay[];
+  total: number;
+};
+
+export function getActivity(): Promise<ActivityResponse> {
+  return apiClient<ActivityResponse>("/api/activity");
+}
+
 export async function createRun(body: CreateRunRequest): Promise<RunCreatedResponse> {
   return apiClient<RunCreatedResponse>("/api/runs", {
     method: "POST",

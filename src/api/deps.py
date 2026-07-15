@@ -46,7 +46,8 @@ def get_app_settings() -> Settings:
 def get_cors_origins() -> list[str]:
     raw = os.getenv(
         "ROAST_CORS_ORIGINS",
-        "http://localhost:3000,http://127.0.0.1:3000",
+        # ponytail: Next falls over to 3001 when 3000 is taken
+        "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001",
     )
     return [origin.strip() for origin in raw.split(",") if origin.strip()]
 

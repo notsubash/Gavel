@@ -171,14 +171,14 @@ export function WorksheetWizard() {
     <div className="space-y-8">
       <header>
         <p className="font-sans text-meta font-semibold uppercase tracking-widest text-cta">
-          New workspace
+          New idea
         </p>
         <h1 className="mt-2 font-sans text-display-home font-semibold tracking-tight text-ink md:text-display-md">
-          Idea validation worksheet
+          Draft your case for Gavel
         </h1>
         <p className="mt-3 max-w-prose font-sans text-body text-ink-muted">
-          Structure your idea before validation. Save a workspace, then run experiments and
-          evidence before asking judges to review.
+          Structure the idea before validation. Save it in Gavel, then run experiments and
+          evidence before asking the judges to review.
         </p>
       </header>
 

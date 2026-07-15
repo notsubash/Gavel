@@ -1,13 +1,16 @@
 import { test, expect } from "../fixtures/test";
 
 test.describe("smoke", { tag: "@core" }, () => {
-  test("home redirects to new workspace worksheet", async ({ page }) => {
+  test("home shows the landing page and links to the worksheet", async ({ page }) => {
     await page.goto("/");
-    await expect(page).toHaveURL(/\/workspaces\/new$/);
     await expect(
-      page.getByRole("heading", { name: "Idea validation worksheet" }),
+      page.getByRole("heading", { name: "Put your startup idea on trial." }),
     ).toBeVisible();
-    await expect(page.getByRole("group", { name: "Input mode" })).toBeVisible();
+    await expect(page.getByText("Validation action board")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Roast my idea" })).toHaveAttribute(
+      "href",
+      "/workspaces/new",
+    );
   });
 
   test("sidebar reports API health", async ({ page }) => {

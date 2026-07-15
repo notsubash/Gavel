@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { GavelLogo } from "@/components/gavel-logo";
 import { heatCtaClass } from "@/lib/cta-classes";
 
 import { HealthStatus } from "./health-status";
@@ -19,11 +20,8 @@ export function AppHeader() {
   return (
     <header className="border-b border-rule-soft bg-card">
       <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-4 md:px-6">
-        <Link
-          href="/workspaces"
-          className="font-sans text-lg font-semibold tracking-tight text-primary md:text-xl"
-        >
-          Gavel
+        <Link href="/workspaces" className="inline-flex items-center">
+          <GavelLogo size={40} />
         </Link>
         <nav className="flex flex-wrap items-center gap-2 sm:gap-3" aria-label="Main">
           <Link

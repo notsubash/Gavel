@@ -87,7 +87,7 @@ test.describe.serial("worksheet versioning", { tag: "@extended" }, () => {
 
     await openWorkspaceTab(page, "Judges");
     await expectWorkspaceTab(page, "Judges");
-    await page.getByRole("button", { name: "Launch roast" }).click();
+    await page.getByRole("button", { name: "Start review" }).click();
     await expect(page.getByRole("dialog", { name: "Readiness gate" })).toBeVisible();
     await expect(
       page.getByRole("listitem", { name: "Passed: Audience must be at least 10 characters" }),

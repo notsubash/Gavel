@@ -1,11 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { toast } from "sonner";
 
-import { InterviewPlanPanel } from "@/features/workspace/interview-plan-panel";
 import { NextStepHero } from "@/features/workspace/next-step-hero";
 import { ValidationProgressSection } from "@/features/workspace/validation-progress-section";
 import { WeeklyReviewSection } from "@/features/workspace/weekly-review-section";
@@ -32,15 +29,6 @@ import {
 import { useWorkspaceOverviewMutations } from "@/features/workspace/use-workspace-overview-mutations";
 
 export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
-  const searchParams = useSearchParams();
-  const interviewOpenToken =
-    searchParams.get("plan_interview") === "1" ? searchParams.toString() : null;
-  const [dismissedInterviewToken, setDismissedInterviewToken] = useState<string | null>(null);
-  const planInterviewOpen =
-    interviewOpenToken !== null && dismissedInterviewToken !== interviewOpenToken;
-  const [interviewQuestions, setInterviewQuestions] = useState<
-    { question: string; rationale: string }[]
-  >([]);
   const [coachNarrative, setCoachNarrative] = useState<string | null>(null);
   const [weeklyDigest, setWeeklyDigest] = useState<{
     summary: string;
@@ -62,18 +50,6 @@ export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
   const workingName = data?.current_version.worksheet.working_name ?? "workspace";
 
   const mutations = useWorkspaceOverviewMutations(workspaceId, workingName);
-
-  // ponytail: wrap mutations to keep local UI state in overview orchestrator
-  const questionsMutation = {
-    ...mutations.questionsMutation,
-    mutate: () =>
-      mutations.questionsMutation.mutate(undefined, {
-        onSuccess: (res) => {
-          setInterviewQuestions(res.questions);
-          toast.success("Interview questions ready");
-        },
-      }),
-  };
 
   const coachMutation = {
     ...mutations.coachMutation,
@@ -216,32 +192,23 @@ export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
             {(overview?.top_assumptions ?? assumptions.slice(0, 3)).map((a) => {
               const style = ASSUMPTION_STATUS_STYLE[a.status];
               return (
-              <li key={a.id}>
-                <Card className={cn("border-l-4 p-4", style.accent, style.tint)}>
-                  <p className="font-sans text-body text-ink">{a.statement}</p>
-                  <p className="mt-1 flex items-center gap-1.5 font-sans text-meta text-ink-muted">
-                    <span>{a.type}</span>
-                    <span aria-hidden>·</span>
-                    <span className={cn("size-1.5 rounded-full", style.dot)} aria-hidden />
-                    <span className={cn("font-semibold", style.text)}>
-                      {ASSUMPTION_STATUS_LABEL[a.status]}
-                    </span>
-                  </p>
-                </Card>
-              </li>
+                <li key={a.id}>
+                  <Card className={cn("border-l-4 p-4", style.accent, style.tint)}>
+                    <p className="font-sans text-body text-ink">{a.statement}</p>
+                    <p className="mt-1 flex items-center gap-1.5 font-sans text-meta text-ink-muted">
+                      <span>{a.type}</span>
+                      <span aria-hidden>·</span>
+                      <span className={cn("size-1.5 rounded-full", style.dot)} aria-hidden />
+                      <span className={cn("font-semibold", style.text)}>
+                        {ASSUMPTION_STATUS_LABEL[a.status]}
+                      </span>
+                    </p>
+                  </Card>
+                </li>
               );
             })}
           </ul>
         </section>
-      )}
-
-      {planInterviewOpen && (
-        <InterviewPlanPanel
-          workspaceId={workspaceId}
-          questions={interviewQuestions}
-          questionsMutation={questionsMutation}
-          onDismiss={() => setDismissedInterviewToken(interviewOpenToken)}
-        />
       )}
 
       <section aria-labelledby="worksheet-summary-heading">

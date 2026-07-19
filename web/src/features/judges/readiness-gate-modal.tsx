@@ -147,7 +147,7 @@ export function ReadinessGateModal({
             onClick={() => onLaunch(needsOverride && overrideAck)}
           >
             {launching ? <Loader2 className="size-4 animate-spin" /> : null}
-            Launch judges
+            Start review
           </Button>
         </DialogFooter>
       </DialogContent>

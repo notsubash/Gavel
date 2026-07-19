@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ClipboardList, Target, ArrowRight } from "lucide-react";
+import { ClipboardList, MoreHorizontal, Target } from "lucide-react";
 
 import { secondaryCtaClass, heatCtaClass } from "@/lib/cta-classes";
 import type { Experiment } from "@/lib/experiment/experiment";
@@ -10,7 +10,17 @@ import { cn } from "@/lib/utils";
 
 import { ExperimentCard } from "./experiment-card";
 import { RUN_PAGE_COPY } from "./run-page-copy";
-import { deriveWorkflowBrief } from "./structured-synthesis";
+import {
+  countVerdictLabels,
+  resolveVerdictNextAction,
+  revisePitchHref,
+} from "./resolve-verdict-next-action";
+import {
+  deriveWorkflowBrief,
+  parseDecisionVerdictProse,
+  parseStructuredSynthesis,
+  type OverallRecommendation,
+} from "./structured-synthesis";
 
 const cardClass = "surface-flat";
 
@@ -24,6 +34,7 @@ export function WorkflowBrief({
   evidenceReplayPending = false,
   onCompleteExperiment,
   runId,
+  workspaceId,
   className,
 }: {
   synthesisProse: string | null;
@@ -35,6 +46,7 @@ export function WorkflowBrief({
   evidenceReplayPending?: boolean;
   onCompleteExperiment?: () => void;
   runId?: string;
+  workspaceId?: string | null;
   className?: string;
 }) {
   const { problems, blocker } = deriveWorkflowBrief(
@@ -45,6 +57,45 @@ export function WorkflowBrief({
   const hasContent = problems.length > 0 || blocker || completed;
 
   if (!hasContent) return null;
+
+  const structured =
+    parseStructuredSynthesis(structuredSynthesis) ??
+    (synthesisProse ? parseDecisionVerdictProse(synthesisProse) : null);
+  const recommendation: OverallRecommendation | null =
+    structured?.overall_recommendation ?? null;
+  const verdictSummary = countVerdictLabels(verdicts);
+
+  const primary =
+    completed && runId
+      ? resolveVerdictNextAction({
+          runId,
+          workspaceId,
+          recommendation,
+          verdictSummary: recommendation ? null : verdictSummary,
+          evidenceSubmitted: Boolean(evidenceLink && !evidenceLink.useModal),
+        })
+      : null;
+
+  // Can't open evidence modal without baseline — fall back to revise / open review.
+  const resolvedPrimary =
+    primary?.kind === "submit_evidence" && !evidenceLink && runId
+      ? resolveVerdictNextAction({
+          runId,
+          workspaceId,
+          recommendation: "GO",
+        })
+      : primary;
+
+  const showSubmitPrimary =
+    resolvedPrimary?.kind === "submit_evidence" && Boolean(evidenceLink);
+  const showRevisePrimary =
+    resolvedPrimary?.kind === "revise_pitch" || resolvedPrimary?.kind === "open_review";
+  const showViewPrimary =
+    resolvedPrimary?.kind === "view_evidence" && Boolean(evidenceLink);
+  const reviseHref =
+    runId && workspaceId ? revisePitchHref(workspaceId, runId) : null;
+  const showReviseInMore =
+    Boolean(completed && runId && reviseHref && resolvedPrimary?.kind === "submit_evidence");
 
   return (
     <div id="next-actions-strip" className={cn("mt-5 scroll-mt-6 space-y-3", className)}>
@@ -94,61 +145,81 @@ export function WorkflowBrief({
 
       <ExperimentCard experiment={experiment} />
 
-      {completed && evidenceLink && (
+      {completed && resolvedPrimary && (showSubmitPrimary || showRevisePrimary || showViewPrimary) && (
         <section
           className={cn(cardClass, "flex flex-wrap items-center justify-between gap-3 px-4 py-3")}
-          aria-labelledby="present-evidence-heading"
+          aria-labelledby="next-action-heading"
         >
           <div className="flex items-start gap-3">
             <ClipboardList className="mt-0.5 size-4 shrink-0 text-ink-muted" aria-hidden />
             <div>
               <h3
-                id="present-evidence-heading"
+                id="next-action-heading"
                 className="font-sans text-sm font-semibold text-ink"
               >
-                {RUN_PAGE_COPY.presentEvidence}
+                {showSubmitPrimary || showViewPrimary
+                  ? RUN_PAGE_COPY.presentEvidence
+                  : RUN_PAGE_COPY.revisePitch}
               </h3>
               <p className="mt-1 max-w-prose font-sans text-sm text-ink-muted">
-                {RUN_PAGE_COPY.presentEvidenceLead}
+                {showSubmitPrimary || showViewPrimary
+                  ? RUN_PAGE_COPY.presentEvidenceLead
+                  : "Update your pitch from this verdict, then start another review when ready."}
               </p>
             </div>
           </div>
-          {evidenceReplayPending ? (
-            <span className="font-sans text-sm text-ink-muted" aria-live="polite">
-              {RUN_PAGE_COPY.evidenceStatusLoading}
-            </span>
-          ) : onCompleteExperiment && evidenceLink.useModal ? (
-            <button type="button" onClick={onCompleteExperiment} className={heatCtaClass}>
-              {RUN_PAGE_COPY.completeExperiment}
-            </button>
-          ) : (
-            <a href={evidenceLink.href} className={heatCtaClass}>
-              {evidenceLink.label}
-            </a>
-          )}
-        </section>
-      )}
+          <div className="flex flex-wrap items-center gap-2">
+            {evidenceReplayPending ? (
+              <span className="font-sans text-sm text-ink-muted" aria-live="polite">
+                {RUN_PAGE_COPY.evidenceStatusLoading}
+              </span>
+            ) : showSubmitPrimary && onCompleteExperiment && evidenceLink?.useModal ? (
+              <button type="button" onClick={onCompleteExperiment} className={heatCtaClass}>
+                {resolvedPrimary.label}
+              </button>
+            ) : showSubmitPrimary && evidenceLink ? (
+              <a href={evidenceLink.href} className={heatCtaClass}>
+                {resolvedPrimary.label}
+              </a>
+            ) : showViewPrimary && evidenceLink ? (
+              <a href={evidenceLink.href} className={heatCtaClass}>
+                {evidenceLink.label}
+              </a>
+            ) : showRevisePrimary ? (
+              <Link href={resolvedPrimary.href} className={heatCtaClass}>
+                {resolvedPrimary.label}
+              </Link>
+            ) : null}
 
-      {completed && runId && (
-        <section
-          className={cn(cardClass, "flex flex-wrap items-center justify-between gap-3 px-4 py-3")}
-          aria-labelledby="refine-heading"
-        >
-          <div>
-            <h3
-              id="refine-heading"
-              className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-muted"
-            >
-              {RUN_PAGE_COPY.todaysGoal}
-            </h3>
-            <p className="mt-1 font-sans text-sm text-ink-muted">
-              Update your pitch after running the experiment above.
-            </p>
+            {showReviseInMore && reviseHref ? (
+              <details className="relative">
+                <summary
+                  className={cn(
+                    secondaryCtaClass,
+                    "list-none [&::-webkit-details-marker]:hidden",
+                  )}
+                >
+                  <MoreHorizontal className="size-4" aria-hidden />
+                  <span className="sr-only">More</span>
+                </summary>
+                <div
+                  className="absolute right-0 z-10 mt-1 min-w-44 rounded-ui border border-rule-soft bg-card py-1 shadow-soft"
+                  role="group"
+                  aria-label="More next actions"
+                >
+                  <Link
+                    href={reviseHref}
+                    className={cn(
+                      "flex min-h-11 w-full items-center px-4 py-2 font-sans text-sm text-ink",
+                      "hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-cta",
+                    )}
+                  >
+                    {RUN_PAGE_COPY.revisePitch}
+                  </Link>
+                </div>
+              </details>
+            ) : null}
           </div>
-          <Link href={`/?refine=${runId}`} className={secondaryCtaClass}>
-            {RUN_PAGE_COPY.refineIdea}
-            <ArrowRight className="ml-2 size-4" aria-hidden />
-          </Link>
         </section>
       )}
     </div>

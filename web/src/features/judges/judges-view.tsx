@@ -115,7 +115,7 @@ export function JudgesView({ workspaceId }: { workspaceId: string }) {
           </p>
         </div>
         <Button type="button" onClick={() => setGateOpen(true)}>
-          Launch roast
+          Start review
         </Button>
       </Card>
 

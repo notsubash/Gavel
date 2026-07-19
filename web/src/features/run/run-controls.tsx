@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Copy, Download, OctagonX, Share2 } from "lucide-react";
+import { Copy, Download, MoreHorizontal, OctagonX, Share2 } from "lucide-react";
 
 import {
   buildTranscriptMarkdown,
@@ -18,6 +18,7 @@ import { secondaryCtaClass } from "@/lib/cta-classes";
 import { RUN_PAGE_COPY } from "@/features/run/run-page-copy";
 import { JUDGE_ORDER } from "@/lib/sse/types";
 import type { RunStatus } from "@/lib/sse/types";
+import { cn } from "@/lib/utils";
 import { Button } from "@/ui/button";
 import {
   Dialog,
@@ -151,37 +152,57 @@ export function RunControls({
       )}
 
       {isTerminal && (
-        <button type="button" className={`inline-flex items-center gap-2 ${secondaryCtaClass}`} onClick={share}>
-          <Share2 className="size-4" aria-hidden />
-          Share link
-        </button>
-      )}
-
-      {isTerminal && exportReady && (
-        <>
-          <button
-            type="button"
-            className={`inline-flex items-center gap-2 ${secondaryCtaClass}`}
-            onClick={() => void copyTranscript()}
+        <details className="relative">
+          <summary
+            className={cn(
+              secondaryCtaClass,
+              "list-none gap-2 [&::-webkit-details-marker]:hidden",
+            )}
           >
-            <Copy className="size-4" aria-hidden />
-            Copy transcript
-          </button>
-          <button
-            type="button"
-            className={`inline-flex items-center gap-2 ${secondaryCtaClass}`}
-            onClick={downloadTranscript}
+            <MoreHorizontal className="size-4" aria-hidden />
+            {RUN_PAGE_COPY.shareExportMenu}
+          </summary>
+          <div
+            className="absolute left-0 z-10 mt-1 min-w-52 rounded-ui border border-rule-soft bg-card py-1 shadow-soft"
+            role="group"
+            aria-label="Share and export"
           >
-            <Download className="size-4" aria-hidden />
-            Download .md
-          </button>
-        </>
-      )}
-
-      {isTerminal && (
-        <Link href="/workspaces/new" className={secondaryCtaClass}>
-          {RUN_PAGE_COPY.submitAnother}
-        </Link>
+            <button
+              type="button"
+              className="flex w-full min-h-11 items-center gap-2 px-4 py-2 font-sans text-sm text-ink hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-cta"
+              onClick={() => void share()}
+            >
+              <Share2 className="size-4" aria-hidden />
+              Share link
+            </button>
+            {exportReady ? (
+              <>
+                <button
+                  type="button"
+                  className="flex w-full min-h-11 items-center gap-2 px-4 py-2 font-sans text-sm text-ink hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-cta"
+                  onClick={() => void copyTranscript()}
+                >
+                  <Copy className="size-4" aria-hidden />
+                  Copy transcript
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full min-h-11 items-center gap-2 px-4 py-2 font-sans text-sm text-ink hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-cta"
+                  onClick={downloadTranscript}
+                >
+                  <Download className="size-4" aria-hidden />
+                  Download .md
+                </button>
+              </>
+            ) : null}
+            <Link
+              href="/workspaces/new"
+              className="flex w-full min-h-11 items-center px-4 py-2 font-sans text-sm text-ink hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-cta"
+            >
+              {RUN_PAGE_COPY.submitAnother}
+            </Link>
+          </div>
+        </details>
       )}
     </div>
   );

@@ -99,12 +99,12 @@ test.describe.serial("live run view, SSE, and post-run actions", { tag: "@core" 
     const created = await createStubRun(request, workspaceId);
     await page.goto(`/run/${created.run_id}`);
     await waitForRunTerminalState(page, "completed");
-    await expect(page.getByRole("button", { name: "Complete experiment" })).toBeVisible({
+    await expect(page.getByRole("button", { name: "Submit evidence" })).toBeVisible({
       timeout: 30_000,
     });
 
-    await page.getByRole("button", { name: "Complete experiment" }).click();
-    const dialog = page.getByRole("dialog", { name: "Complete experiment" });
+    await page.getByRole("button", { name: "Submit evidence" }).click();
+    const dialog = page.getByRole("dialog", { name: "Submit evidence" });
     await dialog.getByLabel("What happened?").fill(
       "We ran five buyer interviews and three founders signed LOIs after the pilot demo.",
     );

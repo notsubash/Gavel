@@ -1,13 +1,8 @@
 /**
- * Run page copy freeze (Phase 0).
+ * Run page copy (Phase 1 vocabulary).
  *
- * Checklist — block new above-fold sections unless they pass:
- * 1. One primary action per screen (evidence or refine, not browse judges).
- * 2. Above the fold answers: what should I do next?
- * 3. Top 3 problems visible before judge detail.
- * 4. Judges only after action guidance (appeal precedes panel in fold order).
- * 5. Evidence/iteration language only — no "appeal", "roast panel", or "verdict sheet".
- * 6. Every completed run shows version progress when lineage exists.
+ * Primary buttons only: Start review · Submit evidence · Revise pitch.
+ * One primary action per completed-run fork (from GO / ITERATE / NO-GO).
  */
 
 export const RUN_PAGE_COPY = {
@@ -23,7 +18,9 @@ export const RUN_PAGE_COPY = {
   todaysGoal: "Today's goal",
   presentEvidence: "Present evidence",
   presentEvidenceLead: "Completed your experiment? Share results to update this review.",
-  completeExperiment: "Complete experiment",
+  /** @deprecated Prefer submitEvidence for primary CTAs */
+  completeExperiment: "Submit evidence",
+  submitEvidence: "Submit evidence",
   evidenceStatusLoading: "Checking evidence status…",
   viewEvidenceResult: "View evidence result",
   judgePanel: "Judge detail",
@@ -41,16 +38,19 @@ export const RUN_PAGE_COPY = {
   reviewComplete: "Review complete",
   reviewNotFound: "This review does not exist or the link is wrong.",
   submitIdea: "Review an idea",
-  refineIdea: "Refine this idea",
+  /** @deprecated Prefer revisePitch */
+  refineIdea: "Revise pitch",
+  revisePitch: "Revise pitch",
+  openReview: "Open review",
+  startReview: "Start review",
   submitAnother: "Review another idea",
+  shareExportMenu: "Share / export…",
   phaseReviewing: "The panel is reviewing your idea",
   reviewCancelled: "You stopped this review before it finished.",
   stopReviewTitle: "Stop this review?",
   stopReviewDescription: "The judges will halt between turns. You can always submit a new idea.",
   contextSummary: "Related reviews, sources, metrics",
   latestImprovement: "Latest improvement",
-  appealPlaceholder:
-    "Present evidence to see progress here. Complete your experiment above, then share what you learned.",
   sseReconnecting: "Connection interrupted — reconnecting to the live review…",
   sseReconnected: "Live connection restored.",
   metricsTableScrollHint: "Scroll horizontally for the full metrics table.",
@@ -108,7 +108,7 @@ export const VERSION_COPY = {
 } as const;
 
 export const EVIDENCE_COPY = {
-  modalTitle: "Complete experiment",
+  modalTitle: "Submit evidence",
   modalLead:
     "Tell the panel what you learned running this experiment. We route your update to the judges most tied to your top blocker.",
   modalSubmit: "Submit evidence",

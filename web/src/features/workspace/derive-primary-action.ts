@@ -1,4 +1,5 @@
 import type { ValidationOverview, ValidationStage, WorkspaceLifecycle } from "@/lib/api/workspaces";
+import { RUN_PAGE_COPY } from "@/features/run/run-page-copy";
 
 export type PrimaryAction = {
   label: string;
@@ -10,16 +11,16 @@ const WORKSHEET_STAGES = new Set<ValidationStage>(["problem_clarity"]);
 function stageHref(base: string, stage: ValidationStage, nextAction: string): string {
   if (WORKSHEET_STAGES.has(stage)) return `${base}/worksheet`;
   if (stage === "problem_evidence" && nextAction.toLowerCase().includes("interview")) {
-    return `${base}?plan_interview=1`;
+    return `${base}/validation?log_interview=1`;
   }
   return `${base}/validation#stage-${stage}`;
 }
 
 function stageLabel(stage: ValidationStage, nextAction: string): string {
   const lower = nextAction.toLowerCase();
-  if (stage === "problem_clarity") return "Edit worksheet";
+  if (stage === "problem_clarity") return "Edit pitch";
   if (stage === "problem_evidence") {
-    return lower.includes("interview") ? "Plan interview" : "Add evidence";
+    return lower.includes("interview") ? "Log interview" : "Add evidence";
   }
   if (stage === "solution_evidence") {
     if (lower.includes("run your experiment")) return "Continue experiment";
@@ -41,7 +42,7 @@ export function derivePrimaryAction(
 
   if (!overview) {
     if (lifecycle === "draft") {
-      return { label: "Edit worksheet", href: `${base}/worksheet` };
+      return { label: "Edit pitch", href: `${base}/worksheet` };
     }
     return { label: "Go to validation", href: `${base}/validation` };
   }
@@ -52,11 +53,11 @@ export function derivePrimaryAction(
   }
 
   if (overview.readiness.can_run_judges) {
-    return { label: "Run judges", href: `${base}/judges` };
+    return { label: RUN_PAGE_COPY.startReview, href: `${base}/judges` };
   }
 
   if (lifecycle === "judged" || lifecycle === "iterating") {
-    return { label: "Revise worksheet", href: `${base}/worksheet?revise=1` };
+    return { label: RUN_PAGE_COPY.revisePitch, href: `${base}/worksheet?revise=1` };
   }
 
   const nextStage = overview.checklist.next_stage;
@@ -69,7 +70,7 @@ export function derivePrimaryAction(
   }
 
   if (lifecycle === "draft") {
-    return { label: "Edit worksheet", href: `${base}/worksheet` };
+    return { label: "Edit pitch", href: `${base}/worksheet` };
   }
 
   return { label: "Go to validation", href: `${base}/validation` };

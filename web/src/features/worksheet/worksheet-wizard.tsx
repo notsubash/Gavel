@@ -65,7 +65,7 @@ export function WorksheetWizard() {
     mutationFn: createWorkspace,
     onSuccess: (data) => {
       toast.success("Workspace saved");
-      router.push(`/workspaces/${data.workspace.id}?plan_interview=1`);
+      router.push(`/workspaces/${data.workspace.id}/validation?log_interview=1`);
     },
     onError: (err) => {
       const msg =

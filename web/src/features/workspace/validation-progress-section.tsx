@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-
 import type { ChecklistItem } from "@/lib/api/workspaces";
 import { cn } from "@/lib/utils";
 
@@ -10,8 +8,9 @@ type ValidationProgressSectionProps = {
   items: ChecklistItem[];
 };
 
+/** Progress only — not alternate CTAs (Phase 1). */
 export function ValidationProgressSection({
-  workspaceId,
+  workspaceId: _workspaceId,
   items,
 }: ValidationProgressSectionProps) {
   const done = items.filter((i) => i.completed).length;
@@ -43,20 +42,18 @@ export function ValidationProgressSection({
             style={{ width: `${pct}%` }}
           />
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5" aria-label="Validation stages">
           {items.map((item) => (
-            <Link
+            <span
               key={item.stage}
-              href={`/workspaces/${workspaceId}/validation#stage-${item.stage}`}
               title={item.label}
               className={cn(
-                "inline-flex min-h-11 items-center rounded-ui px-2 py-1 font-sans text-xs transition-colors",
-                "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta",
-                item.completed ? "bg-pass/15 text-pass hover:bg-pass/25" : "bg-paper-2 text-ink-muted hover:bg-paper hover:text-ink",
+                "inline-flex min-h-8 items-center rounded-ui px-2 py-1 font-sans text-xs",
+                item.completed ? "bg-pass/15 text-pass" : "bg-paper-2 text-ink-muted",
               )}
             >
               {item.stage.replace(/_/g, " ")}
-            </Link>
+            </span>
           ))}
         </div>
       </div>

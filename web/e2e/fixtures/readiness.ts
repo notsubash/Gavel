@@ -43,7 +43,7 @@ export async function createLaunchReadyWorkspace(
 
 export async function openReadinessGate(page: Page, workspaceId: string): Promise<void> {
   await page.goto(`/workspaces/${workspaceId}/judges`);
-  await page.getByRole("button", { name: "Launch roast" }).click();
+  await page.getByRole("button", { name: "Start review" }).click();
   await expect(page.getByRole("dialog", { name: "Readiness gate" })).toBeVisible();
 }
 
@@ -54,7 +54,7 @@ export async function launchFromGate(
   if (options.override) {
     await page.getByLabel(/override readiness gate/i).check();
   }
-  await page.getByRole("button", { name: "Launch judges" }).click();
+  await page.getByRole("button", { name: "Start review" }).click();
   await expect(page).toHaveURL(/\/run\/[0-9a-f-]+$/);
   const match = page.url().match(/\/run\/([^/?#]+)/);
   expect(match?.[1]).toBeTruthy();

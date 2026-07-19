@@ -8,7 +8,7 @@ import {
 } from "../fixtures/worksheet";
 
 test.describe("workspace creation and navigation", { tag: "@core" }, () => {
-  test("creates a workspace through the guided worksheet and lands on overview", async ({
+  test("creates a workspace through the guided worksheet and lands on validation", async ({
     page,
   }) => {
     const name = `E2E Create ${Date.now()}`;
@@ -17,10 +17,9 @@ test.describe("workspace creation and navigation", { tag: "@core" }, () => {
     await fillWorksheetForm(page, { working_name: name });
     await page.getByRole("button", { name: "Save workspace" }).click();
 
-    await expect(page).toHaveURL(/\/workspaces\/[0-9a-f-]+\?plan_interview=1$/);
-    await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();
-    await expect(page.getByText("Version 1")).toBeVisible();
-    await expectWorkspaceTab(page, "Overview");
+    await expect(page).toHaveURL(/\/workspaces\/[0-9a-f-]+\/validation(\?log_interview=1)?$/);
+    await expect(page.getByRole("dialog", { name: /interview/i })).toBeVisible();
+    await expectWorkspaceTab(page, "Validation");
   });
 
   test("shows validation errors when required worksheet fields are empty", async ({ page }) => {

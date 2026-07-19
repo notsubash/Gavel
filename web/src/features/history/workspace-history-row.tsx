@@ -73,6 +73,8 @@ function WorkspaceNextActionLink({
   const statusAction = deriveNextActionFromStatus({
     run_id: workspace.latestRunId,
     status: workspace.latestStatus,
+    workspace_id: workspace.persistedWorkspaceId,
+    verdict_summary: workspace.verdictSummary,
   });
 
   const panelPending = shouldFetch && panelQuery.isLoading && !panelQuery.data;
@@ -82,6 +84,16 @@ function WorkspaceNextActionLink({
           workspace.latestRunId,
           workspace.latestStatus,
           panelQuery.data.verdicts,
+          {
+            workspaceId: workspace.persistedWorkspaceId,
+            verdictSummary: workspace.verdictSummary
+              ? {
+                  pass: workspace.verdictSummary.pass ?? 0,
+                  fail: workspace.verdictSummary.fail ?? 0,
+                  conditional: workspace.verdictSummary.conditional ?? 0,
+                }
+              : null,
+          },
         )
       : statusAction;
 

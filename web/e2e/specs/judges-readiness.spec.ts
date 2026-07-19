@@ -36,7 +36,7 @@ test.describe.serial("readiness gate and judges launch", { tag: "@core" }, () =>
       page.getByRole("listitem", { name: /Failed:.*pricing hypothesis/i }),
     ).toBeVisible();
     await expect(page.getByLabel(/override readiness gate/i)).toBeVisible();
-    await expect(page.getByRole("button", { name: "Launch judges" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Start review" })).toBeDisabled();
   });
 
   test("launches with readiness override when checks fail", async ({ page }) => {

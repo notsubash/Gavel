@@ -343,6 +343,7 @@ function RunSheetContent({
                 : undefined
             }
             runId={runId}
+            workspaceId={workspaceId}
           />
           <DebateConsequenceBlock
             structuredSynthesis={stream.structuredSynthesis}
@@ -422,7 +423,6 @@ function RunSheetContent({
     appeal: (
       <AppealSection
         completed={status === "completed"}
-        baselineVerdicts={revealedVerdicts}
         appeal={appeal}
         confidenceBefore={confidenceBefore}
         confidenceSnapshotBefore={confidenceSnapshotBefore}

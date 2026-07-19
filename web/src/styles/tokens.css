@@ -34,13 +34,20 @@
   --info: #0369a1;
   --ai-processing: #5b21b6;
 
-  /* Judge accents (muted for document tone) */
-  --judge-vc: #475569;
-  --judge-engineer: #0369a1;
-  --judge-pm: #5b21b6;
-  --judge-customer: #15803d;
-  --judge-competitor: #b91c1c;
-  --judge-moderator: #0f172a;
+  /* Assumption lifecycle (kanban) — AA on paper, tint-safe at /5–/10 */
+  --status-untested: #64748b; /* slate — not yet probed */
+  --status-testing: #0369a1; /* blue — in flight */
+  --status-supported: #15803d; /* green — evidence for */
+  --status-contradicted: #b91c1c; /* red — evidence against */
+  --status-retired: #94a3b8; /* muted — parked */
+
+  /* Judge accents — five distinct lenses (AA on paper) */
+  --judge-vc: #b45309; /* amber — fundability / money */
+  --judge-engineer: #0369a1; /* blue — feasibility */
+  --judge-pm: #7c3aed; /* violet — product-market fit */
+  --judge-customer: #15803d; /* green — willingness to pay */
+  --judge-competitor: #b91c1c; /* red — defensibility */
+  --judge-moderator: #0f172a; /* ink — synthesis */
 
   /* Radii */
   --radius-0: 0px;

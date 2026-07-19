@@ -11,6 +11,8 @@ from fastapi.responses import StreamingResponse
 from api.deps import build_idea_preview, get_app_settings, load_run_workspace_context
 from api.run_manager import RunManager, get_run_manager
 from api.schemas import (
+    ActivityDay,
+    ActivityResponse,
     ApiEventEnvelope,
     AppealJudgeOutcomeResponse,
     AppealRequest,
@@ -122,6 +124,19 @@ def create_run(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return RunCreatedResponse(run_id=record.run_id)
+
+
+@router.get("/activity", response_model=ActivityResponse)
+def get_activity(
+    manager: Annotated[RunManager, Depends(get_run_manager)],
+) -> ActivityResponse:
+    from api import workspace_store
+
+    counts = workspace_store.get_workspace_store().list_activity_day_counts()
+    for day, n in manager.list_activity_day_counts().items():
+        counts[day] = counts.get(day, 0) + n
+    days = [ActivityDay(date=day, count=count) for day, count in sorted(counts.items())]
+    return ActivityResponse(days=days, total=sum(counts.values()))
 
 
 @router.get("/runs", response_model=RunListResponse)

@@ -1,13 +1,16 @@
 import { test, expect } from "../fixtures/test";
 
 test.describe("smoke", { tag: "@core" }, () => {
-  test("home redirects to new workspace worksheet", async ({ page }) => {
+  test("home shows the landing page and links to the worksheet", async ({ page }) => {
     await page.goto("/");
-    await expect(page).toHaveURL(/\/workspaces\/new$/);
     await expect(
-      page.getByRole("heading", { name: "Idea validation worksheet" }),
+      page.getByRole("heading", { name: "Put your startup idea on trial." }),
     ).toBeVisible();
-    await expect(page.getByRole("group", { name: "Input mode" })).toBeVisible();
+    await expect(page.getByText("Your Gavel trail")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Roast my idea" })).toHaveAttribute(
+      "href",
+      "/workspaces/new",
+    );
   });
 
   test("sidebar reports API health", async ({ page }) => {
@@ -22,12 +25,12 @@ test.describe("smoke", { tag: "@core" }, () => {
 
     await mainNav.getByRole("link", { name: "Workspaces" }).click();
     await expect(page).toHaveURL(/\/workspaces$/);
-    await expect(page.getByRole("heading", { name: "Your startup ideas" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your ideas on trial" })).toBeVisible();
 
     await mainNav.getByRole("link", { name: "History" }).click();
     await expect(page).toHaveURL(/\/history$/);
     await expect(
-      page.getByRole("heading", { name: "Startups you're iterating" }),
+      page.getByRole("heading", { name: "Ideas you've put on trial" }),
     ).toBeVisible();
 
     await mainNav.getByRole("link", { name: "Settings" }).click();

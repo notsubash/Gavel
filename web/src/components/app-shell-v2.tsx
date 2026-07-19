@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { GavelLogo } from "@/components/gavel-logo";
 import { HealthStatus } from "@/components/health-status";
 import { heatCtaClass } from "@/lib/cta-classes";
 import { cn } from "@/lib/utils";
@@ -68,7 +69,7 @@ function NavLink({
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta",
         compact ? "min-h-11 flex-col justify-center gap-1 px-2 py-2 text-meta" : "min-h-11 px-3 py-2",
         active
-          ? "bg-paper-2 text-ink shadow-[inset_3px_0_0_0_var(--cta)]"
+          ? "bg-cta/10 text-cta shadow-[inset_3px_0_0_0_var(--cta)]"
           : "text-ink-muted hover:bg-paper-2 hover:text-ink",
       )}
     >
@@ -85,7 +86,7 @@ function ActiveRunLink({ runId, compact = false }: { runId: string; compact?: bo
       aria-current="page"
       className={cn(
         "flex items-center gap-3 rounded-ui font-sans text-sm font-medium",
-        "bg-paper-2 text-ink shadow-[inset_3px_0_0_0_var(--cta)]",
+        "bg-cta/10 text-cta shadow-[inset_3px_0_0_0_var(--cta)]",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta",
         compact
           ? "min-h-11 min-w-0 flex-1 flex-col justify-center gap-1 px-2 py-2 text-meta"
@@ -114,13 +115,13 @@ export function AppSidebar({ className }: { className?: string }) {
     >
       <div className="border-b border-rule-soft px-4 py-4">
         <Link
-          href="/workspaces"
-          className="font-sans text-base font-semibold tracking-tight text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta"
+          href="/"
+          className="inline-flex items-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta"
         >
-          Gavel
+          <GavelLogo size={32} showName />
         </Link>
         <p className="mt-1 font-sans text-meta tracking-[var(--shell-nav-meta-tracking)] text-ink-subtle">
-          Idea validation
+          Ideas on trial
         </p>
       </div>
 

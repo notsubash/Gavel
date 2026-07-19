@@ -32,7 +32,7 @@ export function WorkspaceNav({ workspaceId }: { workspaceId: string }) {
               "inline-flex min-h-11 items-center rounded-ui px-3 font-sans text-sm font-medium transition-colors duration-200",
               "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta",
               active
-                ? "bg-ink text-paper"
+                ? "bg-cta text-cta-fg"
                 : "text-ink-muted hover:bg-paper-2 hover:text-ink",
             )}
           >

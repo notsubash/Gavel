@@ -322,6 +322,18 @@ class RunStore:
             )
         return recovered
 
+    def list_activity_day_counts(self) -> dict[str, int]:
+        with self._lock:
+            rows = self._conn.execute(
+                """
+                SELECT substr(created_at, 1, 10) AS day, COUNT(*) AS n
+                FROM runs
+                WHERE created_at IS NOT NULL AND length(substr(created_at, 1, 10)) = 10
+                GROUP BY day
+                """
+            ).fetchall()
+        return {day: int(n) for day, n in rows}
+
     @staticmethod
     def _row_to_envelope(run_id: str, row: tuple) -> ApiEventEnvelope:
         sequence, event_type, payload_json, created_at = row

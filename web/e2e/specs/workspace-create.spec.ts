@@ -55,7 +55,7 @@ test.describe("workspace creation and navigation", { tag: "@core" }, () => {
     const workspaceId = detail.workspace.id;
 
     await page.goto("/workspaces");
-    await expect(page.getByRole("heading", { name: "Your startup ideas" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your ideas on trial" })).toBeVisible();
     await expect(page.getByRole("link", { name })).toBeVisible();
 
     await page.getByRole("link", { name }).click();

@@ -77,13 +77,13 @@ export function WorkspaceList() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="font-sans text-meta font-semibold uppercase tracking-widest text-cta">
-            Workspaces
+            Gavel
           </p>
           <h1 className="mt-2 font-sans text-display-home font-semibold tracking-tight text-ink md:text-display-md">
-            Your startup ideas
+            Your ideas on trial
           </h1>
           <p className="mt-2 max-w-prose font-sans text-body text-ink-muted">
-            Structured worksheets, validation evidence, and judge critiques in one place.
+            Each workspace is one idea in Gavel — worksheet, evidence, and judge critiques.
           </p>
         </div>
         <Link href="/workspaces/new" className={cn(heatCtaClass, "inline-flex gap-2")}>

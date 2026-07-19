@@ -26,7 +26,7 @@ test.describe.serial("history, exports, and settings", { tag: "@extended" }, () 
 
   test("lists completed runs grouped by workspace on /history", async ({ page }) => {
     await page.goto("/history");
-    await expect(page.getByRole("heading", { name: "Startups you're iterating" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Ideas you've put on trial" })).toBeVisible();
     await expect(page.getByText(workingName)).toBeVisible();
     await expect(page.getByRole("link", { name: workingName })).toHaveAttribute(
       "href",

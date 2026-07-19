@@ -207,3 +207,13 @@ class SimilarRunItem(BaseModel):
 
 class SimilarRunsResponse(BaseModel):
     runs: list[SimilarRunItem]
+
+
+class ActivityDay(BaseModel):
+    date: str
+    count: int = Field(ge=0)
+
+
+class ActivityResponse(BaseModel):
+    days: list[ActivityDay]
+    total: int = Field(ge=0)

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 
 import {
   DEFAULT_RUN_FOLD_VARIANT,
@@ -11,6 +11,7 @@ import {
 } from "@/features/run/run-fold-layout";
 import { SETTINGS_COPY } from "@/features/run/run-page-copy";
 import {
+  ADVANCED_SETTINGS_STORAGE_KEY,
   DEFAULT_ADVANCED_SETTINGS,
   loadAdvancedSettings,
   saveAdvancedSettings,
@@ -27,6 +28,32 @@ import {
 } from "@/ui/select";
 import { Slider } from "@/ui/slider";
 import { Switch } from "@/ui/switch";
+
+const SETTINGS_CHANGED = "gavel-advanced-settings";
+
+// ponytail: cache required — loadAdvancedSettings() returns a new object each call
+let snapshot: AdvancedSettings | null = null;
+
+function subscribeSettings(onChange: () => void) {
+  const refresh = () => {
+    snapshot = loadAdvancedSettings();
+    onChange();
+  };
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === ADVANCED_SETTINGS_STORAGE_KEY || event.key === null) refresh();
+  };
+  window.addEventListener("storage", onStorage);
+  window.addEventListener(SETTINGS_CHANGED, refresh);
+  return () => {
+    window.removeEventListener("storage", onStorage);
+    window.removeEventListener(SETTINGS_CHANGED, refresh);
+  };
+}
+
+function getSettingsSnapshot() {
+  snapshot ??= loadAdvancedSettings();
+  return snapshot;
+}
 
 function SettingsSection({
   title,
@@ -47,11 +74,15 @@ function SettingsSection({
 }
 
 export function AdvancedSettingsPanel() {
-  const [settings, setSettings] = useState<AdvancedSettings>(() => loadAdvancedSettings());
+  const settings = useSyncExternalStore(
+    subscribeSettings,
+    getSettingsSnapshot,
+    () => DEFAULT_ADVANCED_SETTINGS,
+  );
 
   const patch = (partial: Partial<AdvancedSettings>) => {
-    const next = saveAdvancedSettings(partial);
-    setSettings(next);
+    snapshot = saveAdvancedSettings(partial);
+    window.dispatchEvent(new Event(SETTINGS_CHANGED));
   };
 
   const foldOptions = Object.entries(RUN_FOLD_VARIANTS) as [

@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 
 import { AppToaster } from "@/components/app-toaster";
-import { AppLayout } from "@/components/app-layout";
 import { SkipLink } from "@/components/app-shell";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { QueryProvider } from "@/components/query-provider";
@@ -27,6 +26,9 @@ export const metadata: Metadata = {
   title: "Gavel",
   description:
     "Five AI judges review your startup idea, debate it, and deliver a decision.",
+  icons: {
+    icon: "/logo-color.svg",
+  },
 };
 
 export default function RootLayout({
@@ -34,7 +36,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-
   return (
     <html
       lang="en"
@@ -44,9 +45,7 @@ export default function RootLayout({
       <body className="flex min-h-full flex-col antialiased">
         <SkipLink />
         <QueryProvider>
-          <ErrorBoundary>
-            <AppLayout>{children}</AppLayout>
-          </ErrorBoundary>
+          <ErrorBoundary>{children}</ErrorBoundary>
         </QueryProvider>
         <AppToaster />
       </body>

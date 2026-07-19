@@ -17,6 +17,11 @@ import {
   validationOverviewQueryKey,
   workspaceQueryKey,
 } from "@/lib/api/workspaces";
+import {
+  ASSUMPTION_STATUS_LABEL,
+  ASSUMPTION_STATUS_STYLE,
+} from "@/features/validation/validation-labels";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/ui/badge";
 import { Card } from "@/ui/card";
 import { Skeleton } from "@/ui/skeleton";
@@ -208,16 +213,24 @@ export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
             Top risky assumptions
           </h2>
           <ul className="mt-3 space-y-2">
-            {(overview?.top_assumptions ?? assumptions.slice(0, 3)).map((a) => (
+            {(overview?.top_assumptions ?? assumptions.slice(0, 3)).map((a) => {
+              const style = ASSUMPTION_STATUS_STYLE[a.status];
+              return (
               <li key={a.id}>
-                <Card className="p-4">
+                <Card className={cn("border-l-4 p-4", style.accent, style.tint)}>
                   <p className="font-sans text-body text-ink">{a.statement}</p>
-                  <p className="mt-1 font-sans text-meta text-ink-muted">
-                    {a.type} · {a.status}
+                  <p className="mt-1 flex items-center gap-1.5 font-sans text-meta text-ink-muted">
+                    <span>{a.type}</span>
+                    <span aria-hidden>·</span>
+                    <span className={cn("size-1.5 rounded-full", style.dot)} aria-hidden />
+                    <span className={cn("font-semibold", style.text)}>
+                      {ASSUMPTION_STATUS_LABEL[a.status]}
+                    </span>
                   </p>
                 </Card>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </section>
       )}

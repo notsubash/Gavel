@@ -18,7 +18,12 @@ import {
   SelectValue,
 } from "@/ui/select";
 
-import { ASSUMPTION_STATUS_LABEL, humanizeEnum } from "./validation-labels";
+import {
+  ASSUMPTION_STATUS_LABEL,
+  ASSUMPTION_STATUS_STYLE,
+  humanizeEnum,
+} from "./validation-labels";
+import { cn } from "@/lib/utils";
 import type { ValidationMutations } from "./use-validation-mutations";
 
 function AssumptionStatusControl({
@@ -133,15 +138,20 @@ export function AssumptionBoard({
         role="list"
         aria-label="Assumption kanban columns"
       >
-        {ASSUMPTION_COLUMNS.map((col) => (
+        {ASSUMPTION_COLUMNS.map((col) => {
+          const style = ASSUMPTION_STATUS_STYLE[col];
+          const count = byColumn[col].length;
+          return (
           <div key={col} role="listitem" className="min-w-0 space-y-2">
-            <h3 className="font-sans text-meta font-semibold uppercase tracking-wide text-ink-subtle">
-              {ASSUMPTION_STATUS_LABEL[col]}
+            <h3 className="flex items-center gap-2 font-sans text-meta font-semibold uppercase tracking-wide">
+              <span className={cn("size-2 shrink-0 rounded-full", style.dot)} aria-hidden />
+              <span className={style.text}>{ASSUMPTION_STATUS_LABEL[col]}</span>
+              <span className="ml-auto font-mono text-xs tabular-nums text-ink-subtle">{count}</span>
             </h3>
             <ul className="space-y-2">
               {byColumn[col].map((assumption) => (
                 <li key={assumption.id}>
-                  <Card className="p-3">
+                  <Card className={cn("border-l-4 p-3", style.accent, style.tint)}>
                     <p className="font-sans text-sm text-ink">{assumption.statement}</p>
                     <p className="mt-1 font-sans text-xs text-ink-muted">
                       Type: {humanizeEnum(assumption.type)}
@@ -162,7 +172,8 @@ export function AssumptionBoard({
               )}
             </ul>
           </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

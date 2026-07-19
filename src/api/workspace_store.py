@@ -68,7 +68,8 @@ CREATE TABLE IF NOT EXISTS assumptions (
     confidence REAL NOT NULL DEFAULT 0.0,
     disconfirming_criteria TEXT,
     worksheet_version_id TEXT,
-    sort_order INTEGER NOT NULL DEFAULT 0
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS workspace_runs (
@@ -105,7 +106,8 @@ CREATE TABLE IF NOT EXISTS experiments (
     result TEXT,
     decision TEXT NOT NULL DEFAULT 'pending',
     status TEXT NOT NULL DEFAULT 'planned',
-    worksheet_version_id TEXT
+    worksheet_version_id TEXT,
+    created_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS evidence (
@@ -118,7 +120,8 @@ CREATE TABLE IF NOT EXISTS evidence (
     occurred_at TEXT,
     assumption_ids_json TEXT NOT NULL DEFAULT '[]',
     experiment_id TEXT,
-    worksheet_version_id TEXT
+    worksheet_version_id TEXT,
+    created_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS interview_notes (
@@ -134,7 +137,8 @@ CREATE TABLE IF NOT EXISTS interview_notes (
     pain_cost TEXT,
     objections TEXT,
     assumption_ids_json TEXT NOT NULL DEFAULT '[]',
-    ai_summary TEXT
+    ai_summary TEXT,
+    created_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_experiments_workspace
@@ -160,6 +164,7 @@ class WorkspaceStore:
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(_SCHEMA)
         self._migrate_experiments_version_column()
+        self._migrate_created_at_columns()
         self._conn.commit()
 
     def _migrate_experiments_version_column(self) -> None:
@@ -167,6 +172,13 @@ class WorkspaceStore:
             self._conn.execute("ALTER TABLE experiments ADD COLUMN worksheet_version_id TEXT")
         except sqlite3.OperationalError:
             pass
+
+    def _migrate_created_at_columns(self) -> None:
+        for table in ("assumptions", "experiments", "evidence", "interview_notes"):
+            try:
+                self._conn.execute(f"ALTER TABLE {table} ADD COLUMN created_at TEXT")
+            except sqlite3.OperationalError:
+                pass
 
     def create_workspace(
         self, worksheet: IdeaWorksheet
@@ -204,8 +216,8 @@ class WorkspaceStore:
                 """
                 INSERT INTO assumptions
                     (id, workspace_id, statement, type, status, confidence,
-                     disconfirming_criteria, worksheet_version_id, sort_order)
-                VALUES (?, ?, ?, 'demand', 'untested', 0.0, ?, ?, 0)
+                     disconfirming_criteria, worksheet_version_id, sort_order, created_at)
+                VALUES (?, ?, ?, 'demand', 'untested', 0.0, ?, ?, 0, ?)
                 """,
                 (
                     assumption_id,
@@ -213,6 +225,7 @@ class WorkspaceStore:
                     worksheet.top_risky_assumption,
                     worksheet.disconfirming_evidence,
                     version_id,
+                    now.isoformat(),
                 ),
             )
             self._conn.commit()
@@ -518,6 +531,36 @@ class WorkspaceStore:
             )
             self._conn.commit()
 
+    def list_activity_day_counts(self) -> dict[str, int]:
+        """Day-bucketed validation actions for the contribution graph."""
+        with self._lock:
+            rows = self._conn.execute(
+                """
+                SELECT day, COUNT(*) AS n FROM (
+                    SELECT substr(created_at, 1, 10) AS day FROM worksheet_versions
+                    UNION ALL
+                    SELECT substr(created_at, 1, 10) FROM run_handoffs
+                    UNION ALL
+                    SELECT substr(COALESCE(occurred_at, created_at), 1, 10)
+                    FROM evidence
+                    WHERE COALESCE(occurred_at, created_at) IS NOT NULL
+                    UNION ALL
+                    SELECT substr(COALESCE(occurred_at, created_at), 1, 10)
+                    FROM interview_notes
+                    WHERE COALESCE(occurred_at, created_at) IS NOT NULL
+                    UNION ALL
+                    SELECT substr(created_at, 1, 10) FROM assumptions
+                    WHERE created_at IS NOT NULL
+                    UNION ALL
+                    SELECT substr(created_at, 1, 10) FROM experiments
+                    WHERE created_at IS NOT NULL
+                )
+                WHERE day IS NOT NULL AND length(day) = 10
+                GROUP BY day
+                """
+            ).fetchall()
+        return {day: int(n) for day, n in rows}
+
     def insert_assumptions(
         self, workspace_id: str, assumptions: list[Assumption]
     ) -> list[Assumption]:
@@ -528,14 +571,15 @@ class WorkspaceStore:
             ).fetchone()[0]
             next_order = int(existing) + 1
             saved: list[Assumption] = []
+            now = datetime.now(UTC).isoformat()
             for item in assumptions:
                 assumption_id = item.id or str(uuid4())
                 self._conn.execute(
                     """
                     INSERT INTO assumptions
                         (id, workspace_id, statement, type, status, confidence,
-                         disconfirming_criteria, worksheet_version_id, sort_order)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         disconfirming_criteria, worksheet_version_id, sort_order, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         assumption_id,
@@ -547,6 +591,7 @@ class WorkspaceStore:
                         item.disconfirming_criteria,
                         item.worksheet_version_id,
                         next_order,
+                        now,
                     ),
                 )
                 saved.append(
@@ -701,12 +746,13 @@ class WorkspaceStore:
                 (workspace_id,),
             ).fetchone()[0]
             sort_order = int(existing) + 1
+            now = datetime.now(UTC).isoformat()
             self._conn.execute(
                 """
                 INSERT INTO assumptions
                     (id, workspace_id, statement, type, status, confidence,
-                     disconfirming_criteria, worksheet_version_id, sort_order)
-                VALUES (?, ?, ?, ?, 'untested', 0.0, ?, ?, ?)
+                     disconfirming_criteria, worksheet_version_id, sort_order, created_at)
+                VALUES (?, ?, ?, ?, 'untested', 0.0, ?, ?, ?, ?)
                 """,
                 (
                     assumption_id,
@@ -716,6 +762,7 @@ class WorkspaceStore:
                     body.disconfirming_criteria,
                     version_id,
                     sort_order,
+                    now,
                 ),
             )
             self._conn.commit()
@@ -835,14 +882,15 @@ class WorkspaceStore:
         experiment_id = str(uuid4())
         version = self.get_current_version(workspace_id)
         version_id = version.id if version else None
+        now = datetime.now(UTC).isoformat()
         with self._lock:
             self._conn.execute(
                 """
                 INSERT INTO experiments
                     (id, workspace_id, title, hypothesis, assumption_id, method, target,
                      pass_fail_threshold, start_date, due_date, result, decision, status,
-                     worksheet_version_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 'pending', ?, ?)
+                     worksheet_version_id, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 'pending', ?, ?, ?)
                 """,
                 (
                     experiment_id,
@@ -857,6 +905,7 @@ class WorkspaceStore:
                     body.due_date,
                     body.status,
                     version_id,
+                    now,
                 ),
             )
             self._conn.commit()
@@ -964,13 +1013,14 @@ class WorkspaceStore:
         version = self.get_current_version(workspace_id)
         version_id = body.worksheet_version_id or (version.id if version else None)
         occurred = body.occurred_at.isoformat() if body.occurred_at else None
+        now = datetime.now(UTC).isoformat()
         with self._lock:
             self._conn.execute(
                 """
                 INSERT INTO evidence
                     (id, workspace_id, type, strength, source, content, occurred_at,
-                     assumption_ids_json, experiment_id, worksheet_version_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     assumption_ids_json, experiment_id, worksheet_version_id, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     evidence_id,
@@ -983,6 +1033,7 @@ class WorkspaceStore:
                     json.dumps(assumption_ids),
                     body.experiment_id,
                     version_id,
+                    now,
                 ),
             )
             self._conn.commit()
@@ -1083,14 +1134,15 @@ class WorkspaceStore:
         assumption_ids = self._require_assumption_ids(workspace_id, body.assumption_ids)
         interview_id = str(uuid4())
         occurred = body.occurred_at.isoformat() if body.occurred_at else None
+        now = datetime.now(UTC).isoformat()
         with self._lock:
             self._conn.execute(
                 """
                 INSERT INTO interview_notes
                     (id, workspace_id, person_label, segment, occurred_at, context, notes,
                      quotes_json, workaround, pain_cost, objections, assumption_ids_json,
-                     ai_summary)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     ai_summary, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     interview_id,
@@ -1106,6 +1158,7 @@ class WorkspaceStore:
                     body.objections,
                     json.dumps(assumption_ids),
                     body.ai_summary,
+                    now,
                 ),
             )
             self._conn.commit()

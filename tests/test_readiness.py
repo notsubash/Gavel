@@ -8,6 +8,7 @@ from api.workspace_store import WorkspaceStore
 from validation.checklist import build_checklist
 from validation.confidence import compute_confidence
 from validation.lifecycle import compute_lifecycle
+from validation.llm.readiness import _deterministic_briefing, readiness_briefing
 from validation.readiness import evaluate_readiness
 from validation.schemas import (
     CreateEvidenceRequest,
@@ -93,6 +94,48 @@ class ReadinessTest(unittest.TestCase):
         )
         self.assertTrue(result.can_run_judges)
         self.assertEqual(result.level, "speculative")
+
+    def test_deterministic_briefing_covers_levels(self):
+        speculative = evaluate_readiness(SAMPLE, [])
+        text = _deterministic_briefing(speculative)
+        self.assertGreaterEqual(len(text), 20)
+        self.assertIn("speculative", text.lower())
+
+        ready = evaluate_readiness(
+            SAMPLE,
+            [
+                Evidence(
+                    id="e1",
+                    workspace_id="w1",
+                    type="interview_quote",
+                    content="Founder spends 6 hours weekly on validation spreadsheets.",
+                )
+            ],
+        )
+        self.assertIn("ready to roast", _deterministic_briefing(ready).lower())
+
+    def test_briefing_falls_back_when_structured_output_is_none(self):
+        readiness = evaluate_readiness(SAMPLE, [])
+
+        class _FakeStructured:
+            def invoke(self, _messages):
+                return None
+
+        class _FakeModel:
+            def with_structured_output(self, _schema):
+                return _FakeStructured()
+
+        import validation.llm.readiness as mod
+
+        original = mod.build_assist_model
+        mod.build_assist_model = lambda: _FakeModel()
+        try:
+            out = readiness_briefing(SAMPLE, readiness)
+        finally:
+            mod.build_assist_model = original
+
+        self.assertGreaterEqual(len(out.briefing), 20)
+        self.assertIn("speculative", out.briefing.lower())
 
 
 class ChecklistTest(unittest.TestCase):

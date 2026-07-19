@@ -19,6 +19,11 @@
   --color-pass: var(--pass);
   --color-fail: var(--fail);
   --color-conditional: var(--conditional);
+  --color-status-untested: var(--status-untested);
+  --color-status-testing: var(--status-testing);
+  --color-status-supported: var(--status-supported);
+  --color-status-contradicted: var(--status-contradicted);
+  --color-status-retired: var(--status-retired);
   --color-judge-vc: var(--judge-vc);
   --color-judge-engineer: var(--judge-engineer);
   --color-judge-pm: var(--judge-pm);

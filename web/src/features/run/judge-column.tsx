@@ -146,7 +146,6 @@ function LegacyJudgeColumnBody({
 
 function CompactJudgeColumnBody({
   judgeId,
-  meta,
   verdict,
   baseline,
   scoreDelta,
@@ -155,7 +154,6 @@ function CompactJudgeColumnBody({
   evidenceAsk,
 }: {
   judgeId: JudgeId;
-  meta: (typeof JUDGE_META)[JudgeId];
   verdict: NonNullable<JudgeView["verdict"]>;
   baseline?: Verdict;
   scoreDelta?: number | null;
@@ -332,7 +330,6 @@ export function JudgeColumn({
       {compact ? (
         <CompactJudgeColumnBody
           judgeId={judgeId}
-          meta={meta}
           verdict={verdict}
           baseline={baselineVerdict}
           scoreDelta={scoreDelta}

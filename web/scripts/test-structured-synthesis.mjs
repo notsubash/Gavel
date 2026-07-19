@@ -5,11 +5,10 @@ import {
   collectRecommendedFixes,
   deriveNextActions,
   deriveWorkflowBrief,
-  parseDecisionVerdictProse,
   parseStructuredSynthesis,
   topPriorities,
 } from "../src/features/run/structured-synthesis.ts";
-import { assessRevoteOutputQuality, assessVerdictOutputQuality } from "../src/features/run/verdict-quality.ts";
+import { assessRevoteOutputQuality } from "../src/features/run/verdict-quality.ts";
 
 const STRUCTURED = {
   overall_recommendation: "ITERATE",

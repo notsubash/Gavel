@@ -52,7 +52,7 @@ export function buildContributionWeeksFromCounts(
   start.setUTCDate(start.getUTCDate() - (weeks * CONTRIBUTION_DAYS - 1));
 
   const grid: ContributionWeek[] = [];
-  let cursor = new Date(start);
+  const cursor = new Date(start);
   let total = 0;
 
   for (let weekIndex = 0; weekIndex < weeks; weekIndex++) {

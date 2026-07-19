@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import {
   DEFAULT_RUN_FOLD_VARIANT,
@@ -47,7 +47,11 @@ function SettingsSection({
 }
 
 export function AdvancedSettingsPanel() {
-  const [settings, setSettings] = useState<AdvancedSettings>(() => loadAdvancedSettings());
+  const [settings, setSettings] = useState<AdvancedSettings>(DEFAULT_ADVANCED_SETTINGS);
+
+  useEffect(() => {
+    setSettings(loadAdvancedSettings());
+  }, []);
 
   const patch = (partial: Partial<AdvancedSettings>) => {
     const next = saveAdvancedSettings(partial);

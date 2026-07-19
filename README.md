@@ -31,6 +31,8 @@ A founder workbench for stress-testing startup ideas. Capture a structured **Ide
 ```bash
 git clone https://github.com/notsubash/Gavel.git
 cd Gavel
+python -m venv .venv
+# Windows: .venv\Scripts\activate  |  macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 ollama pull qwen3.5:9b          # default chat model; override in .env
 ollama pull nomic-embed-text    # only if ENABLE_SEMANTIC_MEMORY=true
@@ -44,8 +46,8 @@ The `web/` frontend is the founder workbench. Start at `/workspaces/new` with th
 **Requirements:** Node.js 20+ · API on port 8000
 
 ```bash
-# Terminal 1 — API
-uvicorn api.app:app --app-dir src --reload --port 8000
+# Terminal 1 — API (use the venv python so optional LLM deps resolve)
+python -m uvicorn api.app:app --app-dir src --reload --port 8000
 
 # Terminal 2 — frontend
 cd web
@@ -69,7 +71,7 @@ Direct-submit reference UI: paste a pitch (optional details help judges), choose
 The FastAPI backend powers the Next.js app and any custom frontend:
 
 ```bash
-uvicorn api.app:app --app-dir src --reload --port 8000
+python -m uvicorn api.app:app --app-dir src --reload --port 8000
 ```
 
 Endpoints:

@@ -153,6 +153,7 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
       />
 
       <ValidationActionBar
+        overview={overviewQuery.data}
         mutations={mutations}
         onLogInterview={() => setInterviewOpen(true)}
         onAddEvidence={() => setEvidenceOpen(true)}
@@ -174,7 +175,7 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
           setEvidenceEditOpen(false);
           setEvidenceOpen(true);
           if (res.available) {
-            toast.success("Competitor scan ready — review before saving as evidence");
+            toast.success("Competitor research ready — save as evidence (Pitch keeps the short list)");
           } else {
             toast.error(res.suggested_evidence);
           }

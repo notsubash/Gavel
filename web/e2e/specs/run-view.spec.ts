@@ -66,14 +66,12 @@ test.describe.serial("live run view, SSE, and post-run actions", { tag: "@core" 
     await expect(page.locator('footer[aria-label="Run metrics"]')).toContainText(/0 tokens|Roast/i);
   });
 
-  test("shows post-roast handoff items on the judges page", async ({ page }) => {
+  test("shows post-roast handoff on the judges page", async ({ page }) => {
     await page.goto(`/workspaces/${workspaceId}/judges`);
     await expect(
-      page.getByRole("heading", { name: "Turn judge feedback into validation tasks" }),
+      page.getByRole("heading", { name: "Recommended tasks from last review" }),
     ).toBeVisible({ timeout: 30_000 });
-    await expect(
-      page.getByRole("button", { name: /Add as assumption|Log evidence|Start experiment/i }).first(),
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add recommended tasks" })).toBeVisible();
   });
 
   test("cancels a running stub run from the UI", async ({ page, request }) => {

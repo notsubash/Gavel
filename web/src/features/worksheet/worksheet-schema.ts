@@ -113,7 +113,8 @@ export const WORKSHEET_FIELDS: {
   {
     name: "competitors",
     label: "Competitors and alternatives",
-    prompt: "What else do people use instead? Include doing nothing.",
+    prompt:
+      "Short summary of alternatives (include doing nothing). On Case, Scan competitors logs research as evidence linked to this list.",
     example: "ChatGPT, Notion templates, Spreadsheets, Doing nothing",
   },
   {

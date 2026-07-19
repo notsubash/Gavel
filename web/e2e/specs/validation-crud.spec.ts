@@ -7,6 +7,7 @@ import {
   deleteAssumption,
   getValidationOverview,
   updateAssumption,
+  clickValidationAction,
 } from "../fixtures/validation";
 import { openWorkspaceTab } from "../fixtures/worksheet";
 
@@ -69,7 +70,7 @@ test.describe.serial("validation workbench CRUD", { tag: "@extended" }, () => {
       "Four founders confirmed they skip formal validation until after they ship a v1.";
 
     await page.goto(`/workspaces/${workspaceId}/validation`);
-    await page.getByRole("button", { name: "Add evidence" }).click();
+    await clickValidationAction(page, "Add evidence");
     await expect(page.getByRole("dialog", { name: "Add evidence" })).toBeVisible();
 
     await page.getByLabel("Content").fill(evidenceText);
@@ -85,7 +86,7 @@ test.describe.serial("validation workbench CRUD", { tag: "@extended" }, () => {
 
   test("blocks invalid interview submissions in the dialog", async ({ page }) => {
     await page.goto(`/workspaces/${workspaceId}/validation`);
-    await page.getByRole("button", { name: "Log interview" }).click();
+    await clickValidationAction(page, "Log interview");
 
     const dialog = page.getByRole("dialog", { name: "Interview note" });
     await expect(dialog).toBeVisible();
@@ -102,7 +103,7 @@ test.describe.serial("validation workbench CRUD", { tag: "@extended" }, () => {
       "Alex runs weekly customer calls and still tracks validation in scattered Notion pages.";
 
     await page.goto(`/workspaces/${workspaceId}/validation`);
-    await page.getByRole("button", { name: "Log interview" }).click();
+    await clickValidationAction(page, "Log interview");
 
     const dialog = page.getByRole("dialog", { name: "Interview note" });
     await dialog.getByLabel("Person").fill(person);

@@ -92,4 +92,46 @@ const activeExpOverview = {
 };
 assert.equal(derivePrimaryAction("abc", "testing", activeExpOverview).label, "Add evidence");
 
+function deriveValidationWorkbenchAction(overview) {
+  if (overview?.active_experiment) {
+    return { kind: "add_evidence", label: "Add evidence" };
+  }
+  const stage = overview?.checklist.next_stage;
+  const nextAction = overview?.checklist.next_action ?? "";
+  const lower = nextAction.toLowerCase();
+  if (stage === "problem_evidence" && lower.includes("interview")) {
+    return { kind: "log_interview", label: "Log interview" };
+  }
+  if (stage === "solution_evidence" && lower.includes("experiment")) {
+    return {
+      kind: "start_experiment",
+      label: lower.includes("run your experiment") ? "Continue experiment" : "Start experiment",
+    };
+  }
+  if (stage === "competition_moat") {
+    return { kind: "scan_competitors", label: "Map competitors" };
+  }
+  return { kind: "add_evidence", label: "Add evidence" };
+}
+
+assert.equal(deriveValidationWorkbenchAction(interviewOverview).kind, "log_interview");
+assert.equal(deriveValidationWorkbenchAction(activeExpOverview).kind, "add_evidence");
+assert.equal(
+  deriveValidationWorkbenchAction({
+    active_experiment: null,
+    checklist: { next_stage: "competition_moat", next_action: "Map competitors" },
+  }).kind,
+  "scan_competitors",
+);
+assert.equal(
+  deriveValidationWorkbenchAction({
+    active_experiment: null,
+    checklist: {
+      next_stage: "solution_evidence",
+      next_action: "Design an experiment to test: X",
+    },
+  }).label,
+  "Start experiment",
+);
+
 console.log("derive-primary-action: ok");

@@ -835,7 +835,7 @@ function DevGalleryContent() {
           launching={false}
         />
 
-        <PostRoastHandoff workspaceId="ws-demo" items={MOCK_HANDOFF_ITEMS} />
+        <PostRoastHandoff workspaceId="ws-demo" runId="run-demo" items={MOCK_HANDOFF_ITEMS} />
 
         <div className="w-full max-w-3xl space-y-6">
           <WorkspaceHistoryRow workspace={MOCK_STARTUP_WORKSPACE} />

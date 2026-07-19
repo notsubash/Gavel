@@ -6,20 +6,40 @@ import type { UseMutationResult } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 
 type ExportMutation = Pick<UseMutationResult<void, Error, void, unknown>, "mutate" | "isPending">;
+type WeeklyMutation = Pick<
+  UseMutationResult<
+    {
+      summary: string;
+      highlights: string[];
+      open_questions: string[];
+      evidence_count: number;
+    },
+    Error,
+    void,
+    unknown
+  >,
+  "mutate" | "isPending"
+>;
 
 type WorkspaceActionBarProps = {
   coachMutation: ExportMutation;
   exportMarkdownMutation: ExportMutation;
   exportBriefMutation: ExportMutation;
+  /** Phase 2: weekly review only after evidence exists */
+  weeklyMutation?: WeeklyMutation | null;
 };
 
 export function WorkspaceActionBar({
   coachMutation,
   exportMarkdownMutation,
   exportBriefMutation,
+  weeklyMutation = null,
 }: WorkspaceActionBarProps) {
   const busy =
-    coachMutation.isPending || exportMarkdownMutation.isPending || exportBriefMutation.isPending;
+    coachMutation.isPending ||
+    exportMarkdownMutation.isPending ||
+    exportBriefMutation.isPending ||
+    Boolean(weeklyMutation?.isPending);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -48,6 +68,14 @@ export function WorkspaceActionBar({
             pending={coachMutation.isPending}
             onClick={() => coachMutation.mutate()}
           />
+          {weeklyMutation ? (
+            <ActionMenuItem
+              label="Review week"
+              icon={<Sparkles className="size-4 text-ai-processing" aria-hidden />}
+              pending={weeklyMutation.isPending}
+              onClick={() => weeklyMutation.mutate()}
+            />
+          ) : null}
           <ActionMenuItem
             label="Export markdown"
             icon={<Download className="size-4" aria-hidden />}

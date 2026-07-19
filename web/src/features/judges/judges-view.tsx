@@ -102,8 +102,7 @@ export function JudgesView({ workspaceId }: { workspaceId: string }) {
         </p>
         <h1 className="font-sans text-display-home font-semibold tracking-tight text-ink">{workingName}</h1>
         <p className="max-w-prose font-sans text-body text-ink-muted">
-          Launch a five-judge roast when your worksheet is ready, then turn their evidence asks into
-          validation work.
+          Start a review when the case is ready. Recommended follow-ups land on Case validation.
         </p>
       </header>
 
@@ -168,8 +167,13 @@ export function JudgesView({ workspaceId }: { workspaceId: string }) {
         </div>
       ) : null}
 
-      {handoffQuery.data && handoffQuery.data.items.length > 0 ? (
-        <PostRoastHandoff workspaceId={workspaceId} items={handoffQuery.data.items} />
+      {handoffQuery.data && latestRunId && handoffQuery.data.items.length > 0 ? (
+        <PostRoastHandoff
+          key={latestRunId}
+          workspaceId={workspaceId}
+          runId={latestRunId}
+          items={handoffQuery.data.items}
+        />
       ) : null}
 
       <ReadinessGateModal

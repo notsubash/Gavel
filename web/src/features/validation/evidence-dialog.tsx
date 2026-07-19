@@ -110,7 +110,8 @@ export function EvidenceDialog({
 
         {competitorScanResult ? (
           <p className="font-sans text-xs text-ink-muted">
-            AI research draft — confirm links and strength before saving.
+            Competitor research draft for Case evidence — Pitch keeps the short alternatives list.
+            Confirm links and strength before saving.
           </p>
         ) : null}
 

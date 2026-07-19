@@ -3,13 +3,13 @@ export function ValidationPageChrome({ children }: { children: React.ReactNode }
     <div className="space-y-10">
       <header className="space-y-2">
         <p className="font-sans text-meta font-semibold uppercase tracking-widest text-cta">
-          Validation
+          Case
         </p>
         <h1 className="font-sans text-display-home font-semibold tracking-tight text-ink md:text-display-md">
-          Validation
+          Evidence
         </h1>
         <p className="max-w-prose font-sans text-body text-ink-muted">
-          Collect evidence, test assumptions, and decide what to learn next before judges.
+          Collect proof against the riskiest assumptions before you start a review.
         </p>
       </header>
 

@@ -1,5 +1,6 @@
-import { RunHistoryList } from "@/features/history/run-history-list";
+import { redirect } from "next/navigation";
 
+/** Phase 4: History merged into Ideas list. */
 export default function HistoryPage() {
-  return <RunHistoryList />;
+  redirect("/workspaces");
 }

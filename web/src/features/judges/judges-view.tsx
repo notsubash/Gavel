@@ -98,19 +98,19 @@ export function JudgesView({ workspaceId }: { workspaceId: string }) {
     <div className="space-y-8">
       <header className="space-y-2">
         <p className="font-sans text-meta font-semibold uppercase tracking-widest text-cta">
-          Judges
+          Reviews
         </p>
         <h1 className="font-sans text-display-home font-semibold tracking-tight text-ink">{workingName}</h1>
         <p className="max-w-prose font-sans text-body text-ink-muted">
-          Start a review when the case is ready. Recommended follow-ups land on Case validation.
+          Start a review when the case is ready. Recommended follow-ups land on Case evidence.
         </p>
       </header>
 
       <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="font-sans text-sm font-semibold text-ink">Ready to roast?</p>
+          <p className="font-sans text-sm font-semibold text-ink">Ready for review?</p>
           <p className="mt-1 font-sans text-sm text-ink-muted">
-            We check worksheet structure and evidence before judges run.
+            We check pitch structure and evidence before the panel runs.
           </p>
         </div>
         <Button type="button" onClick={() => setGateOpen(true)}>
@@ -119,7 +119,7 @@ export function JudgesView({ workspaceId }: { workspaceId: string }) {
       </Card>
 
       <section className="space-y-3">
-        <h2 className="font-sans text-section font-semibold text-ink">Run history</h2>
+        <h2 className="font-sans text-section font-semibold text-ink">Past reviews</h2>
         {runsQuery.isLoading ? <Skeleton className="h-24 w-full" /> : null}
         {runsQuery.isError ? (
           <div className="space-y-3 border border-rule-soft bg-paper-2 p-4" role="alert">

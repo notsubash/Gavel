@@ -5,27 +5,32 @@ import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 
+/** Phase 4: Case covers overview + validation routes; Pitch = worksheet; Reviews = judges. */
 const TABS = [
-  { slug: "", label: "Overview" },
-  { slug: "validation", label: "Validation" },
-  { slug: "worksheet", label: "Worksheet" },
-  { slug: "judges", label: "Judges" },
+  { slug: "", label: "Case", matchSlugs: ["", "validation"] },
+  { slug: "worksheet", label: "Pitch", matchSlugs: ["worksheet"] },
+  { slug: "judges", label: "Reviews", matchSlugs: ["judges"] },
 ] as const;
+
+function sectionSlug(pathname: string, base: string): string {
+  if (pathname === base) return "";
+  if (!pathname.startsWith(`${base}/`)) return "";
+  return pathname.slice(base.length + 1).split("/")[0] ?? "";
+}
 
 export function WorkspaceNav({ workspaceId }: { workspaceId: string }) {
   const pathname = usePathname();
   const base = `/workspaces/${workspaceId}`;
+  const current = sectionSlug(pathname, base);
 
   return (
     <nav className="mb-8 flex flex-wrap gap-2 border-b border-rule-soft pb-3" aria-label="Workspace sections">
       {TABS.map((tab) => {
         const href = tab.slug ? `${base}/${tab.slug}` : base;
-        const active = tab.slug
-          ? pathname.startsWith(`${base}/${tab.slug}`)
-          : pathname === base;
+        const active = (tab.matchSlugs as readonly string[]).includes(current);
         return (
           <Link
-            key={tab.slug || "overview"}
+            key={tab.slug || "case"}
             href={href}
             aria-current={active ? "page" : undefined}
             className={cn(

@@ -24,28 +24,27 @@ test.describe("smoke", { tag: "@core" }, () => {
     expect(howBox && trailBox && trailBox.y > howBox.y).toBeTruthy();
   });
 
-  test("sidebar reports API health", async ({ page }) => {
+  test("Advanced menu reports API health", async ({ page }) => {
     await page.goto("/workspaces/new");
+    await page.locator("summary").filter({ hasText: "Advanced" }).first().click();
     await expect(page.getByText("API offline")).not.toBeVisible();
     await expect(page.getByText("API online")).toBeVisible({ timeout: 30_000 });
   });
 
-  test("primary navigation reaches Workspaces, History, and Settings", async ({ page }) => {
+  test("primary navigation reaches Ideas and Settings via Advanced", async ({ page }) => {
     await page.goto("/workspaces/new");
     const mainNav = page.getByRole("navigation", { name: "Main" });
 
-    await mainNav.getByRole("link", { name: "Workspaces" }).click();
+    await mainNav.getByRole("link", { name: "Ideas" }).click();
     await expect(page).toHaveURL(/\/workspaces$/);
     await expect(page.getByRole("heading", { name: "Your ideas on trial" })).toBeVisible();
 
-    await mainNav.getByRole("link", { name: "History" }).click();
-    await expect(page).toHaveURL(/\/history$/);
-    await expect(
-      page.getByRole("heading", { name: "Ideas you've put on trial" }),
-    ).toBeVisible();
-
-    await mainNav.getByRole("link", { name: "Settings" }).click();
+    await page.locator("summary").filter({ hasText: "Advanced" }).first().click();
+    await page.getByRole("link", { name: "Settings" }).click();
     await expect(page).toHaveURL(/\/settings$/);
     await expect(page.getByRole("heading", { name: "Advanced settings" })).toBeVisible();
+
+    await page.goto("/history");
+    await expect(page).toHaveURL(/\/workspaces$/);
   });
 });

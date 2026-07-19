@@ -52,7 +52,8 @@ function VersionRow({ item, active }: { item: RunListItem; active: boolean }) {
   );
 }
 
-function WorkspaceNextActionLink({
+/** Shared Ideas/History next-action link (panel-aware when in view). */
+export function WorkspaceNextActionLink({
   workspace,
   className,
 }: {

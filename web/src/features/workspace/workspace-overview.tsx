@@ -92,6 +92,7 @@ export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
   return (
     <div className="space-y-8">
       <header className="space-y-3">
+        <p className="font-sans text-meta font-semibold uppercase tracking-widest text-cta">Case</p>
         <div className="flex flex-wrap items-center gap-3">
           <Badge variant="default">
             {LIFECYCLE_LABEL[workspace.lifecycle] ?? workspace.lifecycle}

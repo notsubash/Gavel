@@ -87,7 +87,7 @@ test.describe.serial("readiness gate and judges launch", { tag: "@core" }, () =>
 
   test("judges page lists launched runs for the workspace", async ({ page }) => {
     await page.goto(`/workspaces/${readyWorkspaceId}/judges`);
-    await openWorkspaceTab(page, "Judges");
+    await openWorkspaceTab(page, "Reviews");
     await expect(page.getByRole("heading", { name: "Run history" })).toBeVisible();
     await expect(page.getByRole("link", { name: /Run [0-9a-f]{8}/i }).first()).toBeVisible();
   });

@@ -148,7 +148,7 @@ test.describe.serial("validation workbench CRUD", { tag: "@extended" }, () => {
     await expect(page.getByText(problemEvidence!.label)).toBeVisible();
     await expect(page.getByText(`✓ ${problemEvidence!.label}`)).toBeVisible();
 
-    await openWorkspaceTab(page, "Overview");
+    await openWorkspaceTab(page, "Case");
     await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow", /.+/);
     await expect(page.getByText("demand: Some signal")).toBeVisible();
   });

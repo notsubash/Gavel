@@ -85,8 +85,8 @@ test.describe.serial("worksheet versioning", { tag: "@extended" }, () => {
     await expect(page.getByText("Version 2")).toBeVisible();
     await expect(page.getByText(revisedAudience)).toBeVisible();
 
-    await openWorkspaceTab(page, "Judges");
-    await expectWorkspaceTab(page, "Judges");
+    await openWorkspaceTab(page, "Reviews");
+    await expectWorkspaceTab(page, "Reviews");
     await page.getByRole("button", { name: "Start review" }).click();
     await expect(page.getByRole("dialog", { name: "Readiness gate" })).toBeVisible();
     await expect(

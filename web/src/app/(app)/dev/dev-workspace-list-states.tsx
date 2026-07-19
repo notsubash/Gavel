@@ -21,7 +21,7 @@ export function WorkspaceListStatePanels() {
       <div className="space-y-3">
         <p className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-muted">Error</p>
         <p className="font-sans text-body text-fail" role="alert">
-          Could not load workspaces. Is the API running?
+          Could not load ideas. Is the API running?
         </p>
       </div>
 
@@ -29,11 +29,11 @@ export function WorkspaceListStatePanels() {
         <p className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-muted">Empty</p>
         <Card className="border-dashed p-8 text-center">
           <p className="font-sans text-body text-ink-muted">
-            No workspaces yet. Start with a structured worksheet or explore a full example loop.
+            No ideas yet. Start with a short pitch or explore a full example loop.
           </p>
           <div className="mt-4 flex flex-wrap justify-center gap-3">
             <Button asChild>
-              <Link href="/workspaces/new">Create your first workspace</Link>
+              <Link href="/workspaces/new">Create your first idea</Link>
             </Button>
             <Button type="button" variant="outline">
               <Sparkles className="mr-2 size-4" aria-hidden />
@@ -45,7 +45,7 @@ export function WorkspaceListStatePanels() {
 
       <div className="space-y-3">
         <p className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-muted">Success</p>
-        <ul className="space-y-3" aria-label="Workspaces">
+        <ul className="space-y-3" aria-label="Ideas">
           <li>
             <Card className="p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -60,7 +60,7 @@ export function WorkspaceListStatePanels() {
         </ul>
         <Link href="/workspaces/new" className={cn(heatCtaClass, "inline-flex gap-2")}>
           <Plus className="size-4" aria-hidden />
-          New workspace
+          New idea
         </Link>
       </div>
     </div>

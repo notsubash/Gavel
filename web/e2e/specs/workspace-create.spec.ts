@@ -4,6 +4,7 @@ import { createWorkspace } from "../fixtures/workspace";
 import {
   expectWorkspaceTab,
   fillWorksheetForm,
+  gotoWorkspaceTab,
   openWorkspaceTab,
 } from "../fixtures/worksheet";
 
@@ -19,7 +20,7 @@ test.describe("workspace creation and navigation", { tag: "@core" }, () => {
 
     await expect(page).toHaveURL(/\/workspaces\/[0-9a-f-]+\/validation(\?log_interview=1)?$/);
     await expect(page.getByRole("dialog", { name: /interview/i })).toBeVisible();
-    await expectWorkspaceTab(page, "Validation");
+    await expectWorkspaceTab(page, "Case");
   });
 
   test("shows validation errors when required worksheet fields are empty", async ({ page }) => {
@@ -55,32 +56,33 @@ test.describe("workspace creation and navigation", { tag: "@core" }, () => {
 
     await page.goto("/workspaces");
     await expect(page.getByRole("heading", { name: "Your ideas on trial" })).toBeVisible();
-    await expect(page.getByRole("link", { name })).toBeVisible();
+    await expect(page.getByRole("heading", { name })).toBeVisible();
 
     await page.getByRole("link", { name }).click();
     await expect(page).toHaveURL(new RegExp(`/workspaces/${workspaceId}$`));
-    await expectWorkspaceTab(page, "Overview");
+    await expectWorkspaceTab(page, "Case");
 
-    await openWorkspaceTab(page, "Validation");
+    await gotoWorkspaceTab(page, workspaceId, "Evidence");
     await expect(page).toHaveURL(new RegExp(`/workspaces/${workspaceId}/validation$`));
-    await expect(page.getByRole("heading", { name: "Validation", level: 1 })).toBeVisible();
+    await expectWorkspaceTab(page, "Case");
+    await expect(page.getByRole("heading", { name: "Evidence", level: 1 })).toBeVisible();
 
-    await openWorkspaceTab(page, "Worksheet");
+    await openWorkspaceTab(page, "Pitch");
     await expect(page).toHaveURL(new RegExp(`/workspaces/${workspaceId}/worksheet$`));
-    await expectWorkspaceTab(page, "Worksheet");
+    await expectWorkspaceTab(page, "Pitch");
     await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();
 
-    await openWorkspaceTab(page, "Judges");
+    await openWorkspaceTab(page, "Reviews");
     await expect(page).toHaveURL(new RegExp(`/workspaces/${workspaceId}/judges$`));
-    await expectWorkspaceTab(page, "Judges");
+    await expectWorkspaceTab(page, "Reviews");
     await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();
 
-    await openWorkspaceTab(page, "Overview");
+    await openWorkspaceTab(page, "Case");
     await expect(page).toHaveURL(new RegExp(`/workspaces/${workspaceId}$`));
-    await expectWorkspaceTab(page, "Overview");
+    await expectWorkspaceTab(page, "Case");
     await page.reload();
     await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();
-    await expectWorkspaceTab(page, "Overview");
+    await expectWorkspaceTab(page, "Case");
 
     await page.goto(`/workspaces/${workspaceId}/validation`);
     await page.reload();

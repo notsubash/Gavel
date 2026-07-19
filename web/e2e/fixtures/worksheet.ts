@@ -63,18 +63,22 @@ export async function fillWorksheetForm(
   await page.getByLabel("What would prove this wrong?").fill(data.disconfirming_evidence);
 }
 
+/** Phase 4 tabs. Evidence is Case's /validation route (no separate tab). */
+export type WorkspaceTabLabel = "Case" | "Pitch" | "Reviews";
+export type WorkspaceSectionLabel = WorkspaceTabLabel | "Evidence";
+
 /** Navigate to a workspace section by URL. Prefer openWorkspaceTab when the tab nav is visible. */
 export async function gotoWorkspaceTab(
   page: Page,
   workspaceId: string,
-  label: "Overview" | "Validation" | "Worksheet" | "Judges",
+  label: WorkspaceSectionLabel,
 ): Promise<void> {
   const slug =
-    label === "Overview"
+    label === "Case"
       ? ""
-      : label === "Validation"
+      : label === "Evidence"
         ? "/validation"
-        : label === "Worksheet"
+        : label === "Pitch"
           ? "/worksheet"
           : "/judges";
   await page.goto(`/workspaces/${workspaceId}${slug}`);
@@ -83,7 +87,7 @@ export async function gotoWorkspaceTab(
 /** Click a workspace section tab when the full nav chrome is present. */
 export async function openWorkspaceTab(
   page: Page,
-  label: "Overview" | "Validation" | "Worksheet" | "Judges",
+  label: WorkspaceTabLabel,
 ): Promise<void> {
   const nav = page.getByRole("navigation", { name: "Workspace sections" });
   await nav.getByRole("link", { name: label, exact: true }).click();
@@ -92,7 +96,7 @@ export async function openWorkspaceTab(
 /** Assert the active workspace tab matches `label`. */
 export async function expectWorkspaceTab(
   page: Page,
-  label: "Overview" | "Validation" | "Worksheet" | "Judges",
+  label: WorkspaceTabLabel,
 ): Promise<void> {
   const nav = page.getByRole("navigation", { name: "Workspace sections" });
   await expect(nav.getByRole("link", { name: label, exact: true })).toHaveAttribute(

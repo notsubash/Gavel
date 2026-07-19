@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Clock,
   Home,
   PlayCircle,
   Settings,
+  SlidersHorizontal,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -22,24 +22,13 @@ type NavItem = {
   match: (pathname: string) => boolean;
 };
 
+/** Phase 4: Ideas is the only primary list; Settings/Health live in Advanced. */
 const NAV_ITEMS: NavItem[] = [
   {
     href: "/workspaces",
-    label: "Workspaces",
+    label: "Ideas",
     icon: Home,
     match: (pathname) => pathname === "/workspaces" || pathname.startsWith("/workspaces/"),
-  },
-  {
-    href: "/history",
-    label: "History",
-    icon: Clock,
-    match: (pathname) => pathname === "/history" || pathname.startsWith("/history/"),
-  },
-  {
-    href: "/settings",
-    label: "Settings",
-    icon: Settings,
-    match: (pathname) => pathname === "/settings",
   },
 ];
 
@@ -101,6 +90,59 @@ function ActiveRunLink({ runId, compact = false }: { runId: string; compact?: bo
   );
 }
 
+function AdvancedMenu({ compact = false }: { compact?: boolean }) {
+  const pathname = usePathname();
+  const settingsActive = pathname === "/settings";
+
+  return (
+    <details className={cn("relative", compact && "flex flex-1 flex-col items-stretch")}>
+      <summary
+        aria-current={settingsActive ? "page" : undefined}
+        className={cn(
+          "flex cursor-pointer list-none items-center gap-3 rounded-ui font-sans text-sm font-medium",
+          "text-ink-muted transition-colors duration-200 hover:bg-paper-2 hover:text-ink",
+          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta",
+          "[&::-webkit-details-marker]:hidden",
+          compact
+            ? "min-h-11 flex-col justify-center gap-1 px-2 py-2 text-meta"
+            : "min-h-11 w-full px-3 py-2",
+          settingsActive && "bg-cta/10 text-cta",
+        )}
+      >
+        <SlidersHorizontal className={cn("shrink-0", compact ? "size-5" : "size-4")} aria-hidden />
+        <span className={compact ? "text-meta leading-none" : undefined}>Advanced</span>
+      </summary>
+      <div
+        className={cn(
+          "z-10 min-w-48 rounded-ui border border-rule-soft bg-card p-3 shadow-soft",
+          compact
+            ? "absolute bottom-full left-1/2 mb-2 w-56 -translate-x-1/2"
+            : "absolute bottom-full left-0 mb-2 w-full",
+        )}
+        role="group"
+        aria-label="Advanced"
+      >
+        <Link
+          href="/settings"
+          aria-current={settingsActive ? "page" : undefined}
+          className={cn(
+            "flex min-h-11 items-center gap-3 rounded-ui px-3 font-sans text-sm font-medium",
+            "text-ink-muted transition-colors hover:bg-paper-2 hover:text-ink",
+            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta",
+            settingsActive && "bg-cta/10 text-cta",
+          )}
+        >
+          <Settings className="size-4 shrink-0" aria-hidden />
+          Settings
+        </Link>
+        <div className="mt-2 border-t border-rule-soft px-3 pt-3">
+          <HealthStatus />
+        </div>
+      </div>
+    </details>
+  );
+}
+
 export function AppSidebar({ className }: { className?: string }) {
   const pathname = usePathname();
   const runId = activeRunId(pathname);
@@ -108,7 +150,8 @@ export function AppSidebar({ className }: { className?: string }) {
   return (
     <aside
       className={cn(
-        "flex w-[var(--shell-width)] shrink-0 flex-col border-r border-rule-soft bg-card",
+        // Sticky viewport height so New idea / Advanced stay visible while Ideas content scrolls.
+        "sticky top-0 flex h-dvh w-[var(--shell-width)] shrink-0 flex-col overflow-hidden border-r border-rule-soft bg-card",
         className,
       )}
       aria-label="App navigation"
@@ -125,18 +168,18 @@ export function AppSidebar({ className }: { className?: string }) {
         </p>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-0.5 p-3" aria-label="Main">
+      <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-3" aria-label="Main">
         {NAV_ITEMS.map((item) => (
           <NavLink key={item.href} item={item} pathname={pathname} />
         ))}
         {runId && <ActiveRunLink runId={runId} />}
       </nav>
 
-      <div className="mt-auto space-y-3 border-t border-rule-soft p-4">
+      <div className="mt-auto shrink-0 space-y-3 border-t border-rule-soft p-4">
         <Link href="/workspaces/new" className={cn(heatCtaClass, "w-full justify-center shadow-none")}>
-          New workspace
+          New idea
         </Link>
-        <HealthStatus />
+        <AdvancedMenu />
       </div>
     </aside>
   );
@@ -155,6 +198,7 @@ export function MobileBottomNav() {
         {NAV_ITEMS.map((item) => (
           <NavLink key={item.href} item={item} pathname={pathname} compact />
         ))}
+        <AdvancedMenu compact />
         {runId && <ActiveRunLink runId={runId} compact />}
       </div>
     </nav>

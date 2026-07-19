@@ -64,12 +64,10 @@ export const HOME_COPY = {
 
 export const SETTINGS_COPY = {
   intro:
-    "Defaults for new Gavel reviews and how completed review pages are laid out. Stored in this browser only — founders can ignore this page and use the simple submit flow on",
+    "Defaults for new Gavel reviews. Stored in this browser only — founders can ignore this page and use the simple submit flow on",
   newReviewDefaults: "New review defaults",
   newReviewDescription:
     "Applied every time you submit or refine an idea. The submit form no longer shows these controls.",
-  reviewLayoutDescription:
-    "Controls section order on /run/[id] after a review finishes. Does not change API behavior or scores — only what you scroll past first.",
   webSearchLabel: "Enable web search for new reviews",
 } as const;
 

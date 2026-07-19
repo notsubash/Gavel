@@ -27,7 +27,7 @@ import { useValidationMutations } from "./use-validation-mutations";
 import { ValidationActionBar } from "./validation-action-bar";
 import { ValidationPageChrome } from "./validation-page-chrome";
 import { EvidenceDialog } from "./evidence-dialog";
-import { ExperimentDialog } from "./experiment-dialog";
+import { EMPTY_EXPERIMENT_DRAFT, ExperimentDialog } from "./experiment-dialog";
 import { InterviewDialog } from "./interview-dialog";
 import { ValidationProgressChecklist } from "./validation-progress-checklist";
 
@@ -80,6 +80,7 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
   const [evidenceEditOpen, setEvidenceEditOpen] = useState(false);
 
   const [experimentDraft, setExperimentDraft] = useState<Partial<Experiment> | null>(null);
+  const [experimentAiAssisted, setExperimentAiAssisted] = useState(false);
   const [completingExperimentId, setCompletingExperimentId] = useState<string | null>(null);
   const [experimentResult, setExperimentResult] = useState("");
   const [experimentDecision, setExperimentDecision] = useState("continue");
@@ -115,6 +116,13 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
 
   const resetExperiment = () => {
     setExperimentDraft(null);
+    setExperimentAiAssisted(false);
+  };
+
+  const openExperimentDialog = () => {
+    setExperimentDraft({ ...EMPTY_EXPERIMENT_DRAFT });
+    setExperimentAiAssisted(false);
+    setExperimentOpen(true);
   };
 
   if (isLoading) {
@@ -157,14 +165,11 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
         mutations={mutations}
         onLogInterview={() => setInterviewOpen(true)}
         onAddEvidence={() => setEvidenceOpen(true)}
+        onStartExperiment={openExperimentDialog}
         onQuestionsReady={(nextQuestions) => {
           setQuestions(nextQuestions);
           setInterviewOpen(true);
           toast.success("Interview questions ready");
-        }}
-        onExperimentDraftReady={(draft) => {
-          setExperimentDraft(draft);
-          setExperimentOpen(true);
         }}
         onCompetitorScanSuccess={(res) => {
           setCompetitorScanResult(res.suggested_evidence);
@@ -235,6 +240,8 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
         experimentDraft={experimentDraft}
         onDraftChange={setExperimentDraft}
         onReset={resetExperiment}
+        aiAssisted={experimentAiAssisted}
+        onAiAssistedChange={setExperimentAiAssisted}
       />
 
       <AssumptionBoard assumptions={assumptions} mutations={mutations} />

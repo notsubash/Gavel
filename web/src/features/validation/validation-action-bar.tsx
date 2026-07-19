@@ -3,7 +3,7 @@
 import { ChevronDown, Loader2, Sparkles } from "lucide-react";
 
 import { deriveValidationWorkbenchAction } from "@/features/workspace/derive-primary-action";
-import type { CompetitorScanResponse, Experiment, ValidationOverview } from "@/lib/api/workspaces";
+import type { CompetitorScanResponse, ValidationOverview } from "@/lib/api/workspaces";
 import { cn } from "@/lib/utils";
 import { Button } from "@/ui/button";
 
@@ -14,8 +14,8 @@ type ValidationActionBarProps = {
   mutations: ValidationMutations;
   onLogInterview: () => void;
   onAddEvidence: () => void;
+  onStartExperiment: () => void;
   onQuestionsReady: (questions: { question: string; rationale: string }[]) => void;
-  onExperimentDraftReady: (draft: Partial<Experiment>) => void;
   onCompetitorScanSuccess: (result: CompetitorScanResponse) => void;
 };
 
@@ -24,11 +24,11 @@ export function ValidationActionBar({
   mutations,
   onLogInterview,
   onAddEvidence,
+  onStartExperiment,
   onQuestionsReady,
-  onExperimentDraftReady,
   onCompetitorScanSuccess,
 }: ValidationActionBarProps) {
-  const { questionsMutation, suggestExperimentMutation, competitorScanMutation } = mutations;
+  const { questionsMutation, competitorScanMutation } = mutations;
   const primary = deriveValidationWorkbenchAction(overview);
 
   const runSuggestQuestions = () =>
@@ -36,24 +36,17 @@ export function ValidationActionBar({
       onSuccess: (res) => onQuestionsReady(res.questions),
     });
 
-  const runSuggestExperiment = () =>
-    suggestExperimentMutation.mutate(undefined, {
-      onSuccess: (res) => onExperimentDraftReady(res.experiment),
-    });
-
   const runCompetitorScan = () =>
     competitorScanMutation.mutate(undefined, {
       onSuccess: (res) => onCompetitorScanSuccess(res),
     });
 
-  const primaryPending =
-    (primary.kind === "start_experiment" && suggestExperimentMutation.isPending) ||
-    (primary.kind === "scan_competitors" && competitorScanMutation.isPending);
+  const primaryPending = primary.kind === "scan_competitors" && competitorScanMutation.isPending;
 
   const onPrimary = () => {
     if (primary.kind === "log_interview") onLogInterview();
     else if (primary.kind === "add_evidence") onAddEvidence();
-    else if (primary.kind === "start_experiment") runSuggestExperiment();
+    else if (primary.kind === "start_experiment") onStartExperiment();
     else runCompetitorScan();
   };
 
@@ -98,12 +91,7 @@ export function ValidationActionBar({
             <MenuItem label="Add evidence" onClick={onAddEvidence} />
           ) : null}
           {primary.kind !== "start_experiment" ? (
-            <MenuItem
-              label="Suggest experiment"
-              icon
-              pending={suggestExperimentMutation.isPending}
-              onClick={runSuggestExperiment}
-            />
+            <MenuItem label="Start experiment" onClick={onStartExperiment} />
           ) : null}
           {primary.kind !== "scan_competitors" ? (
             <MenuItem

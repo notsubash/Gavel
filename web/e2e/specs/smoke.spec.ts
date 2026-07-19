@@ -6,11 +6,22 @@ test.describe("smoke", { tag: "@core" }, () => {
     await expect(
       page.getByRole("heading", { name: "Put your startup idea on trial." }),
     ).toBeVisible();
-    await expect(page.getByText("Your Gavel trail")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Roast my idea" })).toHaveAttribute(
+    await expect(page.getByRole("link", { name: "Start free" }).first()).toHaveAttribute(
       "href",
       "/workspaces/new",
     );
+    await expect(page.getByRole("link", { name: "Open app" }).first()).toHaveAttribute(
+      "href",
+      "/workspaces",
+    );
+    await expect(page.getByText("Your Gavel trail")).toBeVisible();
+    // Phase 3: contribution graph sits below How it works, not in the hero.
+    const howHeading = page.getByRole("heading", { name: "How Gavel works" });
+    const trail = page.getByText("Your Gavel trail");
+    await expect(howHeading).toBeVisible();
+    const howBox = await howHeading.boundingBox();
+    const trailBox = await trail.boundingBox();
+    expect(howBox && trailBox && trailBox.y > howBox.y).toBeTruthy();
   });
 
   test("sidebar reports API health", async ({ page }) => {

@@ -40,13 +40,26 @@ export async function fillWorksheetForm(
   await page.getByLabel("Working name").fill(data.working_name);
   await page.getByLabel("Audience").fill(data.audience);
   await page.getByLabel("Problem statement").fill(data.problem_statement);
-  await page.getByLabel("Current workaround").fill(data.current_workaround);
   await page.getByLabel("Solution statement").fill(data.solution_statement);
+  await page.getByLabel("Top risky assumption").fill(data.top_risky_assumption);
+
+  // Phase 3: deferred fields live behind progressive disclosure.
+  const detailSummary = page
+    .locator("summary")
+    .filter({ hasText: /Add more detail|More detail/ })
+    .first();
+  if (await detailSummary.count()) {
+    const details = detailSummary.locator("xpath=ancestor::details[1]");
+    if ((await details.getAttribute("open")) === null) {
+      await detailSummary.click();
+    }
+  }
+
+  await page.getByLabel("Current workaround").fill(data.current_workaround);
   await page.getByLabel("Secret sauce").fill(data.secret_sauce);
   await page.getByLabel("Pricing hypothesis").fill(data.pricing_hypothesis);
   await page.getByLabel("Existing evidence").fill(data.existing_evidence);
   await page.getByLabel("Competitors and alternatives").fill(data.competitors);
-  await page.getByLabel("Top risky assumption").fill(data.top_risky_assumption);
   await page.getByLabel("What would prove this wrong?").fill(data.disconfirming_evidence);
 }
 

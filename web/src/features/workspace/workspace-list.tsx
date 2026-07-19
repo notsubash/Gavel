@@ -97,23 +97,23 @@ export function WorkspaceList() {
           <p className="font-sans text-body text-ink-muted">
             No workspaces yet. Start with a structured worksheet or explore a full example loop.
           </p>
-          <div className="mt-4 flex flex-wrap justify-center gap-3">
+          <div className="mt-4 flex flex-col items-center gap-3">
             <Button asChild>
               <Link href="/workspaces/new">Create your first workspace</Link>
             </Button>
-            <Button
+            <button
               type="button"
-              variant="outline"
               disabled={seedMutation.isPending}
               onClick={() => seedMutation.mutate()}
+              className="inline-flex min-h-11 items-center gap-2 font-sans text-sm font-semibold text-ink-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta disabled:opacity-50"
             >
               {seedMutation.isPending ? (
-                <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+                <Loader2 className="size-4 animate-spin" aria-hidden />
               ) : (
-                <Sparkles className="mr-2 size-4" aria-hidden />
+                <Sparkles className="size-4 text-ai-processing" aria-hidden />
               )}
               Load example
-            </Button>
+            </button>
           </div>
         </Card>
       ) : (

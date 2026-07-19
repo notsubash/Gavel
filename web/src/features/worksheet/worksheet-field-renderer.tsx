@@ -32,8 +32,13 @@ export type WorksheetFieldRendererProps = {
   setValue: UseFormSetValue<WorksheetValues>;
   onSharpen?: (name: WorksheetFieldName) => void;
   sharpening?: WorksheetFieldName | null;
+  /** Phase 3: only show Sharpen after the field was engaged and looks weak. */
+  showSharpen?: boolean;
+  onFieldBlur?: (name: WorksheetFieldName) => void;
   isAiDraft?: boolean;
   showVersioned?: boolean;
+  /** Create flow only — Pitch still requires deferred fields (or placeholders on save). */
+  showOptionalBadge?: boolean;
   errorId?: string;
 };
 
@@ -45,12 +50,16 @@ export function WorksheetFieldRenderer({
   setValue,
   onSharpen,
   sharpening,
+  showSharpen = false,
+  onFieldBlur,
   isAiDraft,
   showVersioned,
+  showOptionalBadge = false,
   errorId,
 }: WorksheetFieldRendererProps) {
   const isCore = showVersioned && CORE_WORKSHEET_FIELDS.has(field.name);
-  const canSharpen = Boolean(onSharpen);
+  const canSharpen = Boolean(onSharpen) && showSharpen;
+  const optionalBadge = showOptionalBadge && field.optional;
 
   if (field.name === "competitors") {
     return (
@@ -59,6 +68,9 @@ export function WorksheetFieldRenderer({
           <div className="flex flex-wrap items-center gap-2">
             <Label htmlFor={field.name}>
               {field.label}
+              {optionalBadge ? (
+                <span className="ml-2 font-sans text-xs font-normal text-ink-muted">optional</span>
+              ) : null}
               {isCore && (
                 <span className="ml-2 font-sans text-xs text-cta">versioned</span>
               )}
@@ -99,6 +111,7 @@ export function WorksheetFieldRenderer({
                 .filter(Boolean),
             )
           }
+          onBlur={() => onFieldBlur?.(field.name)}
         />
         <FieldError message={error} id={errorId} />
       </div>
@@ -106,12 +119,19 @@ export function WorksheetFieldRenderer({
   }
 
   const InputComponent = field.multiline ? Textarea : Input;
+  const registered = register(field.name, {
+    onBlur: () => onFieldBlur?.(field.name),
+  });
+
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <Label htmlFor={field.name}>
             {field.label}
+            {optionalBadge ? (
+              <span className="ml-2 font-sans text-xs font-normal text-ink-muted">optional</span>
+            ) : null}
             {isCore && (
               <span className="ml-2 font-sans text-xs text-cta">versioned</span>
             )}
@@ -142,7 +162,7 @@ export function WorksheetFieldRenderer({
         placeholder={field.example}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
-        {...register(field.name)}
+        {...registered}
       />
       <FieldError message={error} id={errorId} />
     </div>

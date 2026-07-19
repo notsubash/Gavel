@@ -84,7 +84,7 @@ test.describe("workspace creation and navigation", { tag: "@core" }, () => {
 
     await page.goto(`/workspaces/${workspaceId}/validation`);
     await page.reload();
-    await expect(page.getByRole("heading", { name: "Assumption board" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Top risks" })).toBeVisible();
   });
 
   test("unknown workspace shows a user-visible API error", async ({ page }) => {

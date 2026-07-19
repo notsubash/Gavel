@@ -41,7 +41,7 @@ export function LandingPage() {
           href="/workspaces"
           className="inline-flex min-h-11 items-center rounded-ui px-3 font-sans text-sm font-semibold text-ink-muted transition-colors duration-200 hover:bg-paper-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta"
         >
-          Open Gavel
+          Open app
         </Link>
       </nav>
 
@@ -59,7 +59,7 @@ export function LandingPage() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Button asChild size="lg">
-              <Link href="/workspaces/new">Roast my idea</Link>
+              <Link href="/workspaces/new">Start free</Link>
             </Button>
             <Link
               href="#how-it-works"
@@ -68,10 +68,6 @@ export function LandingPage() {
               How Gavel works
             </Link>
           </div>
-        </div>
-
-        <div className="mt-10">
-          <ContributionGraph />
         </div>
       </section>
 
@@ -103,6 +99,16 @@ export function LandingPage() {
             ))}
           </div>
         </div>
+      </section>
+
+      <section
+        className="mx-auto w-full max-w-6xl px-4 py-10 md:px-8"
+        aria-labelledby="contribution-section-heading"
+      >
+        <h2 id="contribution-section-heading" className="sr-only">
+          Your validation trail
+        </h2>
+        <ContributionGraph />
       </section>
 
       <section className="mx-auto w-full max-w-6xl px-4 py-10 md:px-8" aria-labelledby="judges-heading">
@@ -152,7 +158,7 @@ export function LandingPage() {
           </p>
           <div className="mt-6">
             <Button asChild size="lg">
-              <Link href="/workspaces/new">Start in Gavel</Link>
+              <Link href="/workspaces/new">Start free</Link>
             </Button>
           </div>
         </div>
@@ -162,7 +168,7 @@ export function LandingPage() {
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 font-sans text-sm text-ink-muted md:px-8">
           <GavelLogo size={28} showName />
           <Link href="/workspaces" className="font-semibold text-cta hover:underline">
-            Open Gavel
+            Open app
           </Link>
         </div>
       </footer>

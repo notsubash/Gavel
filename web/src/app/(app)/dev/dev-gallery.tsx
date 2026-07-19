@@ -218,6 +218,7 @@ function WorksheetFieldDemo({
         isAiDraft={variant === "ai-draft"}
         sharpening={variant === "sharpening" ? field.name : null}
         onSharpen={variant === "sharpening" ? () => {} : undefined}
+        showSharpen={variant === "sharpening"}
       />
     </div>
   );

@@ -4,16 +4,20 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Sparkles } from "lucide-react";
+import { ChevronDown, Loader2, Sparkles } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { WorksheetFieldRenderer } from "@/features/worksheet/worksheet-field-renderer";
 import { composeWorksheetPreview } from "@/features/worksheet/worksheet-preview";
 import {
-  WORKSHEET_FIELDS,
+  CREATE_CORE_FIELDS,
+  DETAIL_FIELDS,
+  createWorksheetSchema,
+  fillDeferredPlaceholders,
+  isWeakFieldValue,
+  stripDeferredPlaceholders,
   worksheetDefaults,
-  worksheetSchema,
   normalizeWorksheetValues,
   type WorksheetFieldName,
   type WorksheetValues,
@@ -44,6 +48,13 @@ import { Card } from "@/ui/card";
 import { Label } from "@/ui/label";
 import { Skeleton } from "@/ui/skeleton";
 
+function fieldText(values: WorksheetValues, name: WorksheetFieldName): string {
+  const current = values[name];
+  if (typeof current === "string") return current;
+  if (Array.isArray(current)) return current.join(", ");
+  return "";
+}
+
 export function WorksheetEditor({ workspaceId }: { workspaceId: string }) {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -53,6 +64,7 @@ export function WorksheetEditor({ workspaceId }: { workspaceId: string }) {
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const [minorEdit, setMinorEdit] = useState(false);
   const [sharpening, setSharpening] = useState<WorksheetFieldName | null>(null);
+  const [engagedFields, setEngagedFields] = useState<Set<string>>(new Set());
   const [revisePatches, setRevisePatches] = useState<WorksheetFieldPatch[]>([]);
   const [acceptedPatches, setAcceptedPatches] = useState<Set<string>>(new Set());
   const [reviseSummary, setReviseSummary] = useState<string | null>(null);
@@ -85,14 +97,14 @@ export function WorksheetEditor({ workspaceId }: { workspaceId: string }) {
     reset,
     formState: { errors, isSubmitting },
   } = useForm<WorksheetValues>({
-    resolver: zodResolver(worksheetSchema),
+    resolver: zodResolver(createWorksheetSchema),
     defaultValues: worksheetDefaults,
     mode: "onBlur",
   });
 
   useEffect(() => {
     if (currentVersion) {
-      reset(normalizeWorksheetValues(currentVersion.worksheet));
+      reset(stripDeferredPlaceholders(normalizeWorksheetValues(currentVersion.worksheet)));
       setSelectedVersionId(null);
     }
   }, [currentVersion, reset]);
@@ -100,26 +112,33 @@ export function WorksheetEditor({ workspaceId }: { workspaceId: string }) {
   const values = watch();
   const preview = composeWorksheetPreview(values);
 
+  const baselineWorksheet = useMemo(() => {
+    if (!currentVersion) return null;
+    return stripDeferredPlaceholders(normalizeWorksheetValues(currentVersion.worksheet));
+  }, [currentVersion]);
+
   const pendingDiff = useMemo(() => {
-    if (!currentVersion) return [];
+    if (!baselineWorksheet) return [];
     return localWorksheetDiff(
-      currentVersion.worksheet as Record<string, unknown>,
+      baselineWorksheet as Record<string, unknown>,
       values as Record<string, unknown>,
     );
-  }, [currentVersion, values]);
+  }, [baselineWorksheet, values]);
 
   const willBumpVersion =
     pendingDiff.length > 0 &&
+    Boolean(baselineWorksheet) &&
     coreFieldsChanged(
-      currentVersion?.worksheet as Record<string, unknown>,
+      baselineWorksheet as Record<string, unknown>,
       values as Record<string, unknown>,
     ) &&
     !minorEdit;
 
   const suppressingVersionBump =
     pendingDiff.length > 0 &&
+    Boolean(baselineWorksheet) &&
     coreFieldsChanged(
-      currentVersion?.worksheet as Record<string, unknown>,
+      baselineWorksheet as Record<string, unknown>,
       values as Record<string, unknown>,
     ) &&
     minorEdit;
@@ -177,9 +196,7 @@ export function WorksheetEditor({ workspaceId }: { workspaceId: string }) {
     pendingDiff.length === 0 ? "No changes to save yet." : undefined;
 
   async function onSharpen(fieldName: WorksheetFieldName) {
-    const current = values[fieldName];
-    const currentValue =
-      typeof current === "string" ? current : Array.isArray(current) ? current.join(", ") : "";
+    const currentValue = fieldText(values, fieldName);
     if (!currentValue.trim()) {
       toast.error("Add some text before sharpening");
       return;
@@ -208,9 +225,21 @@ export function WorksheetEditor({ workspaceId }: { workspaceId: string }) {
     }
   }
 
+  function markEngaged(name: WorksheetFieldName) {
+    setEngagedFields((prev) => {
+      if (prev.has(name)) return prev;
+      const next = new Set(prev);
+      next.add(name);
+      return next;
+    });
+  }
+
+  function showSharpenFor(name: WorksheetFieldName): boolean {
+    return engagedFields.has(name) && isWeakFieldValue(fieldText(values, name));
+  }
+
   function applyAcceptedPatches() {
     const nextValues = { ...values };
-    let invalidField: string | null = null;
 
     for (const patch of revisePatches) {
       if (!acceptedPatches.has(patch.field_name)) continue;
@@ -225,27 +254,48 @@ export function WorksheetEditor({ workspaceId }: { workspaceId: string }) {
       }
     }
 
-    const parsed = worksheetSchema.safeParse(nextValues);
+    const parsed = createWorksheetSchema.safeParse(nextValues);
     if (!parsed.success) {
-      invalidField = parsed.error.issues[0]?.path[0]?.toString() ?? "worksheet";
+      const invalidField = parsed.error.issues[0]?.path[0]?.toString() ?? "worksheet";
       toast.error(`Patch failed validation on ${invalidField.replace(/_/g, " ")}`);
       return;
     }
 
+    const filled = fillDeferredPlaceholders(parsed.data);
     for (const patch of revisePatches) {
       if (!acceptedPatches.has(patch.field_name)) continue;
       const name = patch.field_name as WorksheetFieldName;
       if (name === "competitors") {
-        setValue("competitors", parsed.data.competitors);
+        setValue("competitors", filled.competitors);
       } else {
-        setValue(name, parsed.data[name] as never);
+        setValue(name, filled[name] as never);
       }
     }
     toast.message("Patches applied to form — review and save to create a new version");
   }
 
   function onSubmit(data: WorksheetValues) {
-    saveMutation.mutate(data);
+    saveMutation.mutate(fillDeferredPlaceholders(data));
+  }
+
+  function renderField(field: (typeof CREATE_CORE_FIELDS)[number]) {
+    const error = errors[field.name]?.message as string | undefined;
+    return (
+      <WorksheetFieldRenderer
+        key={field.name}
+        field={field}
+        values={values}
+        error={error}
+        errorId={`${field.name}-error`}
+        register={register}
+        setValue={setValue}
+        onSharpen={onSharpen}
+        sharpening={sharpening}
+        showSharpen={showSharpenFor(field.name)}
+        onFieldBlur={markEngaged}
+        showVersioned
+      />
+    );
   }
 
   if (workspaceQuery.isLoading || versionsQuery.isLoading) {
@@ -269,7 +319,7 @@ export function WorksheetEditor({ workspaceId }: { workspaceId: string }) {
     <div className="space-y-8">
       <header className="space-y-3">
         <p className="font-sans text-meta font-semibold uppercase tracking-widest text-cta">
-          Worksheet
+          Pitch
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-sans text-display-home font-semibold tracking-tight text-ink md:text-display-md">
@@ -279,67 +329,85 @@ export function WorksheetEditor({ workspaceId }: { workspaceId: string }) {
         </div>
       </header>
 
-      <section aria-labelledby="version-timeline-heading">
-        <h2 id="version-timeline-heading" className="font-sans text-section font-semibold text-ink">
-          Version history
-        </h2>
-        {versionsQuery.isError && (
-          <p className="mt-2 font-sans text-sm text-fail" role="alert">
-            Version history unavailable.{" "}
-            <button
-              type="button"
-              className="font-semibold text-cta underline underline-offset-2"
-              onClick={() => void versionsQuery.refetch()}
-            >
-              Retry
-            </button>
-          </p>
-        )}
-        <ul className="mt-3 flex flex-wrap gap-2">
-          {versions.map((v: WorksheetVersion) => (
-            <li key={v.id}>
-              <Button
+      <details className="rounded-ui border border-rule-soft bg-card">
+        <summary
+          className={cn(
+            "flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 py-3",
+            "font-sans text-sm font-semibold text-ink",
+            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta",
+            "[&::-webkit-details-marker]:hidden",
+          )}
+        >
+          History
+          <ChevronDown className="size-4 text-ink-muted" aria-hidden />
+          <span className="ml-auto font-sans text-xs font-normal text-ink-muted">
+            {versions.length} version{versions.length === 1 ? "" : "s"}
+          </span>
+        </summary>
+        <div className="border-t border-rule-soft px-4 py-4">
+          {versionsQuery.isError && (
+            <p className="font-sans text-sm text-fail" role="alert">
+              Version history unavailable.{" "}
+              <button
                 type="button"
-                size="sm"
-                variant={
-                  selectedVersionId === v.id || (!selectedVersionId && v.id === currentVersion.id)
-                    ? "default"
-                    : "outline"
-                }
-                onClick={() => setSelectedVersionId(v.id === currentVersion.id ? null : v.id)}
+                className="font-semibold text-cta underline underline-offset-2"
+                onClick={() => void versionsQuery.refetch()}
               >
-                v{v.version}
-                {v.id === currentVersion.id ? " (current)" : ""}
-              </Button>
-            </li>
-          ))}
-        </ul>
-        {selectedVersionId && selectedVersionId !== currentVersion.id && (
-          <Card className="mt-4 p-5">
-            <h3 className="font-sans text-body font-semibold text-ink">Changes in this version</h3>
-            {diffQuery.isLoading && <Skeleton className="mt-3 h-24 w-full" />}
-            {diffQuery.isError && (
-              <p className="mt-3 font-sans text-sm text-fail" role="alert">
-                Could not load version diff.{" "}
-                <button
+                Retry
+              </button>
+            </p>
+          )}
+          <ul className="flex flex-wrap gap-2">
+            {versions.map((v: WorksheetVersion) => (
+              <li key={v.id}>
+                <Button
                   type="button"
-                  className="font-semibold text-cta underline underline-offset-2"
-                  onClick={() => void diffQuery.refetch()}
+                  size="sm"
+                  variant={
+                    selectedVersionId === v.id ||
+                    (!selectedVersionId && v.id === currentVersion.id)
+                      ? "default"
+                      : "outline"
+                  }
+                  onClick={() =>
+                    setSelectedVersionId(v.id === currentVersion.id ? null : v.id)
+                  }
                 >
-                  Retry
-                </button>
-              </p>
-            )}
-            {diffQuery.data && (
-              <WorksheetVersionDiff
-                className="mt-3"
-                changes={diffQuery.data.changes}
-                changeSummary={diffQuery.data.change_summary}
-              />
-            )}
-          </Card>
-        )}
-      </section>
+                  v{v.version}
+                  {v.id === currentVersion.id ? " (current)" : ""}
+                </Button>
+              </li>
+            ))}
+          </ul>
+          {selectedVersionId && selectedVersionId !== currentVersion.id && (
+            <Card className="mt-4 p-5">
+              <h3 className="font-sans text-body font-semibold text-ink">
+                Changes in this version
+              </h3>
+              {diffQuery.isLoading && <Skeleton className="mt-3 h-24 w-full" />}
+              {diffQuery.isError && (
+                <p className="mt-3 font-sans text-sm text-fail" role="alert">
+                  Could not load version diff.{" "}
+                  <button
+                    type="button"
+                    className="font-semibold text-cta underline underline-offset-2"
+                    onClick={() => void diffQuery.refetch()}
+                  >
+                    Retry
+                  </button>
+                </p>
+              )}
+              {diffQuery.data && (
+                <WorksheetVersionDiff
+                  className="mt-3"
+                  changes={diffQuery.data.changes}
+                  changeSummary={diffQuery.data.change_summary}
+                />
+              )}
+            </Card>
+          )}
+        </div>
+      </details>
 
       {showRevisePanel && (
         <Card className="space-y-4 border-cta/30 p-5">
@@ -434,8 +502,9 @@ export function WorksheetEditor({ workspaceId }: { workspaceId: string }) {
           )}
 
           {pendingDiff.length > 0 &&
+            baselineWorksheet &&
             coreFieldsChanged(
-              currentVersion.worksheet as Record<string, unknown>,
+              baselineWorksheet as Record<string, unknown>,
               values as Record<string, unknown>,
             ) && (
               <div className="flex items-center gap-2 rounded-ui border border-rule-soft p-3">
@@ -451,23 +520,27 @@ export function WorksheetEditor({ workspaceId }: { workspaceId: string }) {
               </div>
             )}
 
-          {WORKSHEET_FIELDS.map((field) => {
-            const error = errors[field.name]?.message as string | undefined;
-            return (
-              <WorksheetFieldRenderer
-                key={field.name}
-                field={field}
-                values={values}
-                error={error}
-                errorId={`${field.name}-error`}
-                register={register}
-                setValue={setValue}
-                onSharpen={onSharpen}
-                sharpening={sharpening}
-                showVersioned
-              />
-            );
-          })}
+          {CREATE_CORE_FIELDS.map((field) => renderField(field))}
+
+          <details className="rounded-ui border border-rule-soft bg-card">
+            <summary
+              className={cn(
+                "flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 py-3",
+                "font-sans text-sm font-semibold text-ink",
+                "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta",
+                "[&::-webkit-details-marker]:hidden",
+              )}
+            >
+              More detail
+              <ChevronDown className="size-4 text-ink-muted" aria-hidden />
+              <span className="ml-auto font-sans text-xs font-normal text-ink-muted">
+                Workaround, pricing, competitors…
+              </span>
+            </summary>
+            <div className="space-y-6 border-t border-rule-soft px-4 py-4">
+              {DETAIL_FIELDS.map((field) => renderField(field))}
+            </div>
+          </details>
 
           <div className="space-y-2">
             <Button

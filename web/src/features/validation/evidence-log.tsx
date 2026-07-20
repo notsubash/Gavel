@@ -1,6 +1,5 @@
 "use client";
 
-import type { Evidence } from "@/lib/api/workspaces";
 import {
   EVIDENCE_STRENGTH_LABEL,
   EVIDENCE_TYPE_LABEL,
@@ -8,6 +7,8 @@ import {
   parseCompetitorEvidenceContent,
 } from "@/features/validation/competitor-evidence";
 import { CompetitorIntelCards } from "@/features/validation/competitor-intel-cards";
+import { EMPTY_COPY } from "@/features/run/run-page-copy";
+import type { Evidence } from "@/lib/api/workspaces";
 import { Badge } from "@/ui/badge";
 import { Card } from "@/ui/card";
 
@@ -53,7 +54,7 @@ export function EvidenceLog({ evidence }: { evidence: Evidence[] }) {
           );
         })}
         {evidence.length === 0 && (
-          <p className="font-sans text-body text-ink-muted">No evidence logged yet.</p>
+          <p className="font-sans text-body text-ink-muted">{EMPTY_COPY.evidence}</p>
         )}
       </ul>
     </section>

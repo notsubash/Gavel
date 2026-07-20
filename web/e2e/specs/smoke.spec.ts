@@ -15,7 +15,10 @@ test.describe("smoke", { tag: "@core" }, () => {
       "/workspaces",
     );
     await expect(page.getByText("Your Gavel trail")).toBeVisible();
-    // Phase 3: contribution graph sits below How it works, not in the hero.
+    // Phase 5: real-app verdict mock in the hero; contribution graph below How it works.
+    await expect(
+      page.getByRole("figure", { name: /Example verdict from a completed Gavel review/i }),
+    ).toBeVisible();
     const howHeading = page.getByRole("heading", { name: "How Gavel works" });
     const trail = page.getByText("Your Gavel trail");
     await expect(howHeading).toBeVisible();

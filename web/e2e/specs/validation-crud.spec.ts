@@ -71,13 +71,14 @@ test.describe.serial("validation workbench CRUD", { tag: "@extended" }, () => {
 
     await page.goto(`/workspaces/${workspaceId}/validation`);
     await clickValidationAction(page, "Add evidence");
-    await expect(page.getByRole("dialog", { name: "Add evidence" })).toBeVisible();
+    const dialog = page.getByRole("dialog", { name: "Add evidence" });
+    await expect(dialog).toBeVisible();
 
-    await page.getByLabel("Content").fill(evidenceText);
-    await expect(page.getByRole("button", { name: "Save evidence" })).toBeEnabled();
-    await page.getByRole("button", { name: "Save evidence" }).click();
+    await dialog.getByLabel("Content").fill(evidenceText);
+    await expect(dialog.getByRole("button", { name: "Save" })).toBeEnabled();
+    await dialog.getByRole("button", { name: "Save" }).click();
 
-    await expect(page.getByRole("dialog", { name: "Add evidence" })).not.toBeVisible();
+    await expect(dialog).not.toBeVisible();
     await expect(page.getByText(evidenceText)).toBeVisible();
 
     await page.reload();
@@ -91,10 +92,10 @@ test.describe.serial("validation workbench CRUD", { tag: "@extended" }, () => {
     const dialog = page.getByRole("dialog", { name: "Interview note" });
     await expect(dialog).toBeVisible();
     await dialog.getByLabel("Notes").fill("Short notes that should not save without a person.");
-    await expect(dialog.getByRole("button", { name: "Save interview" })).toBeDisabled();
+    await expect(dialog.getByRole("button", { name: "Save" })).toBeDisabled();
 
     await dialog.getByLabel("Person").fill("Design partner Alex");
-    await expect(dialog.getByRole("button", { name: "Save interview" })).toBeEnabled();
+    await expect(dialog.getByRole("button", { name: "Save" })).toBeEnabled();
   });
 
   test("saves an interview note and shows it in the list", async ({ page }) => {
@@ -108,7 +109,7 @@ test.describe.serial("validation workbench CRUD", { tag: "@extended" }, () => {
     const dialog = page.getByRole("dialog", { name: "Interview note" });
     await dialog.getByLabel("Person").fill(person);
     await dialog.getByLabel("Notes").fill(notes);
-    await dialog.getByRole("button", { name: "Save interview" }).click();
+    await dialog.getByRole("button", { name: "Save" }).click();
 
     await expect(dialog).not.toBeVisible();
     await expect(page.getByRole("heading", { name: /Interviews \(1\)/ })).toBeVisible();

@@ -35,7 +35,7 @@ import { SseReconnectBanner } from "./sse-reconnect-banner";
 import { DisclosureChevron } from "@/ui/disclosure-chevron";
 import { LatestImprovement } from "./latest-improvement";
 import { PanelQualityDebugBadge } from "./panel-quality-debug";
-import { RUN_PAGE_COPY } from "./run-page-copy";
+import { RUN_PAGE_COPY, VERSION_COPY } from "./run-page-copy";
 import { deriveWorkflowBrief, parseDecisionVerdictProse, parseStructuredSynthesis } from "./structured-synthesis";
 import { VerdictCard } from "./verdict-card";
 import { WorkflowBrief } from "./workflow-brief";
@@ -345,20 +345,46 @@ function RunSheetContent({
             runId={runId}
             workspaceId={workspaceId}
           />
-          <DebateConsequenceBlock
-            structuredSynthesis={stream.structuredSynthesis}
-            synthesisProse={stream.synthesis}
-            verdicts={revealedVerdicts}
-            revoteBaseline={stream.revoteBaseline}
-            revoteChangeReasons={stream.revoteChangeReasons}
-            topProblems={workflowBrief.problems}
-            className="mt-6"
-          />
-          <ConfidenceBars
-            verdicts={revealedVerdicts}
-            structuredSynthesis={stream.structuredSynthesis}
-            className="mt-6"
-          />
+          {/* Phase 5: debate + confidence available but not competing with CTA */}
+          {status === "completed" ? (
+            <details className="group mt-6 border-t border-rule-soft pt-4">
+              <summary className={collapsibleSummaryClass}>
+                <DisclosureChevron />
+                <span>Debate &amp; confidence</span>
+              </summary>
+              <div className="mt-4 space-y-6">
+                <DebateConsequenceBlock
+                  structuredSynthesis={stream.structuredSynthesis}
+                  synthesisProse={stream.synthesis}
+                  verdicts={revealedVerdicts}
+                  revoteBaseline={stream.revoteBaseline}
+                  revoteChangeReasons={stream.revoteChangeReasons}
+                  topProblems={workflowBrief.problems}
+                />
+                <ConfidenceBars
+                  verdicts={revealedVerdicts}
+                  structuredSynthesis={stream.structuredSynthesis}
+                />
+              </div>
+            </details>
+          ) : (
+            <>
+              <DebateConsequenceBlock
+                structuredSynthesis={stream.structuredSynthesis}
+                synthesisProse={stream.synthesis}
+                verdicts={revealedVerdicts}
+                revoteBaseline={stream.revoteBaseline}
+                revoteChangeReasons={stream.revoteChangeReasons}
+                topProblems={workflowBrief.problems}
+                className="mt-6"
+              />
+              <ConfidenceBars
+                verdicts={revealedVerdicts}
+                structuredSynthesis={stream.structuredSynthesis}
+                className="mt-6"
+              />
+            </>
+          )}
         </div>
       </section>
     ) : null,
@@ -400,26 +426,34 @@ function RunSheetContent({
         />
       </section>
     ),
-    version: (
-      <>
-        <VersionComparison
-          version={version}
-          parentRunId={parentRunId}
-          currentVerdicts={revealedVerdicts}
-          structuredSynthesis={stream.structuredSynthesis}
-          completed={status === "completed"}
-        />
-        {showDecisionCard && (
-          <LatestImprovement
-            completed={status === "completed"}
-            version={version}
-            parentRunId={parentRunId}
-            currentVerdicts={revealedVerdicts}
-            className="mt-6"
-          />
-        )}
-      </>
-    ),
+    version:
+      status === "completed" ? (
+        <details className="group mt-8 border-t border-rule-soft pt-8">
+          <summary className={collapsibleSummaryClass}>
+            <DisclosureChevron />
+            <span>{VERSION_COPY.comparisonTitle}</span>
+          </summary>
+          <div className="mt-5">
+            <VersionComparison
+              version={version}
+              parentRunId={parentRunId}
+              currentVerdicts={revealedVerdicts}
+              structuredSynthesis={stream.structuredSynthesis}
+              completed
+              embedded
+            />
+            {showDecisionCard && (
+              <LatestImprovement
+                completed
+                version={version}
+                parentRunId={parentRunId}
+                currentVerdicts={revealedVerdicts}
+                className="mt-6"
+              />
+            )}
+          </div>
+        </details>
+      ) : null,
     appeal: (
       <AppealSection
         completed={status === "completed"}

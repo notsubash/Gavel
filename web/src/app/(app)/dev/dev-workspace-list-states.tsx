@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { Plus, Sparkles } from "lucide-react";
 
+import { EMPTY_COPY } from "@/features/run/run-page-copy";
 import { heatCtaClass } from "@/lib/cta-classes";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Card } from "@/ui/card";
+import { EmptyState } from "@/ui/empty-state";
 import { Skeleton } from "@/ui/skeleton";
 
 /** Static WorkspaceList state panels for /dev (no API). */
@@ -27,20 +29,21 @@ export function WorkspaceListStatePanels() {
 
       <div className="space-y-3">
         <p className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-muted">Empty</p>
-        <Card className="border-dashed p-8 text-center">
-          <p className="font-sans text-body text-ink-muted">
-            No ideas yet. Start with a short pitch or explore a full example loop.
-          </p>
-          <div className="mt-4 flex flex-wrap justify-center gap-3">
-            <Button asChild>
-              <Link href="/workspaces/new">Create your first idea</Link>
-            </Button>
-            <Button type="button" variant="outline">
-              <Sparkles className="mr-2 size-4" aria-hidden />
-              Load example
-            </Button>
-          </div>
-        </Card>
+        <EmptyState
+          title={EMPTY_COPY.ideasTitle}
+          description={EMPTY_COPY.ideasDescription}
+          action={
+            <>
+              <Button asChild>
+                <Link href="/workspaces/new">{EMPTY_COPY.ideasCta}</Link>
+              </Button>
+              <Button type="button" variant="outline">
+                <Sparkles className="mr-2 size-4" aria-hidden />
+                Load example
+              </Button>
+            </>
+          }
+        />
       </div>
 
       <div className="space-y-3">

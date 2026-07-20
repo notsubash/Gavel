@@ -2,6 +2,7 @@
 
 import { Loader2, Sparkles } from "lucide-react";
 
+import { DIALOG_COPY } from "@/features/run/run-page-copy";
 import type { Experiment } from "@/lib/api/workspaces";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
@@ -115,19 +116,24 @@ export function ExperimentDialog({
           />
         </div>
 
-        <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={runSuggest}
-            disabled={suggestExperimentMutation.isPending}
-          >
-            {suggestExperimentMutation.isPending ? (
-              <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
-            ) : (
-              <Sparkles className="mr-2 size-4 text-ai-processing" aria-hidden />
-            )}
-            Suggest experiment
+        <Button
+          type="button"
+          variant="outline"
+          className="justify-self-start"
+          onClick={runSuggest}
+          disabled={suggestExperimentMutation.isPending}
+        >
+          {suggestExperimentMutation.isPending ? (
+            <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+          ) : (
+            <Sparkles className="mr-2 size-4 text-ai-processing" aria-hidden />
+          )}
+          Suggest experiment
+        </Button>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => handleClose(false)}>
+            {DIALOG_COPY.cancel}
           </Button>
           <Button
             type="button"
@@ -141,7 +147,7 @@ export function ExperimentDialog({
             {saveExperimentMutation.isPending && (
               <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
             )}
-            Create experiment
+            {DIALOG_COPY.save}
           </Button>
         </DialogFooter>
       </DialogContent>

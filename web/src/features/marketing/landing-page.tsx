@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { GavelLogo } from "@/components/gavel-logo";
 import { ContributionGraph } from "@/features/marketing/contribution-graph";
+import { LandingVerdictVisual } from "@/features/marketing/landing-verdict-visual";
 import { JUDGE_META } from "@/lib/sse/judges";
 import type { JudgeId } from "@/lib/sse/types";
 import { cn } from "@/lib/utils";
@@ -45,7 +46,7 @@ export function LandingPage() {
         </Link>
       </nav>
 
-      <section className="mx-auto w-full max-w-6xl px-4 py-10 md:px-8 md:py-16">
+      <section className="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 py-10 md:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] md:px-8 md:py-16">
         <div className="max-w-2xl">
           <p className="font-sans text-meta font-semibold uppercase tracking-widest text-cta">
             Gavel
@@ -69,6 +70,7 @@ export function LandingPage() {
             </Link>
           </div>
         </div>
+        <LandingVerdictVisual className="mx-auto w-full max-w-md md:mx-0 md:justify-self-end" />
       </section>
 
       <section

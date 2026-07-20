@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-/** Inline mirror of Phase 3 create/disclosure helpers (no TS path aliases). */
+/** Inline mirror of create/disclosure helpers (no TS path aliases). */
 const CREATE_CORE = [
   "working_name",
   "audience",
@@ -120,4 +120,4 @@ assert.equal(isWeakFieldValue(""), false);
 assert.equal(shouldUseAssumptionBoard(5), false);
 assert.equal(shouldUseAssumptionBoard(6), true);
 
-console.log("phase3-create-workbench: ok");
+console.log("create-workbench: ok");

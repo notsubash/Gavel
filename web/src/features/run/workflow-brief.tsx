@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ClipboardList, MoreHorizontal, Target } from "lucide-react";
+import { ClipboardList, Target } from "lucide-react";
 
-import { secondaryCtaClass, heatCtaClass } from "@/lib/cta-classes";
+import { heatCtaClass } from "@/lib/cta-classes";
 import type { Experiment } from "@/lib/experiment/experiment";
 import type { Verdict } from "@/lib/sse/types";
 import { cn } from "@/lib/utils";
+import { DisclosureChevron } from "@/ui/disclosure-chevron";
+import { MoreMenu, MoreMenuItem } from "@/ui/more-menu";
 
 import { ExperimentCard } from "./experiment-card";
 import { RUN_PAGE_COPY } from "./run-page-copy";
@@ -96,56 +98,14 @@ export function WorkflowBrief({
     runId && workspaceId ? revisePitchHref(workspaceId, runId) : null;
   const showReviseInMore =
     Boolean(completed && runId && reviseHref && resolvedPrimary?.kind === "submit_evidence");
+  const showPrimaryCta =
+    completed && resolvedPrimary && (showSubmitPrimary || showRevisePrimary || showViewPrimary);
+  const hasDetail =
+    problems.length > 0 || Boolean(blocker) || Boolean(experiment.title.trim());
 
   return (
-    <div id="next-actions-strip" className={cn("mt-5 scroll-mt-6 space-y-3", className)}>
-      {problems.length > 0 && (
-        <section className={cardClass} aria-labelledby="top-problems-heading">
-          <header className="border-b border-rule-soft px-4 py-2.5">
-            <h3
-              id="top-problems-heading"
-              className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-muted"
-            >
-              {RUN_PAGE_COPY.topProblems}
-            </h3>
-          </header>
-          <ol className="list-none px-4 py-3" aria-label="Top three problems from this review">
-            {problems.map((problem, index) => (
-              <li
-                key={index}
-                className="flex min-h-7 gap-3 font-sans text-sm leading-relaxed text-ink"
-              >
-                <span className="w-5 shrink-0 font-mono text-xs font-bold text-ink-muted" aria-hidden>
-                  {index + 1}.
-                </span>
-                {problem}
-              </li>
-            ))}
-          </ol>
-        </section>
-      )}
-
-      {blocker && (
-        <section
-          className={cn(cardClass, "flex items-start gap-3 px-4 py-3")}
-          aria-labelledby="blocker-heading"
-        >
-          <Target className="mt-0.5 size-4 shrink-0 text-ink-muted" aria-hidden />
-          <div>
-            <h3
-              id="blocker-heading"
-              className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-muted"
-            >
-              {RUN_PAGE_COPY.highestPriority}
-            </h3>
-            <p className="mt-2 font-sans text-sm leading-relaxed text-ink">{blocker}</p>
-          </div>
-        </section>
-      )}
-
-      <ExperimentCard experiment={experiment} />
-
-      {completed && resolvedPrimary && (showSubmitPrimary || showRevisePrimary || showViewPrimary) && (
+    <div id="next-action" className={cn("mt-5 scroll-mt-6 space-y-3", className)}>
+      {showPrimaryCta ? (
         <section
           className={cn(cardClass, "flex flex-wrap items-center justify-between gap-3 px-4 py-3")}
           aria-labelledby="next-action-heading"
@@ -153,10 +113,7 @@ export function WorkflowBrief({
           <div className="flex items-start gap-3">
             <ClipboardList className="mt-0.5 size-4 shrink-0 text-ink-muted" aria-hidden />
             <div>
-              <h3
-                id="next-action-heading"
-                className="font-sans text-sm font-semibold text-ink"
-              >
+              <h3 id="next-action-heading" className="font-sans text-sm font-semibold text-ink">
                 {showSubmitPrimary || showViewPrimary
                   ? RUN_PAGE_COPY.presentEvidence
                   : RUN_PAGE_COPY.revisePitch}
@@ -192,36 +149,72 @@ export function WorkflowBrief({
             ) : null}
 
             {showReviseInMore && reviseHref ? (
-              <details className="relative">
-                <summary
-                  className={cn(
-                    secondaryCtaClass,
-                    "list-none [&::-webkit-details-marker]:hidden",
-                  )}
-                >
-                  <MoreHorizontal className="size-4" aria-hidden />
-                  <span className="sr-only">More</span>
-                </summary>
-                <div
-                  className="absolute right-0 z-10 mt-1 min-w-44 rounded-ui border border-rule-soft bg-card py-1 shadow-soft"
-                  role="group"
-                  aria-label="More next actions"
-                >
-                  <Link
-                    href={reviseHref}
-                    className={cn(
-                      "flex min-h-11 w-full items-center px-4 py-2 font-sans text-sm text-ink",
-                      "hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-cta",
-                    )}
-                  >
-                    {RUN_PAGE_COPY.revisePitch}
-                  </Link>
-                </div>
-              </details>
+              <MoreMenu label="More" align="right" iconOnly>
+                <MoreMenuItem href={reviseHref}>{RUN_PAGE_COPY.revisePitch}</MoreMenuItem>
+              </MoreMenu>
             ) : null}
           </div>
         </section>
-      )}
+      ) : null}
+
+      {hasDetail ? (
+        <details className="group border-t border-rule-soft pt-3">
+          <summary className="flex cursor-pointer list-none items-center gap-2 font-sans text-sm font-semibold text-ink-muted hover:text-ink [&::-webkit-details-marker]:hidden">
+            <DisclosureChevron />
+            Problems &amp; experiment
+          </summary>
+          <div className="mt-3 space-y-3">
+            {problems.length > 0 && (
+              <section className={cardClass} aria-labelledby="top-problems-heading">
+                <header className="border-b border-rule-soft px-4 py-2.5">
+                  <h3
+                    id="top-problems-heading"
+                    className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-muted"
+                  >
+                    {RUN_PAGE_COPY.topProblems}
+                  </h3>
+                </header>
+                <ol className="list-none px-4 py-3" aria-label="Top three problems from this review">
+                  {problems.map((problem, index) => (
+                    <li
+                      key={index}
+                      className="flex min-h-7 gap-3 font-sans text-sm leading-relaxed text-ink"
+                    >
+                      <span
+                        className="w-5 shrink-0 font-mono text-xs font-bold text-ink-muted"
+                        aria-hidden
+                      >
+                        {index + 1}.
+                      </span>
+                      {problem}
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            )}
+
+            {blocker && (
+              <section
+                className={cn(cardClass, "flex items-start gap-3 px-4 py-3")}
+                aria-labelledby="blocker-heading"
+              >
+                <Target className="mt-0.5 size-4 shrink-0 text-ink-muted" aria-hidden />
+                <div>
+                  <h3
+                    id="blocker-heading"
+                    className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-muted"
+                  >
+                    {RUN_PAGE_COPY.highestPriority}
+                  </h3>
+                  <p className="mt-2 font-sans text-sm leading-relaxed text-ink">{blocker}</p>
+                </div>
+              </section>
+            )}
+
+            <ExperimentCard experiment={experiment} />
+          </div>
+        </details>
+      ) : null}
     </div>
   );
 }

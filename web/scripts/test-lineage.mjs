@@ -130,7 +130,7 @@ const panelVerdicts = [
 
 const panelAction = deriveNextActionFromPanel("child-2", "completed", panelVerdicts);
 assert.equal(panelAction.label, "Submit evidence");
-assert.match(panelAction.href, /#next-actions-strip$/);
+assert.match(panelAction.href, /#next-action$/);
 
 const goAction = deriveNextActionFromStatus({
   run_id: "child-2",
@@ -140,7 +140,7 @@ const goAction = deriveNextActionFromStatus({
 });
 assert.equal(goAction.label, "Revise pitch");
 // History deep-links to Run's strip — Run owns the authoritative CTA destination.
-assert.equal(goAction.href, "/run/child-2#next-actions-strip");
+assert.equal(goAction.href, "/run/child-2#next-action");
 
 const noWorkspaceGo = deriveNextActionFromStatus({
   run_id: "child-2",
@@ -148,7 +148,7 @@ const noWorkspaceGo = deriveNextActionFromStatus({
   verdict_summary: { pass: 5, fail: 0, conditional: 0, avg_score: 8 },
 });
 assert.equal(noWorkspaceGo.label, "Open review");
-assert.equal(noWorkspaceGo.href, "/run/child-2#next-actions-strip");
+assert.equal(noWorkspaceGo.href, "/run/child-2#next-action");
 
 const priorFlag = process.env.NEXT_PUBLIC_WORKSPACE_HISTORY;
 process.env.NEXT_PUBLIC_WORKSPACE_HISTORY = "false";

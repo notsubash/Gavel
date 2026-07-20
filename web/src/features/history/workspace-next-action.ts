@@ -27,7 +27,7 @@ function summaryFromRun(
 /** Completed History rows deep-link to Run's CTA strip — Run owns the fork. */
 function historyHrefForCompleted(runId: string, action: { kind: string; href: string }): string {
   if (action.kind === "view_evidence") return action.href;
-  return `/run/${runId}#next-actions-strip`;
+  return `/run/${runId}#next-action`;
 }
 
 /** Status-only fallback when panel data is unavailable. */

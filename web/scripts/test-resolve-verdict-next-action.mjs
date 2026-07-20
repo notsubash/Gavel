@@ -16,7 +16,7 @@ test("ITERATE → Submit evidence", () => {
   });
   assert.equal(action.kind, "submit_evidence");
   assert.equal(action.label, "Submit evidence");
-  assert.match(action.href, /#next-actions-strip$/);
+  assert.match(action.href, /#next-action$/);
 });
 
 test("GO / NO-GO → Revise pitch when workspace exists", () => {
@@ -39,7 +39,7 @@ test("GO without workspace → Open review (not mislabeled Revise)", () => {
   });
   assert.equal(action.kind, "open_review");
   assert.equal(action.label, "Open review");
-  assert.equal(action.href, "/run/run-1#next-actions-strip");
+  assert.equal(action.href, "/run/run-1#next-action");
 });
 
 test("evidence submitted → View evidence result", () => {
@@ -79,5 +79,5 @@ test("countVerdictLabels", () => {
 });
 
 test("revisePitchHref falls back to run anchor without workspace", () => {
-  assert.equal(revisePitchHref(null, "run-9"), "/run/run-9#next-actions-strip");
+  assert.equal(revisePitchHref(null, "run-9"), "/run/run-9#next-action");
 });

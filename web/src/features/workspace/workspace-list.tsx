@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 import { ScoreDeltaBadge } from "@/features/appeal/score-delta-badge";
 import { WorkspaceNextActionLink } from "@/features/history/workspace-history-row";
-import { HISTORY_COPY } from "@/features/run/run-page-copy";
+import { HISTORY_COPY, EMPTY_COPY } from "@/features/run/run-page-copy";
 import { indexRunsByWorkspaceId } from "@/features/workspace/idea-run-index";
 import { listRuns } from "@/lib/api/runs";
 import { listWorkspaces, seedSampleWorkspace, workspacesQueryKey } from "@/lib/api/workspaces";
@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Card } from "@/ui/card";
+import { EmptyState } from "@/ui/empty-state";
 import { Skeleton } from "@/ui/skeleton";
 
 const LIFECYCLE_LABEL: Record<string, string> = {
@@ -150,29 +151,30 @@ export function WorkspaceList() {
       </div>
 
       {workspaces.length === 0 ? (
-        <Card className="border-dashed p-8 text-center">
-          <p className="font-sans text-body text-ink-muted">
-            No ideas yet. Start with a short pitch or explore a full example loop.
-          </p>
-          <div className="mt-4 flex flex-col items-center gap-3">
-            <Button asChild>
-              <Link href="/workspaces/new">Create your first idea</Link>
-            </Button>
-            <button
-              type="button"
-              disabled={seedMutation.isPending}
-              onClick={() => seedMutation.mutate()}
-              className="inline-flex min-h-11 items-center gap-2 font-sans text-sm font-semibold text-ink-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta disabled:opacity-50"
-            >
-              {seedMutation.isPending ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden />
-              ) : (
-                <Sparkles className="size-4 text-ai-processing" aria-hidden />
-              )}
-              Load example
-            </button>
-          </div>
-        </Card>
+        <EmptyState
+          title={EMPTY_COPY.ideasTitle}
+          description={EMPTY_COPY.ideasDescription}
+          action={
+            <>
+              <Button asChild>
+                <Link href="/workspaces/new">{EMPTY_COPY.ideasCta}</Link>
+              </Button>
+              <button
+                type="button"
+                disabled={seedMutation.isPending}
+                onClick={() => seedMutation.mutate()}
+                className="inline-flex min-h-11 items-center gap-2 font-sans text-sm font-semibold text-ink-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta disabled:opacity-50"
+              >
+                {seedMutation.isPending ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                ) : (
+                  <Sparkles className="size-4 text-ai-processing" aria-hidden />
+                )}
+                Load example
+              </button>
+            </>
+          }
+        />
       ) : (
         <ul className="space-y-3" aria-label="Ideas">
           {workspaces.map((ws) => {

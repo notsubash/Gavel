@@ -49,7 +49,7 @@ export function inferRecommendationFromVerdictSummary(
 
 export function revisePitchHref(workspaceId: string | null | undefined, runId: string): string {
   if (workspaceId) return `/workspaces/${workspaceId}/worksheet?revise=1`;
-  return `/run/${runId}#next-actions-strip`;
+  return `/run/${runId}#next-action`;
 }
 
 /**
@@ -78,7 +78,7 @@ export function resolveVerdictNextAction(input: {
     return {
       kind: "submit_evidence",
       label: RUN_PAGE_COPY.submitEvidence,
-      href: `/run/${input.runId}#next-actions-strip`,
+      href: `/run/${input.runId}#next-action`,
       useModal: true,
     };
   }
@@ -95,6 +95,6 @@ export function resolveVerdictNextAction(input: {
   return {
     kind: "open_review",
     label: RUN_PAGE_COPY.openReview,
-    href: `/run/${input.runId}#next-actions-strip`,
+    href: `/run/${input.runId}#next-action`,
   };
 }

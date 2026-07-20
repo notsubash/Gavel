@@ -3,6 +3,7 @@
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { DIALOG_COPY } from "@/features/run/run-page-copy";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import {
@@ -127,29 +128,34 @@ export function InterviewDialog({
           </div>
         )}
 
-        <DialogFooter className="flex-wrap gap-2 sm:justify-start">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() =>
-              summarizeMutation.mutate(
-                { notes: interviewNotes, person_label: personLabel || undefined },
-                {
-                  onSuccess: (res) => {
-                    onSummarizeSuccess(res);
-                    if (res.extracted_quotes.length) {
-                      toast.message(`${res.extracted_quotes.length} quote(s) extracted`);
-                    }
-                  },
+        <Button
+          type="button"
+          variant="outline"
+          className="justify-self-start"
+          onClick={() =>
+            summarizeMutation.mutate(
+              { notes: interviewNotes, person_label: personLabel || undefined },
+              {
+                onSuccess: (res) => {
+                  onSummarizeSuccess(res);
+                  if (res.extracted_quotes.length) {
+                    toast.message(`${res.extracted_quotes.length} quote(s) extracted`);
+                  }
                 },
-              )
-            }
-            disabled={interviewNotes.length < 20 || summarizeMutation.isPending}
-          >
-            {summarizeMutation.isPending && (
-              <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
-            )}
-            Summarize
+              },
+            )
+          }
+          disabled={interviewNotes.length < 20 || summarizeMutation.isPending}
+        >
+          {summarizeMutation.isPending && (
+            <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+          )}
+          Summarize
+        </Button>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => handleClose(false)}>
+            {DIALOG_COPY.cancel}
           </Button>
           <Button
             type="button"
@@ -178,7 +184,7 @@ export function InterviewDialog({
             {saveInterviewMutation.isPending && (
               <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
             )}
-            Save interview
+            {DIALOG_COPY.save}
           </Button>
         </DialogFooter>
       </DialogContent>

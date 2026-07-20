@@ -68,11 +68,13 @@ function VersionComparisonContent({
   parentRunId,
   currentVerdicts,
   structuredSynthesis,
+  showConfidence = true,
 }: {
   version: number;
   parentRunId: string;
   currentVerdicts: Verdict[];
   structuredSynthesis?: unknown;
+  showConfidence?: boolean;
 }) {
   const priorQuery = useQuery({
     queryKey: runPanelQueryKey(parentRunId),
@@ -201,11 +203,13 @@ function VersionComparisonContent({
         </p>
       )}
 
-      <ConfidenceBars
-        verdicts={currentVerdicts}
-        structuredSynthesis={structuredSynthesis}
-        className="mt-8"
-      />
+      {showConfidence ? (
+        <ConfidenceBars
+          verdicts={currentVerdicts}
+          structuredSynthesis={structuredSynthesis}
+          className="mt-8"
+        />
+      ) : null}
 
       <details className="group mt-8 border-t border-rule-soft pt-6">
         <summary className="cursor-pointer font-sans text-sm font-semibold text-ink-muted hover:text-ink">
@@ -260,53 +264,73 @@ export function VersionComparison({
   currentVerdicts,
   structuredSynthesis,
   completed,
+  /** When true, skip outer heading/margins (parent already provides a details chrome). */
+  embedded = false,
 }: {
   version: number;
   parentRunId?: string | null;
   currentVerdicts: Verdict[];
   structuredSynthesis?: unknown;
   completed: boolean;
+  embedded?: boolean;
 }) {
   if (!completed || currentVerdicts.length === 0) return null;
+
+  // Embedded under Run climax: confidence lives in "Debate & confidence" — don't duplicate.
+  const showConfidence = !embedded;
 
   if (!parentRunId && version === 1) {
     return (
       <section
-        className="mt-10 rounded-md border border-rule-soft bg-paper-2 px-5 py-4"
-        aria-label="Version comparison"
+        className={cn(
+          "rounded-md border border-rule-soft bg-paper-2 px-5 py-4",
+          !embedded && "mt-10",
+        )}
+        aria-label={VERSION_COPY.comparisonTitle}
       >
         <p className="max-w-prose font-sans text-sm text-ink-muted">
           {VERSION_COPY.noPriorVersion}
         </p>
-        <ConfidenceBars
-          verdicts={currentVerdicts}
-          structuredSynthesis={structuredSynthesis}
-          className="mt-6"
-        />
+        {showConfidence ? (
+          <ConfidenceBars
+            verdicts={currentVerdicts}
+            structuredSynthesis={structuredSynthesis}
+            className="mt-6"
+          />
+        ) : null}
       </section>
     );
   }
 
   if (parentRunId && version > 1) {
     return (
-      <section className="mt-10" aria-labelledby="version-comparison-heading">
-        <h2 id="version-comparison-heading" className="font-sans text-2xl font-semibold text-ink">
-          {VERSION_COPY.comparisonTitle}
-        </h2>
-        <div className="mt-6">
+      <section
+        className={cn(!embedded && "mt-10")}
+        aria-labelledby={embedded ? undefined : "version-comparison-heading"}
+        aria-label={embedded ? VERSION_COPY.comparisonTitle : undefined}
+      >
+        {!embedded ? (
+          <h2 id="version-comparison-heading" className="font-sans text-2xl font-semibold text-ink">
+            {VERSION_COPY.comparisonTitle}
+          </h2>
+        ) : null}
+        <div className={cn(!embedded && "mt-6")}>
           <VersionComparisonContent
             version={version}
             parentRunId={parentRunId}
             currentVerdicts={currentVerdicts}
             structuredSynthesis={structuredSynthesis}
+            showConfidence={showConfidence}
           />
         </div>
       </section>
     );
   }
 
+  if (!showConfidence) return null;
+
   return (
-    <section className="mt-10" aria-label="Confidence">
+    <section className={cn(!embedded && "mt-10")} aria-label="Confidence">
       <ConfidenceBars
         verdicts={currentVerdicts}
         structuredSynthesis={structuredSynthesis}

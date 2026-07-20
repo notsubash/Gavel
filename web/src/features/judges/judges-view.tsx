@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { PostRoastHandoff } from "@/features/judges/post-roast-handoff";
 import { ReadinessGateModal } from "@/features/judges/readiness-gate-modal";
+import { EMPTY_COPY } from "@/features/run/run-page-copy";
 import { ApiError } from "@/lib/api/client";
 import { createRun } from "@/lib/api/runs";
 import { parseApiDetail } from "@/lib/api/types-helpers";
@@ -130,7 +131,7 @@ export function JudgesView({ workspaceId }: { workspaceId: string }) {
           </div>
         ) : null}
         {runsQuery.data && runsQuery.data.runs.length === 0 ? (
-          <p className="font-sans text-sm text-ink-muted">No roasts yet for this workspace.</p>
+          <p className="font-sans text-sm text-ink-muted">{EMPTY_COPY.reviews}</p>
         ) : null}
         <ul className="space-y-2">
           {(runsQuery.data?.runs ?? []).map((run) => (

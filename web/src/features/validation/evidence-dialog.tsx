@@ -3,6 +3,7 @@
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { DIALOG_COPY } from "@/features/run/run-page-copy";
 import {
   EVIDENCE_TYPE_LABEL,
   parseCompetitorEvidenceContent,
@@ -168,31 +169,36 @@ export function EvidenceDialog({
           </p>
         )}
 
-        <DialogFooter className="flex-wrap gap-2 sm:justify-start">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() =>
-              mapEvidenceMutation.mutate(
-                { content: evidenceContent, type: evidenceType },
-                {
-                  onSuccess: (res) => {
-                    onMapSuccess(res);
-                    toast.message(
-                      res.suggested_assumption_ids.length
-                        ? `Linked to ${res.suggested_assumption_ids.length} assumption(s)`
-                        : "No assumption links suggested",
-                    );
-                  },
+        <Button
+          type="button"
+          variant="outline"
+          className="justify-self-start"
+          onClick={() =>
+            mapEvidenceMutation.mutate(
+              { content: evidenceContent, type: evidenceType },
+              {
+                onSuccess: (res) => {
+                  onMapSuccess(res);
+                  toast.message(
+                    res.suggested_assumption_ids.length
+                      ? `Linked to ${res.suggested_assumption_ids.length} assumption(s)`
+                      : "No assumption links suggested",
+                  );
                 },
-              )
-            }
-            disabled={evidenceContent.length < 10 || mapEvidenceMutation.isPending}
-          >
-            {mapEvidenceMutation.isPending && (
-              <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
-            )}
-            Suggest assumption links
+              },
+            )
+          }
+          disabled={evidenceContent.length < 10 || mapEvidenceMutation.isPending}
+        >
+          {mapEvidenceMutation.isPending && (
+            <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+          )}
+          Suggest assumption links
+        </Button>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => handleClose(false)}>
+            {DIALOG_COPY.cancel}
           </Button>
           <Button
             type="button"
@@ -215,7 +221,7 @@ export function EvidenceDialog({
             {saveEvidenceMutation.isPending && (
               <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
             )}
-            Save evidence
+            {DIALOG_COPY.save}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -16,9 +16,18 @@ test.describe("workspace creation and navigation", { tag: "@core" }, () => {
 
     await page.goto("/workspaces/new");
     await fillWorksheetForm(page, { working_name: name });
-    await page.getByRole("button", { name: "Save workspace" }).click();
 
-    await expect(page).toHaveURL(/\/workspaces\/[0-9a-f-]+\/validation(\?log_interview=1)?$/);
+    const createResponse = page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        /\/api\/workspaces\/?$/.test(new URL(res.url()).pathname),
+    );
+    await page.getByRole("button", { name: "Save workspace" }).click();
+    expect((await createResponse).status()).toBe(201);
+
+    await expect(page).toHaveURL(/\/workspaces\/[0-9a-f-]+\/validation(\?log_interview=1)?$/, {
+      timeout: 15_000,
+    });
     await expect(page.getByRole("dialog", { name: /interview/i })).toBeVisible();
     await expectWorkspaceTab(page, "Case");
   });

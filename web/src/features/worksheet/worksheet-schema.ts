@@ -88,15 +88,20 @@ function needsDeferredPlaceholder(value: string): boolean {
 }
 
 /** Fill empty/short deferred required fields so create/Pitch can save without the full wall. */
-export function fillDeferredPlaceholders(data: WorksheetValues): WorksheetValues {
+export function fillDeferredPlaceholders(
+  data: Partial<WorksheetValues> | WorksheetValues,
+): WorksheetValues {
+  // Merge defaults: RHF submit omits unmounted “Add more detail” fields.
   const next: WorksheetValues = {
+    ...worksheetDefaults,
     ...data,
     competitors: Array.isArray(data.competitors) ? data.competitors : [],
   };
   for (const [key, placeholder] of Object.entries(DEFERRED_FIELD_PLACEHOLDERS)) {
     const name = key as WorksheetFieldName;
     const value = next[name];
-    if (typeof value === "string" && placeholder && needsDeferredPlaceholder(value)) {
+    const text = typeof value === "string" ? value : "";
+    if (placeholder && needsDeferredPlaceholder(text)) {
       (next as Record<string, unknown>)[name] = placeholder;
     }
   }

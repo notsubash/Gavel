@@ -21,8 +21,27 @@ function isCreateCoreField(name) {
   return CREATE_CORE.includes(name);
 }
 
+const WORKSHEET_DEFAULTS = {
+  working_name: "",
+  audience: "",
+  problem_statement: "",
+  current_workaround: "",
+  solution_statement: "",
+  secret_sauce: "",
+  pricing_hypothesis: "unknown",
+  existing_evidence: "none yet",
+  competitors: [],
+  top_risky_assumption: "",
+  disconfirming_evidence: "",
+  trigger_event: null,
+};
+
 function fillDeferredPlaceholders(data) {
-  const next = { ...data, competitors: Array.isArray(data.competitors) ? data.competitors : [] };
+  const next = {
+    ...WORKSHEET_DEFAULTS,
+    ...data,
+    competitors: Array.isArray(data.competitors) ? data.competitors : [],
+  };
   for (const [key, placeholder] of Object.entries(DEFERRED_PLACEHOLDERS)) {
     const value = typeof next[key] === "string" ? next[key].trim() : "";
     if (!value || value.length < 10 || /^not captured yet\.?$/i.test(value)) {
@@ -86,6 +105,21 @@ assert.equal(filled.disconfirming_evidence, "Not captured yet.");
 assert.equal(filled.pricing_hypothesis, "unknown");
 assert.equal(filled.existing_evidence, "none yet");
 assert.ok(filled.current_workaround.length >= 10);
+
+// Core-only submit (unmounted detail fields omitted) must still produce a valid payload.
+const coreOnly = fillDeferredPlaceholders({
+  working_name: "Acme",
+  audience: "Founders building B2B tools weekly.",
+  problem_statement: "Cannot prove demand before building.",
+  solution_statement: "I am building a case workbench for founders.",
+  top_risky_assumption: "Founders will return after the first review.",
+});
+assert.equal(coreOnly.current_workaround, "Not captured yet.");
+assert.equal(coreOnly.secret_sauce, "Not captured yet.");
+assert.equal(coreOnly.disconfirming_evidence, "Not captured yet.");
+assert.equal(coreOnly.pricing_hypothesis, "unknown");
+assert.equal(coreOnly.existing_evidence, "none yet");
+assert.deepEqual(coreOnly.competitors, []);
 
 const shortStub = fillDeferredPlaceholders({
   ...filled,

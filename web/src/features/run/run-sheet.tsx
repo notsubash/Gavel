@@ -391,7 +391,8 @@ function RunSheetContent({
     judges: collapseJudgeDetail ? (
       <details
         className="group mt-8 border-t border-rule-soft pt-8"
-        aria-labelledby="judge-panel-heading"
+        role="group"
+        aria-label={RUN_PAGE_COPY.judgePanel}
       >
         <summary className={collapsibleSummaryClass}>
           <DisclosureChevron />

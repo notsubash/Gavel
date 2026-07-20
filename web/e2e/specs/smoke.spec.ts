@@ -29,9 +29,10 @@ test.describe("smoke", { tag: "@core" }, () => {
 
   test("Advanced menu reports API health", async ({ page }) => {
     await page.goto("/workspaces/new");
-    await page.locator("summary").filter({ hasText: "Advanced" }).first().click();
-    await expect(page.getByText("API offline")).not.toBeVisible();
-    await expect(page.getByText("API online")).toBeVisible({ timeout: 30_000 });
+    const appNav = page.getByLabel("App navigation");
+    await appNav.locator("summary").filter({ hasText: "Advanced" }).click();
+    await expect(appNav.getByText("API offline")).not.toBeVisible();
+    await expect(appNav.getByText("API online")).toBeVisible({ timeout: 30_000 });
   });
 
   test("primary navigation reaches Ideas and Settings via Advanced", async ({ page }) => {

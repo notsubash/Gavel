@@ -30,7 +30,10 @@ export const E2E_WORKSHEET: E2eWorksheetValues = {
   disconfirming_evidence: "Teams say API tests alone are enough and skip browser suites.",
 };
 
-/** Fill the guided worksheet form on `/workspaces/new` or the worksheet editor. */
+/**
+ * Fill create-flow core fields on `/workspaces/new`.
+ * Deferred “Add more detail” fields are optional — wizard fills placeholders on save.
+ */
 export async function fillWorksheetForm(
   page: Page,
   values: Partial<E2eWorksheetValues> = {},
@@ -42,25 +45,6 @@ export async function fillWorksheetForm(
   await page.getByLabel("Problem statement").fill(data.problem_statement);
   await page.getByLabel("Solution statement").fill(data.solution_statement);
   await page.getByLabel("Top risky assumption").fill(data.top_risky_assumption);
-
-  // Phase 3: deferred fields live behind progressive disclosure.
-  const detailSummary = page
-    .locator("summary")
-    .filter({ hasText: /Add more detail|More detail/ })
-    .first();
-  if (await detailSummary.count()) {
-    const details = detailSummary.locator("xpath=ancestor::details[1]");
-    if ((await details.getAttribute("open")) === null) {
-      await detailSummary.click();
-    }
-  }
-
-  await page.getByLabel("Current workaround").fill(data.current_workaround);
-  await page.getByLabel("Secret sauce").fill(data.secret_sauce);
-  await page.getByLabel("Pricing hypothesis").fill(data.pricing_hypothesis);
-  await page.getByLabel("Existing evidence").fill(data.existing_evidence);
-  await page.getByLabel("Competitors and alternatives").fill(data.competitors);
-  await page.getByLabel("What would prove this wrong?").fill(data.disconfirming_evidence);
 }
 
 /** Phase 4 tabs. Evidence is Case's /validation route (no separate tab). */

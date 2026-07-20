@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -44,7 +44,6 @@ async function fetchValidationBundle(workspaceId: string) {
 export function ValidationView({ workspaceId }: { workspaceId: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const primedInterview = useRef(false);
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: validationDataQueryKey(workspaceId),
     queryFn: () => fetchValidationBundle(workspaceId),
@@ -57,7 +56,10 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
 
   const mutations = useValidationMutations(workspaceId);
 
-  const [interviewOpen, setInterviewOpen] = useState(false);
+  // Open from ?log_interview=1 on mount (wizard deep-link); effect only clears the URL.
+  const [interviewOpen, setInterviewOpen] = useState(
+    () => searchParams.get("log_interview") === "1",
+  );
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [experimentOpen, setExperimentOpen] = useState(false);
   const [questions, setQuestions] = useState<{ question: string; rationale: string }[]>([]);
@@ -86,12 +88,8 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
   const [experimentDecision, setExperimentDecision] = useState("continue");
   const [revisePromptExperimentId, setRevisePromptExperimentId] = useState<string | null>(null);
 
-  // Phase 1: open interview once from ?log_interview=1, then clear the param.
   useEffect(() => {
-    if (primedInterview.current) return;
     if (searchParams.get("log_interview") !== "1") return;
-    primedInterview.current = true;
-    setInterviewOpen(true);
     router.replace(`/workspaces/${workspaceId}/validation`, { scroll: false });
   }, [searchParams, router, workspaceId]);
 

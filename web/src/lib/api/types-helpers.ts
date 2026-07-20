@@ -42,7 +42,9 @@ export type RunStatusResponse = components["schemas"]["RunStatusResponse"] & {
 };
 export type RunCreatedResponse = components["schemas"]["RunCreatedResponse"];
 export type RunListResponse = components["schemas"]["RunListResponse"];
-export type RunListItem = components["schemas"]["RunListItem"];
+export type RunListItem = components["schemas"]["RunListItem"] & {
+  workspace_id?: string | null;
+};
 export type VerdictSummary = components["schemas"]["VerdictSummary"];
 export type SimilarRunsResponse = components["schemas"]["SimilarRunsResponse"];
 export type SimilarRunItem = components["schemas"]["SimilarRunItem"];

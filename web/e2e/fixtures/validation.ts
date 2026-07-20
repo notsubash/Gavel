@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext } from "@playwright/test";
+import { expect, type APIRequestContext, type Page } from "@playwright/test";
 
 import { E2E_API_URL } from "./api";
 
@@ -132,4 +132,15 @@ export async function getWorksheetVersionDiff(
   );
   expect(response.ok(), await response.text()).toBeTruthy();
   return response.json();
+}
+
+/** Phase 2: primary may be the only visible action; others live under Add… */
+export async function clickValidationAction(page: Page, name: string | RegExp) {
+  const button = page.getByRole("button", { name });
+  if (await button.isVisible()) {
+    await button.click();
+    return;
+  }
+  await page.locator("summary").filter({ hasText: "Add…" }).click();
+  await page.getByRole("button", { name }).click();
 }

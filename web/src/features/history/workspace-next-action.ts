@@ -1,18 +1,38 @@
 import type { RunListItem } from "../../lib/api/types-helpers";
-import { deriveExperiment, experimentSummaryLine } from "../../lib/experiment/experiment.ts";
-import { parseVerdict } from "../../lib/lineage/lineage.ts";
-import { HISTORY_COPY, RUN_PAGE_COPY } from "../run/run-page-copy.ts";
+import { HISTORY_COPY } from "../run/run-page-copy.ts";
+import {
+  countVerdictLabels,
+  resolveVerdictNextAction,
+  type VerdictSummaryCounts,
+} from "../run/resolve-verdict-next-action.ts";
 
 export type WorkspaceNextAction = {
   label: string;
   href: string;
-  /** Full experiment copy for tooltip — not shown inline in the row. */
   detail?: string;
 };
 
+function summaryFromRun(
+  run: Pick<RunListItem, "verdict_summary">,
+): VerdictSummaryCounts | null {
+  const summary = run.verdict_summary;
+  if (!summary) return null;
+  return {
+    pass: summary.pass ?? 0,
+    fail: summary.fail ?? 0,
+    conditional: summary.conditional ?? 0,
+  };
+}
+
+/** Completed History rows deep-link to Run's CTA strip — Run owns the fork. */
+function historyHrefForCompleted(runId: string, action: { kind: string; href: string }): string {
+  if (action.kind === "view_evidence") return action.href;
+  return `/run/${runId}#next-action`;
+}
+
 /** Status-only fallback when panel data is unavailable. */
 export function deriveNextActionFromStatus(
-  run: Pick<RunListItem, "run_id" | "status">,
+  run: Pick<RunListItem, "run_id" | "status" | "verdict_summary" | "workspace_id">,
 ): WorkspaceNextAction {
   const href = `/run/${run.run_id}`;
 
@@ -25,39 +45,48 @@ export function deriveNextActionFromStatus(
     case "cancelled":
       return { label: HISTORY_COPY.nextActionViewCancelled, href };
     case "completed":
-    default:
+    default: {
+      const action = resolveVerdictNextAction({
+        runId: run.run_id,
+        workspaceId: run.workspace_id,
+        verdictSummary: summaryFromRun(run),
+      });
       return {
-        label: RUN_PAGE_COPY.completeExperiment,
-        href: `${href}#next-actions-strip`,
+        label: action.label,
+        href: historyHrefForCompleted(run.run_id, action),
       };
+    }
   }
 }
 
-/** Match run page `#next-actions-strip` — uses structured experiment from judge fixes. */
+/** Panel path — counts judge labels when list summary is missing. */
 export function deriveNextActionFromPanel(
   runId: string,
   status: RunListItem["status"],
   panelVerdicts: unknown[],
-  synthesisProse: string | null = null,
-  structuredSynthesis: unknown = null,
+  options?: {
+    workspaceId?: string | null;
+    verdictSummary?: VerdictSummaryCounts | null;
+    evidenceSubmitted?: boolean;
+  },
 ): WorkspaceNextAction {
   if (status !== "completed") {
     return deriveNextActionFromStatus({ run_id: runId, status });
   }
 
-  const verdicts = panelVerdicts
-    .map(parseVerdict)
-    .filter((verdict): verdict is NonNullable<ReturnType<typeof parseVerdict>> => verdict !== null);
+  const counts =
+    options?.verdictSummary ??
+    countVerdictLabels(panelVerdicts as Array<{ verdict?: string }>);
 
-  const experiment = deriveExperiment(runId, synthesisProse, structuredSynthesis, verdicts);
-  const detail = experimentSummaryLine(experiment).trim();
-  if (detail) {
-    return {
-      label: RUN_PAGE_COPY.completeExperiment,
-      href: `/run/${runId}#next-actions-strip`,
-      detail,
-    };
-  }
+  const action = resolveVerdictNextAction({
+    runId,
+    workspaceId: options?.workspaceId,
+    verdictSummary: counts,
+    evidenceSubmitted: options?.evidenceSubmitted,
+  });
 
-  return deriveNextActionFromStatus({ run_id: runId, status });
+  return {
+    label: action.label,
+    href: historyHrefForCompleted(runId, action),
+  };
 }

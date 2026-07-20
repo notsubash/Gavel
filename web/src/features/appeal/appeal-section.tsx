@@ -1,21 +1,18 @@
 "use client";
 
-import { useMemo } from "react";
-
 import type { AppealResponse } from "@/lib/api/types-helpers";
 import {
   parseConfidenceFromStructuredSynthesis,
   parseConfidenceMovement,
   type ConfidenceSnapshot,
 } from "@/lib/confidence/confidence";
-import { appealBaselineVerdicts, appealJudgeOutcomes } from "@/lib/appeal/coaching";
+import { appealJudgeOutcomes } from "@/lib/appeal/coaching";
 import type { AppealResult, JudgeId, Verdict } from "@/lib/sse/types";
 import { JUDGE_ORDER } from "@/lib/sse/types";
 import type { ConfidenceLevel } from "@/features/run/structured-synthesis";
 
 import { AppealResultView } from "./appeal-result";
 import { EvidenceProgressDelta } from "./evidence-progress-delta";
-import { RUN_PAGE_COPY, EVIDENCE_COPY } from "../run/run-page-copy";
 
 function toVerdictMap(panel: AppealResponse["revised_panel"]): Record<JudgeId, Verdict> {
   const map = {} as Record<JudgeId, Verdict>;
@@ -78,44 +75,18 @@ function responseToAppeal(result: AppealResponse): AppealResult {
 
 export function AppealSection({
   completed,
-  baselineVerdicts,
   appeal,
   confidenceBefore,
   confidenceSnapshotBefore,
 }: {
   completed: boolean;
-  baselineVerdicts: Verdict[];
   appeal: AppealResult | null;
   confidenceBefore: ConfidenceLevel | null;
   confidenceSnapshotBefore?: ConfidenceSnapshot | null;
 }) {
-  const coachingBaseline = useMemo(
-    () => appealBaselineVerdicts(baselineVerdicts),
-    [baselineVerdicts],
-  );
-
   if (!completed) return null;
-  if (coachingBaseline.length === 0 && !appeal) return null;
-
-  if (!appeal) {
-    return (
-      <section
-        className="mt-8 border-t border-rule-soft pt-8"
-        aria-labelledby="appeal-result-heading"
-      >
-        <h2
-          id="appeal-result-heading"
-          tabIndex={-1}
-          className="scroll-mt-28 font-sans text-section font-semibold text-ink"
-        >
-          {EVIDENCE_COPY.progressTitle}
-        </h2>
-        <p className="mt-3 max-w-prose font-sans text-body text-ink-muted">
-          {RUN_PAGE_COPY.appealPlaceholder}
-        </p>
-      </section>
-    );
-  }
+  // Phase 1: hide empty progress/appeal until evidence exists.
+  if (!appeal) return null;
 
   const confidenceMovement =
     appeal.confidenceBeforeAfter ??

@@ -1,14 +1,35 @@
 /**
- * Run page copy freeze (Phase 0).
+ * Gavel UI copy deck (Phase 5).
  *
- * Checklist — block new above-fold sections unless they pass:
- * 1. One primary action per screen (evidence or refine, not browse judges).
- * 2. Above the fold answers: what should I do next?
- * 3. Top 3 problems visible before judge detail.
- * 4. Judges only after action guidance (appeal precedes panel in fold order).
- * 5. Evidence/iteration language only — no "appeal", "roast panel", or "verdict sheet".
- * 6. Every completed run shows version progress when lineage exists.
+ * Vocabulary (ban dual terms for the same concept):
+ *   Idea → Case → Review → Verdict
+ * Primary buttons only:
+ *   Start review · Submit evidence · Revise pitch · Save · Cancel · Submit
+ *
+ * Prefer these tokens over ad-hoc strings. Deprecated roast/refine aliases stay
+ * for one release so old imports don't break.
  */
+
+/** Canonical product glossary — one preferred term per concept. */
+export const GLOSSARY = {
+  idea: "Idea",
+  case: "Case",
+  pitch: "Pitch",
+  review: "Review",
+  verdict: "Verdict",
+  evidence: "Evidence",
+  /** Prefer "review" in user-facing copy; never "roast" as a noun for the product action. */
+  bannedRoast: "roast",
+  bannedRefine: "refine",
+} as const;
+
+/** Dialog footer contract (P2-1 / Phase 5). */
+export const DIALOG_COPY = {
+  cancel: "Cancel",
+  save: "Save",
+  submit: "Submit",
+  delete: "Delete",
+} as const;
 
 export const RUN_PAGE_COPY = {
   reviewEyebrow: "Review",
@@ -23,7 +44,9 @@ export const RUN_PAGE_COPY = {
   todaysGoal: "Today's goal",
   presentEvidence: "Present evidence",
   presentEvidenceLead: "Completed your experiment? Share results to update this review.",
-  completeExperiment: "Complete experiment",
+  /** @deprecated Prefer submitEvidence for primary CTAs */
+  completeExperiment: "Submit evidence",
+  submitEvidence: "Submit evidence",
   evidenceStatusLoading: "Checking evidence status…",
   viewEvidenceResult: "View evidence result",
   judgePanel: "Judge detail",
@@ -41,16 +64,19 @@ export const RUN_PAGE_COPY = {
   reviewComplete: "Review complete",
   reviewNotFound: "This review does not exist or the link is wrong.",
   submitIdea: "Review an idea",
-  refineIdea: "Refine this idea",
+  /** @deprecated Prefer revisePitch */
+  refineIdea: "Revise pitch",
+  revisePitch: "Revise pitch",
+  openReview: "Open review",
+  startReview: "Start review",
   submitAnother: "Review another idea",
+  shareExportMenu: "Share / export…",
   phaseReviewing: "The panel is reviewing your idea",
   reviewCancelled: "You stopped this review before it finished.",
   stopReviewTitle: "Stop this review?",
   stopReviewDescription: "The judges will halt between turns. You can always submit a new idea.",
   contextSummary: "Related reviews, sources, metrics",
   latestImprovement: "Latest improvement",
-  appealPlaceholder:
-    "Present evidence to see progress here. Complete your experiment above, then share what you learned.",
   sseReconnecting: "Connection interrupted — reconnecting to the live review…",
   sseReconnected: "Live connection restored.",
   metricsTableScrollHint: "Scroll horizontally for the full metrics table.",
@@ -64,12 +90,10 @@ export const HOME_COPY = {
 
 export const SETTINGS_COPY = {
   intro:
-    "Defaults for new Gavel reviews and how completed review pages are laid out. Stored in this browser only — founders can ignore this page and use the simple submit flow on",
+    "Defaults for new Gavel reviews. Stored in this browser only — founders can ignore this page and use the simple submit flow on",
   newReviewDefaults: "New review defaults",
   newReviewDescription:
     "Applied every time you submit or refine an idea. The submit form no longer shows these controls.",
-  reviewLayoutDescription:
-    "Controls section order on /run/[id] after a review finishes. Does not change API behavior or scores — only what you scroll past first.",
   webSearchLabel: "Enable web search for new reviews",
 } as const;
 
@@ -78,8 +102,8 @@ export const HISTORY_COPY = {
   title: "Ideas you've put on trial",
   description:
     "Each row is one idea in Gavel — versions, score, movement, and your open next action.",
-  emptyTitle: "No trials yet",
-  emptyDescription: "Roast your first idea in Gavel — it shows up here when a review finishes.",
+  emptyTitle: "No reviews yet",
+  emptyDescription: "Start your first idea in Gavel — it shows up here when a review finishes.",
   versionCount: (count: number) => `${count} ${count === 1 ? "version" : "versions"}`,
   currentScore: "Score",
   latestDelta: "Delta",
@@ -101,14 +125,14 @@ export const VERSION_COPY = {
   changed: "Changed",
   evidenceAdded: "Evidence noted",
   noPriorVersion:
-    "No prior version to compare yet. Refine this idea after you update the pitch to see what changed.",
+    "No prior version to compare yet. Revise your pitch after you update it to see what changed.",
   confidenceTitle: "Confidence by dimension",
   confidenceWhy: "See why",
   confidenceNextAction: "Raise weakest dimension",
 } as const;
 
 export const EVIDENCE_COPY = {
-  modalTitle: "Complete experiment",
+  modalTitle: "Submit evidence",
   modalLead:
     "Tell the panel what you learned running this experiment. We route your update to the judges most tied to your top blocker.",
   modalSubmit: "Submit evidence",
@@ -142,4 +166,14 @@ export const EVIDENCE_COPY = {
   yourEvidence: "Your evidence:",
   minLengthError: (min: number) => `Evidence must be at least ${min} characters.`,
   maxLengthError: (max: number) => `Evidence must be at most ${max} characters.`,
+} as const;
+
+export const EMPTY_COPY = {
+  ideasTitle: "No ideas yet",
+  ideasDescription: "Start with a short pitch or explore a full example loop.",
+  ideasCta: "Create your first idea",
+  interviews: "No interviews logged yet. Use “Log interview” or suggest questions to get started.",
+  evidence: "No evidence logged yet.",
+  experiments: "No experiments yet.",
+  reviews: "No reviews yet for this idea.",
 } as const;

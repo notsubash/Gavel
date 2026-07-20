@@ -30,7 +30,10 @@ export const E2E_WORKSHEET: E2eWorksheetValues = {
   disconfirming_evidence: "Teams say API tests alone are enough and skip browser suites.",
 };
 
-/** Fill the guided worksheet form on `/workspaces/new` or the worksheet editor. */
+/**
+ * Fill create-flow core fields on `/workspaces/new`.
+ * Deferred “Add more detail” fields are optional — wizard fills placeholders on save.
+ */
 export async function fillWorksheetForm(
   page: Page,
   values: Partial<E2eWorksheetValues> = {},
@@ -40,28 +43,26 @@ export async function fillWorksheetForm(
   await page.getByLabel("Working name").fill(data.working_name);
   await page.getByLabel("Audience").fill(data.audience);
   await page.getByLabel("Problem statement").fill(data.problem_statement);
-  await page.getByLabel("Current workaround").fill(data.current_workaround);
   await page.getByLabel("Solution statement").fill(data.solution_statement);
-  await page.getByLabel("Secret sauce").fill(data.secret_sauce);
-  await page.getByLabel("Pricing hypothesis").fill(data.pricing_hypothesis);
-  await page.getByLabel("Existing evidence").fill(data.existing_evidence);
-  await page.getByLabel("Competitors and alternatives").fill(data.competitors);
   await page.getByLabel("Top risky assumption").fill(data.top_risky_assumption);
-  await page.getByLabel("What would prove this wrong?").fill(data.disconfirming_evidence);
 }
+
+/** Phase 4 tabs. Evidence is Case's /validation route (no separate tab). */
+export type WorkspaceTabLabel = "Case" | "Pitch" | "Reviews";
+export type WorkspaceSectionLabel = WorkspaceTabLabel | "Evidence";
 
 /** Navigate to a workspace section by URL. Prefer openWorkspaceTab when the tab nav is visible. */
 export async function gotoWorkspaceTab(
   page: Page,
   workspaceId: string,
-  label: "Overview" | "Validation" | "Worksheet" | "Judges",
+  label: WorkspaceSectionLabel,
 ): Promise<void> {
   const slug =
-    label === "Overview"
+    label === "Case"
       ? ""
-      : label === "Validation"
+      : label === "Evidence"
         ? "/validation"
-        : label === "Worksheet"
+        : label === "Pitch"
           ? "/worksheet"
           : "/judges";
   await page.goto(`/workspaces/${workspaceId}${slug}`);
@@ -70,7 +71,7 @@ export async function gotoWorkspaceTab(
 /** Click a workspace section tab when the full nav chrome is present. */
 export async function openWorkspaceTab(
   page: Page,
-  label: "Overview" | "Validation" | "Worksheet" | "Judges",
+  label: WorkspaceTabLabel,
 ): Promise<void> {
   const nav = page.getByRole("navigation", { name: "Workspace sections" });
   await nav.getByRole("link", { name: label, exact: true }).click();
@@ -79,7 +80,7 @@ export async function openWorkspaceTab(
 /** Assert the active workspace tab matches `label`. */
 export async function expectWorkspaceTab(
   page: Page,
-  label: "Overview" | "Validation" | "Worksheet" | "Judges",
+  label: WorkspaceTabLabel,
 ): Promise<void> {
   const nav = page.getByRole("navigation", { name: "Workspace sections" });
   await expect(nav.getByRole("link", { name: label, exact: true })).toHaveAttribute(

@@ -1,6 +1,7 @@
 "use client";
 
 import type { InterviewNote } from "@/lib/api/workspaces";
+import { EMPTY_COPY } from "@/features/run/run-page-copy";
 import { Card } from "@/ui/card";
 
 export function InterviewsList({ interviews }: { interviews: InterviewNote[] }) {
@@ -11,10 +12,7 @@ export function InterviewsList({ interviews }: { interviews: InterviewNote[] }) 
       </h2>
       {interviews.length === 0 ? (
         <Card className="mt-3 p-5">
-          <p className="font-sans text-body text-ink-muted">
-            No interviews logged yet. Use &ldquo;Log interview&rdquo; or suggest questions to get
-            started.
-          </p>
+          <p className="font-sans text-body text-ink-muted">{EMPTY_COPY.interviews}</p>
         </Card>
       ) : (
         <ul className="mt-3 space-y-2">

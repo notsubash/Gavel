@@ -98,6 +98,9 @@ export async function waitForRunPhase(
 /** Completed runs collapse judge cards into a closed <details> — open before asserting. */
 export async function expandJudgeDetail(page: Page): Promise<void> {
   const judgeGroup = page.getByRole("group", { name: "Judge detail" });
+  const vcArticle = page.getByRole("article", { name: /The VC/i });
+  // After refresh, terminal status can paint before the judge fold mounts.
+  await judgeGroup.or(vcArticle).first().waitFor({ state: "attached", timeout: 30_000 });
   if ((await judgeGroup.count()) === 0) return;
   const summary = judgeGroup.locator(":scope > summary");
   if ((await summary.count()) === 0) return;

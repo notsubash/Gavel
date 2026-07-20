@@ -8,7 +8,6 @@ import { parseApiDetail } from "@/lib/api/types-helpers";
 import {
   exportJudgeBrief,
   exportWorkspaceMarkdown,
-  suggestInterviewQuestions,
   validationCoach,
   validationOverviewQueryKey,
   weeklyReview,
@@ -19,13 +18,6 @@ export function useWorkspaceOverviewMutations(
   workingName: string,
 ) {
   const queryClient = useQueryClient();
-
-  const questionsMutation = useMutation({
-    mutationFn: () => suggestInterviewQuestions(workspaceId),
-    onError: (err) => {
-      toast.error(err instanceof ApiError ? parseApiDetail(err.body) : "Could not load questions");
-    },
-  });
 
   const coachMutation = useMutation({
     mutationFn: () => validationCoach(workspaceId),
@@ -62,7 +54,6 @@ export function useWorkspaceOverviewMutations(
   });
 
   return {
-    questionsMutation,
     coachMutation,
     weeklyMutation,
     exportMarkdownMutation,

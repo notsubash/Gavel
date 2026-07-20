@@ -24,14 +24,18 @@ test.describe.serial("history, exports, and settings", { tag: "@extended" }, () 
     await waitForStubRunCompleted(request, completedRunId);
   });
 
-  test("lists completed runs grouped by workspace on /history", async ({ page }) => {
-    await page.goto("/history");
-    await expect(page.getByRole("heading", { name: "Ideas you've put on trial" })).toBeVisible();
-    await expect(page.getByText(workingName)).toBeVisible();
-    await expect(page.getByRole("link", { name: workingName })).toHaveAttribute(
-      "href",
-      `/run/${completedRunId}`,
-    );
+  test("lists idea KPIs (score / next action) on Ideas after a completed review", async ({
+    page,
+  }) => {
+    await page.goto("/workspaces");
+    await expect(page.getByRole("heading", { name: "Your ideas on trial" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: workingName })).toBeVisible();
+    const row = page.getByRole("listitem").filter({ hasText: workingName });
+    await expect(
+      row.getByRole("link", {
+        name: /Submit evidence|Revise pitch|Open review|View failed|View cancelled/i,
+      }),
+    ).toBeVisible();
   });
 
   test("links a completed run back to its workspace", async ({ page }) => {
@@ -77,10 +81,10 @@ test.describe.serial("history, exports, and settings", { tag: "@extended" }, () 
     expect(stored).toContain('"enable_web_search":true');
   });
 
-  test("shows a recovery path when history cannot reach the API", async ({ page }) => {
+  test("Ideas list still loads when the runs API fails", async ({ page }) => {
     await page.route(`**${E2E_API_URL}/api/runs**`, (route) => route.abort("failed"));
-    await page.goto("/history");
-    await expect(page.getByRole("alert").getByText("Could not load workspaces")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
+    await page.goto("/workspaces");
+    await expect(page.getByRole("heading", { name: "Your ideas on trial" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: workingName })).toBeVisible();
   });
 });

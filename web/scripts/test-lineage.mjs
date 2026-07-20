@@ -3,7 +3,6 @@ import {
   concernAddressedStatus,
   fixStatusLabel,
   groupByLineage,
-  parseVerdict,
   recommendedFixStatus,
   sidebarLineageVersions,
 } from "../src/lib/lineage/lineage.ts";
@@ -12,7 +11,6 @@ import {
   deriveNextActionFromPanel,
   deriveNextActionFromStatus,
 } from "../src/features/history/workspace-next-action.ts";
-import { deriveExperiment, experimentSummaryLine } from "../src/lib/experiment/experiment.ts";
 
 /** Mirror of `isWorkspaceHistoryEnabled` — Next env modules are not loaded in node scripts. */
 function isWorkspaceHistoryEnabled() {
@@ -130,16 +128,27 @@ const panelVerdicts = [
   },
 ];
 
-const verdicts = panelVerdicts
-  .map(parseVerdict)
-  .filter((verdict) => verdict !== null);
-const expectedDetail = experimentSummaryLine(
-  deriveExperiment("child-2", null, null, verdicts),
-);
 const panelAction = deriveNextActionFromPanel("child-2", "completed", panelVerdicts);
-assert.equal(panelAction.label, "Complete experiment");
-assert.equal(panelAction.detail, expectedDetail);
-assert.match(panelAction.detail, /Interview five clinic admins/);
+assert.equal(panelAction.label, "Submit evidence");
+assert.match(panelAction.href, /#next-action$/);
+
+const goAction = deriveNextActionFromStatus({
+  run_id: "child-2",
+  status: "completed",
+  workspace_id: "ws-1",
+  verdict_summary: { pass: 5, fail: 0, conditional: 0, avg_score: 8 },
+});
+assert.equal(goAction.label, "Revise pitch");
+// History deep-links to Run's strip — Run owns the authoritative CTA destination.
+assert.equal(goAction.href, "/run/child-2#next-action");
+
+const noWorkspaceGo = deriveNextActionFromStatus({
+  run_id: "child-2",
+  status: "completed",
+  verdict_summary: { pass: 5, fail: 0, conditional: 0, avg_score: 8 },
+});
+assert.equal(noWorkspaceGo.label, "Open review");
+assert.equal(noWorkspaceGo.href, "/run/child-2#next-action");
 
 const priorFlag = process.env.NEXT_PUBLIC_WORKSPACE_HISTORY;
 process.env.NEXT_PUBLIC_WORKSPACE_HISTORY = "false";

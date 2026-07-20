@@ -1,19 +1,23 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Sparkles } from "lucide-react";
+import { ChevronDown, Loader2, Sparkles } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { WorksheetFieldRenderer } from "@/features/worksheet/worksheet-field-renderer";
 import { composeWorksheetPreview } from "@/features/worksheet/worksheet-preview";
 import {
-  WORKSHEET_FIELDS,
+  CREATE_CORE_FIELDS,
+  DETAIL_FIELDS,
+  countFilledWorksheetFields,
+  createWorksheetSchema,
+  fillDeferredPlaceholders,
+  isWeakFieldValue,
   worksheetDefaults,
-  worksheetSchema,
   normalizeWorksheetValues,
   type WorksheetFieldName,
   type WorksheetValues,
@@ -32,6 +36,8 @@ import { Label } from "@/ui/label";
 import { Textarea } from "@/ui/textarea";
 
 const PASTE_MIN_LENGTH = 20;
+/** Phase 3: hide Sharpen until the founder has engaged enough fields. */
+const SHARPEN_MIN_FILLED = 3;
 
 export function WorksheetWizard() {
   const router = useRouter();
@@ -39,9 +45,11 @@ export function WorksheetWizard() {
   const [mode, setMode] = useState<"fields" | "paste">("fields");
   const [fieldStep, setFieldStep] = useState(0);
   const [mobileWizard, setMobileWizard] = useState(false);
+  const [showDetail, setShowDetail] = useState(false);
   const mobileFieldRef = useRef<HTMLDivElement>(null);
   const [pasteNotes, setPasteNotes] = useState("");
   const [aiFields, setAiFields] = useState<Set<string>>(new Set());
+  const [engagedFields, setEngagedFields] = useState<Set<string>>(new Set());
   const [sharpening, setSharpening] = useState<WorksheetFieldName | null>(null);
 
   const {
@@ -53,19 +61,26 @@ export function WorksheetWizard() {
     trigger,
     formState: { errors, isSubmitting },
   } = useForm<WorksheetValues>({
-    resolver: zodResolver(worksheetSchema),
+    resolver: zodResolver(createWorksheetSchema),
     defaultValues: worksheetDefaults,
     mode: "onBlur",
   });
 
   const values = watch();
   const preview = composeWorksheetPreview(values);
+  const filledCount = countFilledWorksheetFields(values);
+  const sharpenUnlocked = filledCount >= SHARPEN_MIN_FILLED;
+
+  const visibleFields = useMemo(
+    () => (showDetail ? [...CREATE_CORE_FIELDS, ...DETAIL_FIELDS] : CREATE_CORE_FIELDS),
+    [showDetail],
+  );
 
   const saveMutation = useMutation({
     mutationFn: createWorkspace,
     onSuccess: (data) => {
       toast.success("Workspace saved");
-      router.push(`/workspaces/${data.workspace.id}?plan_interview=1`);
+      router.push(`/workspaces/${data.workspace.id}/validation?log_interview=1`);
     },
     onError: (err) => {
       const msg =
@@ -79,6 +94,7 @@ export function WorksheetWizard() {
     onSuccess: (data) => {
       reset(normalizeWorksheetValues(data.worksheet));
       setAiFields(new Set(data.ai_drafted_fields));
+      setShowDetail(true);
       setMode("fields");
       toast.success("AI draft applied — review and edit before saving");
     },
@@ -122,10 +138,31 @@ export function WorksheetWizard() {
   }
 
   function onSubmit(data: WorksheetValues) {
-    saveMutation.mutate({ worksheet: data });
+    saveMutation.mutate({ worksheet: fillDeferredPlaceholders(data) });
   }
 
-  function renderField(field: (typeof WORKSHEET_FIELDS)[number]) {
+  function markEngaged(name: WorksheetFieldName) {
+    setEngagedFields((prev) => {
+      if (prev.has(name)) return prev;
+      const next = new Set(prev);
+      next.add(name);
+      return next;
+    });
+  }
+
+  function fieldValueText(name: WorksheetFieldName): string {
+    const current = values[name];
+    if (typeof current === "string") return current;
+    if (Array.isArray(current)) return current.join(", ");
+    return "";
+  }
+
+  function showSharpenFor(name: WorksheetFieldName): boolean {
+    if (!sharpenUnlocked || !engagedFields.has(name)) return false;
+    return isWeakFieldValue(fieldValueText(name));
+  }
+
+  function renderField(field: (typeof CREATE_CORE_FIELDS)[number]) {
     const error = errors[field.name]?.message as string | undefined;
     const errorId = `${field.name}-error`;
 
@@ -140,12 +177,15 @@ export function WorksheetWizard() {
         setValue={setValue}
         onSharpen={onSharpen}
         sharpening={sharpening}
+        showSharpen={showSharpenFor(field.name)}
+        onFieldBlur={markEngaged}
         isAiDraft={aiFields.has(field.name)}
+        showOptionalBadge
       />
     );
   }
 
-  const mobileField = WORKSHEET_FIELDS[fieldStep];
+  const mobileField = visibleFields[fieldStep] ?? visibleFields[0];
 
   async function onMobileNext() {
     const valid = await trigger(mobileField.name);
@@ -167,6 +207,12 @@ export function WorksheetWizard() {
     mobileFieldRef.current?.querySelector<HTMLElement>("input,textarea")?.focus();
   }, [fieldStep, mobileWizard]);
 
+  useEffect(() => {
+    if (fieldStep >= visibleFields.length) {
+      setFieldStep(Math.max(0, visibleFields.length - 1));
+    }
+  }, [fieldStep, visibleFields.length]);
+
   return (
     <div className="space-y-8">
       <header>
@@ -177,8 +223,8 @@ export function WorksheetWizard() {
           Draft your case for Gavel
         </h1>
         <p className="mt-3 max-w-prose font-sans text-body text-ink-muted">
-          Structure the idea before validation. Save it in Gavel, then run experiments and
-          evidence before asking the judges to review.
+          Capture the core pitch in five fields. Add detail later on Pitch, or paste messy notes
+          to draft everything at once.
         </p>
       </header>
 
@@ -213,7 +259,11 @@ export function WorksheetWizard() {
             value={pasteNotes}
             onChange={(e) => setPasteNotes(e.target.value)}
             aria-describedby={pasteHintId}
-            aria-invalid={pasteNotes.trim().length > 0 && pasteNotes.trim().length < PASTE_MIN_LENGTH ? true : undefined}
+            aria-invalid={
+              pasteNotes.trim().length > 0 && pasteNotes.trim().length < PASTE_MIN_LENGTH
+                ? true
+                : undefined
+            }
           />
           <p id={pasteHintId} className="mt-2 font-sans text-meta text-ink-muted">
             At least {PASTE_MIN_LENGTH} characters so the AI draft has enough context.
@@ -239,13 +289,26 @@ export function WorksheetWizard() {
             {mobileWizard ? (
               <div
                 role="group"
-                aria-label={`Worksheet field ${fieldStep + 1} of ${WORKSHEET_FIELDS.length}`}
+                aria-label={`Worksheet field ${fieldStep + 1} of ${visibleFields.length}`}
                 ref={mobileFieldRef}
               >
                 <p className="font-sans text-meta text-ink-muted" aria-current="step">
-                  Field {fieldStep + 1} of {WORKSHEET_FIELDS.length}: {mobileField.label}
+                  Field {fieldStep + 1} of {visibleFields.length}: {mobileField.label}
                 </p>
                 {renderField(mobileField)}
+                {!showDetail && fieldStep === CREATE_CORE_FIELDS.length - 1 ? (
+                  <button
+                    type="button"
+                    className="mt-3 inline-flex min-h-11 items-center gap-1 font-sans text-sm font-semibold text-cta hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta"
+                    onClick={() => {
+                      setShowDetail(true);
+                      setFieldStep(CREATE_CORE_FIELDS.length);
+                    }}
+                  >
+                    Add more detail
+                    <ChevronDown className="size-4" aria-hidden />
+                  </button>
+                ) : null}
                 <div className="mt-4 flex justify-between gap-3">
                   <Button
                     type="button"
@@ -255,7 +318,7 @@ export function WorksheetWizard() {
                   >
                     Back
                   </Button>
-                  {fieldStep < WORKSHEET_FIELDS.length - 1 ? (
+                  {fieldStep < visibleFields.length - 1 ? (
                     <Button type="button" onClick={() => void onMobileNext()}>
                       Next
                     </Button>
@@ -268,7 +331,32 @@ export function WorksheetWizard() {
               </div>
             ) : (
               <>
-                {WORKSHEET_FIELDS.map((field) => renderField(field))}
+                {CREATE_CORE_FIELDS.map((field) => renderField(field))}
+
+                <details
+                  className="rounded-ui border border-rule-soft bg-card"
+                  open={showDetail}
+                  onToggle={(e) => setShowDetail((e.target as HTMLDetailsElement).open)}
+                >
+                  <summary
+                    className={cn(
+                      "flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 py-3",
+                      "font-sans text-sm font-semibold text-ink",
+                      "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cta",
+                      "[&::-webkit-details-marker]:hidden",
+                    )}
+                  >
+                    Add more detail
+                    <ChevronDown className="size-4 text-ink-muted" aria-hidden />
+                    <span className="ml-auto font-sans text-xs font-normal text-ink-muted">
+                      Optional — can finish on Pitch
+                    </span>
+                  </summary>
+                  <div className="space-y-6 border-t border-rule-soft px-4 py-4">
+                    {DETAIL_FIELDS.map((field) => renderField(field))}
+                  </div>
+                </details>
+
                 <Button
                   type="submit"
                   size="lg"

@@ -1,14 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { toast } from "sonner";
 
-import { InterviewPlanPanel } from "@/features/workspace/interview-plan-panel";
 import { NextStepHero } from "@/features/workspace/next-step-hero";
 import { ValidationProgressSection } from "@/features/workspace/validation-progress-section";
-import { WeeklyReviewSection } from "@/features/workspace/weekly-review-section";
 import { WorkspaceActionBar } from "@/features/workspace/workspace-action-bar";
 import {
   CONFIDENCE_DISPLAY,
@@ -17,11 +13,6 @@ import {
   validationOverviewQueryKey,
   workspaceQueryKey,
 } from "@/lib/api/workspaces";
-import {
-  ASSUMPTION_STATUS_LABEL,
-  ASSUMPTION_STATUS_STYLE,
-} from "@/features/validation/validation-labels";
-import { cn } from "@/lib/utils";
 import { Badge } from "@/ui/badge";
 import { Card } from "@/ui/card";
 import { Skeleton } from "@/ui/skeleton";
@@ -32,15 +23,6 @@ import {
 import { useWorkspaceOverviewMutations } from "@/features/workspace/use-workspace-overview-mutations";
 
 export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
-  const searchParams = useSearchParams();
-  const interviewOpenToken =
-    searchParams.get("plan_interview") === "1" ? searchParams.toString() : null;
-  const [dismissedInterviewToken, setDismissedInterviewToken] = useState<string | null>(null);
-  const planInterviewOpen =
-    interviewOpenToken !== null && dismissedInterviewToken !== interviewOpenToken;
-  const [interviewQuestions, setInterviewQuestions] = useState<
-    { question: string; rationale: string }[]
-  >([]);
   const [coachNarrative, setCoachNarrative] = useState<string | null>(null);
   const [weeklyDigest, setWeeklyDigest] = useState<{
     summary: string;
@@ -62,18 +44,6 @@ export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
   const workingName = data?.current_version.worksheet.working_name ?? "workspace";
 
   const mutations = useWorkspaceOverviewMutations(workspaceId, workingName);
-
-  // ponytail: wrap mutations to keep local UI state in overview orchestrator
-  const questionsMutation = {
-    ...mutations.questionsMutation,
-    mutate: () =>
-      mutations.questionsMutation.mutate(undefined, {
-        onSuccess: (res) => {
-          setInterviewQuestions(res.questions);
-          toast.success("Interview questions ready");
-        },
-      }),
-  };
 
   const coachMutation = {
     ...mutations.coachMutation,
@@ -110,13 +80,19 @@ export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
     );
   }
 
-  const { workspace, current_version, assumptions } = data;
+  const { workspace, current_version } = data;
   const ws = current_version.worksheet;
   const overview = overviewQuery.data;
+  // ponytail: problem_evidence requires interview/evidence; competition_moat alone is worksheet text
+  const hasEvidence =
+    overview?.checklist.items.some(
+      (item) => item.completed && item.stage === "problem_evidence",
+    ) ?? false;
 
   return (
     <div className="space-y-8">
       <header className="space-y-3">
+        <p className="font-sans text-meta font-semibold uppercase tracking-widest text-cta">Case</p>
         <div className="flex flex-wrap items-center gap-3">
           <Badge variant="default">
             {LIFECYCLE_LABEL[workspace.lifecycle] ?? workspace.lifecycle}
@@ -159,6 +135,7 @@ export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
             coachMutation={coachMutation}
             exportMarkdownMutation={mutations.exportMarkdownMutation}
             exportBriefMutation={mutations.exportBriefMutation}
+            weeklyMutation={hasEvidence ? weeklyMutation : null}
           />
         </div>
 
@@ -183,73 +160,36 @@ export function WorkspaceOverview({ workspaceId }: { workspaceId: string }) {
         <ValidationProgressSection workspaceId={workspaceId} items={overview.checklist.items} />
       )}
 
-      <WeeklyReviewSection digest={weeklyDigest} weeklyMutation={weeklyMutation} />
-
-      {overview?.active_experiment && (
-        <section aria-labelledby="active-experiment-heading">
-          <h2
-            id="active-experiment-heading"
-            className="font-sans text-section font-semibold text-ink"
-          >
-            Active experiment
+      {weeklyDigest && (
+        <section aria-labelledby="weekly-review-heading">
+          <h2 id="weekly-review-heading" className="font-sans text-section font-semibold text-ink">
+            Weekly review
           </h2>
-          <Card className="mt-3 p-5">
-            <p className="font-sans text-body font-medium text-ink">
-              {overview.active_experiment.title}
-            </p>
-            <p className="mt-1 font-sans text-sm text-ink-muted">
-              {overview.active_experiment.hypothesis}
+          <Card className="mt-3 space-y-3 p-5 font-sans text-body text-ink">
+            <p>{weeklyDigest.summary}</p>
+            {weeklyDigest.highlights.length > 0 && (
+              <ul className="list-disc space-y-1 pl-5 text-sm text-ink-muted">
+                {weeklyDigest.highlights.map((h, i) => (
+                  <li key={`${i}-${h.slice(0, 32)}`}>{h}</li>
+                ))}
+              </ul>
+            )}
+            {weeklyDigest.open_questions.length > 0 && (
+              <p className="text-sm text-ink-muted">
+                <span className="font-medium text-ink">Open questions: </span>
+                {weeklyDigest.open_questions.join(" · ")}
+              </p>
+            )}
+            <p className="text-meta text-ink-subtle">
+              {weeklyDigest.evidence_count} evidence item(s) in the last 7 days
             </p>
           </Card>
         </section>
       )}
 
-      {(overview?.top_assumptions.length ?? assumptions.length) > 0 && (
-        <section aria-labelledby="top-assumptions-heading">
-          <h2
-            id="top-assumptions-heading"
-            className="font-sans text-section font-semibold text-ink"
-          >
-            Top risky assumptions
-          </h2>
-          <ul className="mt-3 space-y-2">
-            {(overview?.top_assumptions ?? assumptions.slice(0, 3)).map((a) => {
-              const style = ASSUMPTION_STATUS_STYLE[a.status];
-              return (
-              <li key={a.id}>
-                <Card className={cn("border-l-4 p-4", style.accent, style.tint)}>
-                  <p className="font-sans text-body text-ink">{a.statement}</p>
-                  <p className="mt-1 flex items-center gap-1.5 font-sans text-meta text-ink-muted">
-                    <span>{a.type}</span>
-                    <span aria-hidden>·</span>
-                    <span className={cn("size-1.5 rounded-full", style.dot)} aria-hidden />
-                    <span className={cn("font-semibold", style.text)}>
-                      {ASSUMPTION_STATUS_LABEL[a.status]}
-                    </span>
-                  </p>
-                </Card>
-              </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
-
-      {planInterviewOpen && (
-        <InterviewPlanPanel
-          workspaceId={workspaceId}
-          questions={interviewQuestions}
-          questionsMutation={questionsMutation}
-          onDismiss={() => setDismissedInterviewToken(interviewOpenToken)}
-        />
-      )}
-
-      <section aria-labelledby="worksheet-summary-heading">
-        <h2
-          id="worksheet-summary-heading"
-          className="font-sans text-section font-semibold text-ink"
-        >
-          Worksheet summary
+      <section aria-labelledby="case-summary-heading">
+        <h2 id="case-summary-heading" className="font-sans text-section font-semibold text-ink">
+          Case summary
         </h2>
         <Card className="mt-3 p-5">
           <dl className="space-y-4 font-sans text-body">

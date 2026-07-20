@@ -70,6 +70,7 @@ export function VerdictCard({
   }
 
   const detailRisks = structured.top_risks.length > 0;
+  const why = shortWhy(structured);
 
   return (
     <article
@@ -97,6 +98,10 @@ export function VerdictCard({
         <p className="mt-2 font-sans text-meta text-ink-muted">
           {structured.confidence} confidence
         </p>
+        {/* Phase 5: short why above the fold; full rationale stays collapsed */}
+        {why ? (
+          <p className="mt-4 max-w-prose font-sans text-sm leading-relaxed text-ink">{why}</p>
+        ) : null}
       </header>
 
       <details className="group px-5 py-4">
@@ -138,6 +143,17 @@ export function VerdictCard({
       </details>
     </article>
   );
+}
+
+function shortWhy(structured: StructuredSynthesis): string | null {
+  const fromPriority = structured.highest_priority?.trim();
+  if (fromPriority) return fromPriority;
+  const fromProblem = structured.top_problems[0]?.trim();
+  if (fromProblem) return fromProblem;
+  const fromRisk = structured.top_risks[0]?.trim();
+  if (fromRisk) return fromRisk;
+  const disagreement = structured.biggest_disagreement?.trim();
+  return disagreement || null;
 }
 
 function LowConfidenceBanner({

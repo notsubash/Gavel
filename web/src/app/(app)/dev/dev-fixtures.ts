@@ -422,12 +422,14 @@ export const MOCK_HANDOFF_ITEMS = [
 
 export const MOCK_STARTUP_WORKSPACE: StartupWorkspace = {
   workspaceId: "root-1",
+  persistedWorkspaceId: "ws-mock-1",
   displayName: "AI scheduling for clinics",
   versionCount: 2,
   currentScore: 5.1,
   latestDelta: 0.9,
   latestRunId: "child-2",
   latestStatus: "completed",
+  verdictSummary: { pass: 2, fail: 1, conditional: 2, avg_score: 5.1 },
   lineage: [
     {
       run_id: "root-1",

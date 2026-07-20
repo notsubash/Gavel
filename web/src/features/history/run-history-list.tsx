@@ -9,10 +9,10 @@ import { listRuns } from "@/lib/api/runs";
 import { heatCtaClass } from "@/lib/cta-classes";
 import { groupByLineage } from "@/lib/lineage/lineage";
 import { deriveStartupWorkspace } from "@/lib/lineage/workspace";
-import { Button } from "@/ui/button";
-import { Skeleton } from "@/ui/skeleton";
-
 import { HISTORY_COPY, RUN_PAGE_COPY } from "@/features/run/run-page-copy";
+import { Button } from "@/ui/button";
+import { EmptyState } from "@/ui/empty-state";
+import { Skeleton } from "@/ui/skeleton";
 
 import { WorkspaceHistoryRow } from "./workspace-history-row";
 
@@ -69,15 +69,15 @@ export function RunHistoryList() {
         )}
 
         {query.isSuccess && query.data.runs.length === 0 && (
-          <div className="border border-dashed border-rule-soft bg-paper-2 p-8 text-center md:p-10">
-            <p className="font-sans text-section font-semibold text-ink">{HISTORY_COPY.emptyTitle}</p>
-            <p className="mt-2 font-sans text-meta text-ink-muted">
-              {HISTORY_COPY.emptyDescription}
-            </p>
-            <Link href="/workspaces/new" className={`mt-6 inline-flex ${heatCtaClass}`}>
-              {RUN_PAGE_COPY.submitIdea}
-            </Link>
-          </div>
+          <EmptyState
+            title={HISTORY_COPY.emptyTitle}
+            description={HISTORY_COPY.emptyDescription}
+            action={
+              <Link href="/workspaces/new" className={`inline-flex ${heatCtaClass}`}>
+                {RUN_PAGE_COPY.submitIdea}
+              </Link>
+            }
+          />
         )}
 
         {query.isSuccess && query.data.runs.length > 0 && (

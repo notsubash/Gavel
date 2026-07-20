@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -14,7 +13,6 @@ import {
 import { ApiError } from "@/lib/api/client";
 import { cancelRun } from "@/lib/api/runs";
 import { parseApiDetail } from "@/lib/api/types-helpers";
-import { secondaryCtaClass } from "@/lib/cta-classes";
 import { RUN_PAGE_COPY } from "@/features/run/run-page-copy";
 import { JUDGE_ORDER } from "@/lib/sse/types";
 import type { RunStatus } from "@/lib/sse/types";
@@ -27,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/ui/dialog";
+import { MoreMenu, MoreMenuItem } from "@/ui/more-menu";
 
 function canExportTranscript(input: TranscriptInput | null): boolean {
   if (!input) return false;
@@ -151,37 +150,25 @@ export function RunControls({
       )}
 
       {isTerminal && (
-        <button type="button" className={`inline-flex items-center gap-2 ${secondaryCtaClass}`} onClick={share}>
-          <Share2 className="size-4" aria-hidden />
-          Share link
-        </button>
-      )}
-
-      {isTerminal && exportReady && (
-        <>
-          <button
-            type="button"
-            className={`inline-flex items-center gap-2 ${secondaryCtaClass}`}
-            onClick={() => void copyTranscript()}
-          >
-            <Copy className="size-4" aria-hidden />
-            Copy transcript
-          </button>
-          <button
-            type="button"
-            className={`inline-flex items-center gap-2 ${secondaryCtaClass}`}
-            onClick={downloadTranscript}
-          >
-            <Download className="size-4" aria-hidden />
-            Download .md
-          </button>
-        </>
-      )}
-
-      {isTerminal && (
-        <Link href="/workspaces/new" className={secondaryCtaClass}>
-          {RUN_PAGE_COPY.submitAnother}
-        </Link>
+        <MoreMenu label={RUN_PAGE_COPY.shareExportMenu}>
+          <MoreMenuItem onClick={() => void share()}>
+            <Share2 className="size-4" aria-hidden />
+            Share link
+          </MoreMenuItem>
+          {exportReady ? (
+            <>
+              <MoreMenuItem onClick={() => void copyTranscript()}>
+                <Copy className="size-4" aria-hidden />
+                Copy transcript
+              </MoreMenuItem>
+              <MoreMenuItem onClick={downloadTranscript}>
+                <Download className="size-4" aria-hidden />
+                Download .md
+              </MoreMenuItem>
+            </>
+          ) : null}
+          <MoreMenuItem href="/workspaces/new">{RUN_PAGE_COPY.submitAnother}</MoreMenuItem>
+        </MoreMenu>
       )}
     </div>
   );

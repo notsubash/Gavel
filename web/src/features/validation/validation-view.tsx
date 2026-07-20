@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -26,7 +27,7 @@ import { useValidationMutations } from "./use-validation-mutations";
 import { ValidationActionBar } from "./validation-action-bar";
 import { ValidationPageChrome } from "./validation-page-chrome";
 import { EvidenceDialog } from "./evidence-dialog";
-import { ExperimentDialog } from "./experiment-dialog";
+import { EMPTY_EXPERIMENT_DRAFT, ExperimentDialog } from "./experiment-dialog";
 import { InterviewDialog } from "./interview-dialog";
 import { ValidationProgressChecklist } from "./validation-progress-checklist";
 
@@ -41,6 +42,8 @@ async function fetchValidationBundle(workspaceId: string) {
 }
 
 export function ValidationView({ workspaceId }: { workspaceId: string }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: validationDataQueryKey(workspaceId),
     queryFn: () => fetchValidationBundle(workspaceId),
@@ -53,7 +56,10 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
 
   const mutations = useValidationMutations(workspaceId);
 
-  const [interviewOpen, setInterviewOpen] = useState(false);
+  // Open from ?log_interview=1 on mount (wizard deep-link); effect only clears the URL.
+  const [interviewOpen, setInterviewOpen] = useState(
+    () => searchParams.get("log_interview") === "1",
+  );
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [experimentOpen, setExperimentOpen] = useState(false);
   const [questions, setQuestions] = useState<{ question: string; rationale: string }[]>([]);
@@ -76,10 +82,16 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
   const [evidenceEditOpen, setEvidenceEditOpen] = useState(false);
 
   const [experimentDraft, setExperimentDraft] = useState<Partial<Experiment> | null>(null);
+  const [experimentAiAssisted, setExperimentAiAssisted] = useState(false);
   const [completingExperimentId, setCompletingExperimentId] = useState<string | null>(null);
   const [experimentResult, setExperimentResult] = useState("");
   const [experimentDecision, setExperimentDecision] = useState("continue");
   const [revisePromptExperimentId, setRevisePromptExperimentId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get("log_interview") !== "1") return;
+    router.replace(`/workspaces/${workspaceId}/validation`, { scroll: false });
+  }, [searchParams, router, workspaceId]);
 
   const resetInterview = () => {
     setPersonLabel("");
@@ -102,6 +114,13 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
 
   const resetExperiment = () => {
     setExperimentDraft(null);
+    setExperimentAiAssisted(false);
+  };
+
+  const openExperimentDialog = () => {
+    setExperimentDraft({ ...EMPTY_EXPERIMENT_DRAFT });
+    setExperimentAiAssisted(false);
+    setExperimentOpen(true);
   };
 
   if (isLoading) {
@@ -140,17 +159,15 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
       />
 
       <ValidationActionBar
+        overview={overviewQuery.data}
         mutations={mutations}
         onLogInterview={() => setInterviewOpen(true)}
         onAddEvidence={() => setEvidenceOpen(true)}
+        onStartExperiment={openExperimentDialog}
         onQuestionsReady={(nextQuestions) => {
           setQuestions(nextQuestions);
           setInterviewOpen(true);
           toast.success("Interview questions ready");
-        }}
-        onExperimentDraftReady={(draft) => {
-          setExperimentDraft(draft);
-          setExperimentOpen(true);
         }}
         onCompetitorScanSuccess={(res) => {
           setCompetitorScanResult(res.suggested_evidence);
@@ -161,7 +178,7 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
           setEvidenceEditOpen(false);
           setEvidenceOpen(true);
           if (res.available) {
-            toast.success("Competitor scan ready — review before saving as evidence");
+            toast.success("Competitor research ready — save as evidence (Pitch keeps the short list)");
           } else {
             toast.error(res.suggested_evidence);
           }
@@ -221,6 +238,8 @@ export function ValidationView({ workspaceId }: { workspaceId: string }) {
         experimentDraft={experimentDraft}
         onDraftChange={setExperimentDraft}
         onReset={resetExperiment}
+        aiAssisted={experimentAiAssisted}
+        onAiAssistedChange={setExperimentAiAssisted}
       />
 
       <AssumptionBoard assumptions={assumptions} mutations={mutations} />

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Loader2 } from "lucide-react";
 
 import type { Experiment } from "@/lib/api/workspaces";
+import { EMPTY_COPY } from "@/features/run/run-page-copy";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 import { Card } from "@/ui/card";
@@ -215,7 +216,7 @@ export function ExperimentsList({
           </li>
         ))}
         {experiments.length === 0 && (
-          <p className="font-sans text-body text-ink-muted">No experiments yet.</p>
+          <p className="font-sans text-body text-ink-muted">{EMPTY_COPY.experiments}</p>
         )}
       </ul>
     </section>

@@ -3,12 +3,6 @@
 import Link from "next/link";
 import { useSyncExternalStore, type ReactNode } from "react";
 
-import {
-  DEFAULT_RUN_FOLD_VARIANT,
-  formatFoldSectionOrder,
-  RUN_FOLD_VARIANTS,
-  type RunFoldVariant,
-} from "@/features/run/run-fold-layout";
 import { SETTINGS_COPY } from "@/features/run/run-page-copy";
 import {
   ADVANCED_SETTINGS_STORAGE_KEY,
@@ -17,7 +11,6 @@ import {
   saveAdvancedSettings,
   type AdvancedSettings,
 } from "@/lib/settings/advanced-settings";
-import { cn } from "@/lib/utils";
 import { Label } from "@/ui/label";
 import {
   Select,
@@ -85,12 +78,6 @@ export function AdvancedSettingsPanel() {
     window.dispatchEvent(new Event(SETTINGS_CHANGED));
   };
 
-  const foldOptions = Object.entries(RUN_FOLD_VARIANTS) as [
-    RunFoldVariant,
-    (typeof RUN_FOLD_VARIANTS)[RunFoldVariant],
-  ][];
-
-
   return (
     <div className="space-y-8">
       <header>
@@ -103,7 +90,7 @@ export function AdvancedSettingsPanel() {
         <p className="mt-3 max-w-prose font-sans text-body text-ink-muted">
           {SETTINGS_COPY.intro}{" "}
           <Link href="/workspaces" className="font-semibold text-ink underline-offset-4 hover:underline">
-            workspaces
+            Ideas
           </Link>
           .
         </p>
@@ -174,78 +161,12 @@ export function AdvancedSettingsPanel() {
         </div>
       </SettingsSection>
 
-      <SettingsSection
-        title="Review page layout"
-        description={SETTINGS_COPY.reviewLayoutDescription}
-      >
-        <fieldset aria-labelledby="fold-variant-legend">
-          <legend
-            id="fold-variant-legend"
-            className="font-sans text-xs font-semibold uppercase tracking-widest text-ink-muted"
-          >
-            Section order
-          </legend>
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            {foldOptions.map(([id, meta]) => {
-              const active = settings.run_fold_variant === id;
-              return (
-                <label
-                  key={id}
-                  className={cn(
-                    "block cursor-pointer rounded-ui border p-4 transition-colors duration-200",
-                    active
-                      ? "border-cta bg-card"
-                      : "border-rule-soft bg-paper-2 hover:border-ink-muted",
-                  )}
-                >
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="radio"
-                      name="run-fold-variant"
-                      value={id}
-                      checked={active}
-                      onChange={() => patch({ run_fold_variant: id })}
-                      className="mt-1 size-4 accent-cta"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="font-sans text-sm font-semibold text-ink">
-                        {meta.label}
-                        {id === DEFAULT_RUN_FOLD_VARIANT && (
-                          <span className="ml-2 font-normal text-ink-subtle">(recommended)</span>
-                        )}
-                      </p>
-                      <p className="mt-1 font-sans text-sm leading-relaxed text-ink-muted">
-                        {meta.summary}
-                      </p>
-                      <p className="mt-2 font-sans text-xs text-ink-subtle">{meta.bestFor}</p>
-                      <ol className="mt-4 space-y-1 border-t border-rule-soft pt-3">
-                        {formatFoldSectionOrder(id).map((step, index) => (
-                          <li
-                            key={step}
-                            className="flex gap-2 font-sans text-xs leading-relaxed text-ink-muted"
-                          >
-                            <span className="w-4 shrink-0 font-mono text-ink-subtle">
-                              {index + 1}.
-                            </span>
-                            <span>{step}</span>
-                          </li>
-                        ))}
-                      </ol>
-                    </div>
-                  </div>
-                </label>
-              );
-            })}
-          </div>
-        </fieldset>
-        <p className="font-sans text-xs text-ink-subtle">
-          URL override for side-by-side tests: add{" "}
-          <span className="font-mono">?fold=a</span> (scores first) or{" "}
-          <span className="font-mono">?fold=b</span> (progress first) to any run link. URL wins over
-          this setting. Lens-quality maintainer badge: add{" "}
-          <span className="font-mono">?debug=1</span> to a completed run.
-        </p>
-      </SettingsSection>
+      <p className="font-sans text-xs text-ink-subtle">
+        Run layout is workflow-first. Maintainer overrides:{" "}
+        <span className="font-mono">?fold=a</span> (judges first) or{" "}
+        <span className="font-mono">?fold=b</span> (workflow first) on a run URL;{" "}
+        <span className="font-mono">?debug=1</span> for the lens-quality badge.
+      </p>
     </div>
   );
 }

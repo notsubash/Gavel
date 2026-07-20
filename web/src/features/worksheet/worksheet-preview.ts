@@ -1,5 +1,5 @@
 /** Client-side preview matching backend compose_generated_document template. */
-import type { WorksheetValues } from "./worksheet-schema";
+import { displayWorksheetField, type WorksheetValues } from "./worksheet-schema";
 
 export function composeWorksheetPreview(worksheet: WorksheetValues): string {
   const competitors = worksheet.competitors ?? [];
@@ -10,25 +10,25 @@ export function composeWorksheetPreview(worksheet: WorksheetValues): string {
       : "None listed";
 
   const lines = [
-    `Working name: ${worksheet.working_name || "…"}`,
+    `Working name: ${displayWorksheetField(worksheet.working_name)}`,
     "",
-    `Problem: I believe that ${worksheet.audience || "…"} ${worksheet.problem_statement || "…"}`,
+    `Problem: I believe that ${displayWorksheetField(worksheet.audience)} ${displayWorksheetField(worksheet.problem_statement)}`,
     "",
-    `Current workaround: ${worksheet.current_workaround || "…"}`,
+    `Current workaround: ${displayWorksheetField(worksheet.current_workaround)}`,
     "",
-    `Solution: ${worksheet.solution_statement || "…"}`,
+    `Solution: ${displayWorksheetField(worksheet.solution_statement)}`,
     "",
-    `Secret sauce: ${worksheet.secret_sauce || "…"}`,
+    `Secret sauce: ${displayWorksheetField(worksheet.secret_sauce)}`,
     "",
-    `Pricing hypothesis: ${worksheet.pricing_hypothesis || "…"}`,
+    `Pricing hypothesis: ${displayWorksheetField(worksheet.pricing_hypothesis)}`,
     "",
-    `Existing evidence: ${worksheet.existing_evidence || "…"}`,
+    `Existing evidence: ${displayWorksheetField(worksheet.existing_evidence)}`,
     "",
     `Competitors and alternatives:\n${competitors_text}`,
     "",
-    `Top risky assumption: ${worksheet.top_risky_assumption || "…"}`,
+    `Top risky assumption: ${displayWorksheetField(worksheet.top_risky_assumption)}`,
     "",
-    `Disconfirming evidence: ${worksheet.disconfirming_evidence || "…"}`,
+    `Disconfirming evidence: ${displayWorksheetField(worksheet.disconfirming_evidence)}`,
   ];
 
   if (worksheet.trigger_event?.trim()) {

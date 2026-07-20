@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { PostRoastHandoff } from "@/features/judges/post-roast-handoff";
 import { ReadinessGateModal } from "@/features/judges/readiness-gate-modal";
+import { EMPTY_COPY } from "@/features/run/run-page-copy";
 import { ApiError } from "@/lib/api/client";
 import { createRun } from "@/lib/api/runs";
 import { parseApiDetail } from "@/lib/api/types-helpers";
@@ -98,29 +99,28 @@ export function JudgesView({ workspaceId }: { workspaceId: string }) {
     <div className="space-y-8">
       <header className="space-y-2">
         <p className="font-sans text-meta font-semibold uppercase tracking-widest text-cta">
-          Judges
+          Reviews
         </p>
         <h1 className="font-sans text-display-home font-semibold tracking-tight text-ink">{workingName}</h1>
         <p className="max-w-prose font-sans text-body text-ink-muted">
-          Launch a five-judge roast when your worksheet is ready, then turn their evidence asks into
-          validation work.
+          Start a review when the case is ready. Recommended follow-ups land on Case evidence.
         </p>
       </header>
 
       <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="font-sans text-sm font-semibold text-ink">Ready to roast?</p>
+          <p className="font-sans text-sm font-semibold text-ink">Ready for review?</p>
           <p className="mt-1 font-sans text-sm text-ink-muted">
-            We check worksheet structure and evidence before judges run.
+            We check pitch structure and evidence before the panel runs.
           </p>
         </div>
         <Button type="button" onClick={() => setGateOpen(true)}>
-          Launch roast
+          Start review
         </Button>
       </Card>
 
       <section className="space-y-3">
-        <h2 className="font-sans text-section font-semibold text-ink">Run history</h2>
+        <h2 className="font-sans text-section font-semibold text-ink">Past reviews</h2>
         {runsQuery.isLoading ? <Skeleton className="h-24 w-full" /> : null}
         {runsQuery.isError ? (
           <div className="space-y-3 border border-rule-soft bg-paper-2 p-4" role="alert">
@@ -131,7 +131,7 @@ export function JudgesView({ workspaceId }: { workspaceId: string }) {
           </div>
         ) : null}
         {runsQuery.data && runsQuery.data.runs.length === 0 ? (
-          <p className="font-sans text-sm text-ink-muted">No roasts yet for this workspace.</p>
+          <p className="font-sans text-sm text-ink-muted">{EMPTY_COPY.reviews}</p>
         ) : null}
         <ul className="space-y-2">
           {(runsQuery.data?.runs ?? []).map((run) => (
@@ -168,8 +168,13 @@ export function JudgesView({ workspaceId }: { workspaceId: string }) {
         </div>
       ) : null}
 
-      {handoffQuery.data && handoffQuery.data.items.length > 0 ? (
-        <PostRoastHandoff workspaceId={workspaceId} items={handoffQuery.data.items} />
+      {handoffQuery.data && latestRunId && handoffQuery.data.items.length > 0 ? (
+        <PostRoastHandoff
+          key={latestRunId}
+          workspaceId={workspaceId}
+          runId={latestRunId}
+          items={handoffQuery.data.items}
+        />
       ) : null}
 
       <ReadinessGateModal
